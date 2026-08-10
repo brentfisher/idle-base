@@ -95,6 +95,18 @@ button:disabled {
   box-shadow: 0 0 0 2px #e07a5f;
 }
 
+.tab-nav button .tab-badge {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: #e07a5f;
+  color: #14210f;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
 /* Cards / panels */
 .panel {
   background: #143620;
