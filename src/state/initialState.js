@@ -1,42 +1,41 @@
-const balanceConfig = require('../data/balanceConfig');
-const { createStartingRoster } = require('../engine/playerFactory');
-const { createLeagueTeams, resetStandings, generateSeasonSchedule, buildTradeWindows } = require('../engine/schedule');
-
+// A fresh game starts in Act I, behind the hardware store, with nothing but a patch of dirt.
+//
+// Locked content does not exist yet — it is not merely hidden (odyssey design doc,
+// Decision 2). Player-visible content (`stadium`, `league`, `season`) is null until the act
+// that introduces it runs its initializer; tick-loop collections (`roster`, `powerups`,
+// `prestige.runStats`) are present-and-empty from t=0 so advance() can iterate them freely
+// without a guard at every call site.
 function createInitialState() {
-  const leagueTeams = createLeagueTeams(balanceConfig.leagueTeamCount - 1);
-  const standings = resetStandings(leagueTeams);
-  const schedule = generateSeasonSchedule(leagueTeams, balanceConfig.gamesPerSeason);
-  const tradeWindows = buildTradeWindows(balanceConfig.gamesPerSeason).map((w) => ({
-    ...w,
-    open: false,
-    used: false,
-    candidates: [],
-  }));
   const now = Date.now();
 
   return {
     clock: 0,
-    meta: { version: 1, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
-    cash: balanceConfig.startingCash,
-    reputation: balanceConfig.startingReputation,
-    stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
-    roster: createStartingRoster(),
-    powerups: { active: [], purchasedPermanentIds: [] },
-    league: { teams: leagueTeams },
-    season: {
-      seasonNumber: 1,
-      phase: 'regular',
-      gamesPerSeason: balanceConfig.gamesPerSeason,
-      scheduleIndex: 0,
-      schedule,
-      secondsPerGame: balanceConfig.secondsPerGame,
-      nextGameAtClock: balanceConfig.secondsPerGame,
-      standings,
-      tradeWindows,
-      playoffs: null,
-      offseasonSummaryPending: false,
-      lastOffseasonSummary: null,
+    meta: { version: 2, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
+
+    wallet: { caps: 0, coins: 0, cash: 0 },
+    // SCAFFOLDING: the legacy single-currency field. STORY-001 migrates state.cash into
+    // state.wallet.cash and deletes this; until then everything downstream of Act V still
+    // reads state.cash, so income keeps landing there rather than being double-counted.
+    cash: 0,
+    reputation: 0,
+
+    clicker: { totalClicks: 0, perClick: 1 },
+    income: { collectors: [], sponsorships: [] },
+    lot: { clickUpgrades: [], starterKit: [] },
+    progression: {
+      act: 0,
+      actEnteredAtClock: 0,
+      milestones: {},
+      seenTabs: [],
+      storyBeatsSeen: [],
     },
+
+    stadium: null,
+    league: null,
+    season: null,
+
+    roster: [],
+    powerups: { active: [], purchasedPermanentIds: [] },
     prestige: {
       legacyPoints: 0,
       totalLegacyEarned: 0,

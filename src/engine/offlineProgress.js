@@ -11,16 +11,24 @@ function computeCappedElapsedSeconds(lastSaveTimestamp, now) {
 // with increasing `now` values (e.g. React 18 dev double-invoke) — see hooks/useGameTick.js.
 function applyOfflineProgress(state, now) {
   const elapsedSeconds = computeCappedElapsedSeconds(state.meta.lastSaveTimestamp, now);
-  const before = state.cash;
+  const before = state.wallet;
+  const beforeCash = state.cash;
   const next = advance(state, elapsedSeconds);
-  const revenueEarned = next.cash - before;
+
+  // Currency-aware: early acts earn caps, not cash, so a cash-only diff would report zero
+  // for a returning Act I player.
+  const earned = {
+    caps: next.wallet.caps - before.caps,
+    coins: next.wallet.coins - before.coins,
+    cash: next.cash - beforeCash,
+  };
 
   return {
     state: {
       ...next,
       meta: { ...next.meta, lastSaveTimestamp: now, lastTickTimestamp: now },
     },
-    summary: { elapsedSeconds, revenueEarned },
+    summary: { elapsedSeconds, earned, revenueEarned: earned.cash },
   };
 }
 

@@ -1,5 +1,9 @@
 const STORAGE_KEY = 'idle-base-save-v1';
-const CURRENT_VERSION = 1;
+// Bumped to 2 by the odyssey progression change: the state shape is reorganized around acts
+// and there is no migration path, so every v1 save is read and discarded (design doc,
+// "Save compatibility"). The storage key deliberately does not change, so old saves are
+// cleaned up on load rather than lingering in localStorage forever.
+const CURRENT_VERSION = 2;
 
 function saveGame(state) {
   try {

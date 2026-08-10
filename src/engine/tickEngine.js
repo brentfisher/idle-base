@@ -1,6 +1,7 @@
 const balanceConfig = require('../data/balanceConfig');
 const { computeModifiers } = require('./modifiers');
-const { revenuePerSecond } = require('./economy');
+const { totalIncomePerSecond, scaleBundle } = require('./income');
+const { checkActTransition } = require('./progression');
 const { simulateGame } = require('./gameSim');
 const { playerOverall, teamStrength } = require('./strength');
 const {
@@ -23,15 +24,36 @@ function getTeamStrength(working, modifiers, teamId) {
   return team ? team.baseStrength * modifiers.aiStrengthMult : 30 * modifiers.aiStrengthMult;
 }
 
-function addRevenue(working, revenue) {
-  return {
-    ...working,
-    cash: working.cash + revenue,
-    prestige: {
-      ...working.prestige,
-      runStats: { ...working.prestige.runStats, totalRevenue: working.prestige.runStats.totalRevenue + revenue },
-    },
-  };
+// Credits one integrated income bundle. `bundle` is already rate x step — never a
+// per-second event; see engine/income.js for why that distinction matters offline.
+function addIncome(working, bundle) {
+  let next = working;
+
+  if (bundle.caps > 0 || bundle.coins > 0) {
+    next = {
+      ...next,
+      wallet: {
+        ...next.wallet,
+        caps: next.wallet.caps + bundle.caps,
+        coins: next.wallet.coins + bundle.coins,
+      },
+    };
+  }
+
+  if (bundle.cash > 0) {
+    // SCAFFOLDING: cash still lands in the legacy top-level field that economyActions,
+    // rosterActions and HeaderStats read. STORY-001 repoints this at wallet.cash.
+    next = {
+      ...next,
+      cash: next.cash + bundle.cash,
+      prestige: {
+        ...next.prestige,
+        runStats: { ...next.prestige.runStats, totalRevenue: next.prestige.runStats.totalRevenue + bundle.cash },
+      },
+    };
+  }
+
+  return next;
 }
 
 function expirePowerups(working) {
@@ -52,11 +74,16 @@ function updatePeakRating(working) {
   };
 }
 
+// Returning Infinity when nothing discrete is pending is load-bearing, not a fallback: it
+// lets the loop take one large step and integrate rate x step in a single pass. Early acts
+// have no season at all, and must never register a recurring event here.
 function findNextEventClock(working) {
   const candidates = [];
-  if (working.season.phase === 'regular') candidates.push(working.season.nextGameAtClock);
-  if (working.season.phase === 'playoffs' && working.season.playoffs) {
-    candidates.push(working.season.playoffs.nextRoundAtClock);
+  if (working.season) {
+    if (working.season.phase === 'regular') candidates.push(working.season.nextGameAtClock);
+    if (working.season.phase === 'playoffs' && working.season.playoffs) {
+      candidates.push(working.season.playoffs.nextRoundAtClock);
+    }
   }
   working.powerups.active.forEach((p) => {
     if (p.expiresAtClock != null) candidates.push(p.expiresAtClock);
@@ -216,9 +243,8 @@ function advance(state, deltaSeconds) {
     const nextEventClock = findNextEventClock(working);
     const step = nextEventClock === Infinity ? remaining : Math.min(remaining, Math.max(0, nextEventClock - working.clock));
 
-    if (working.season.phase !== 'offseason' && step > 0) {
-      const revenue = revenuePerSecond(working, modifiers) * step;
-      working = addRevenue(working, revenue);
+    if (step > 0) {
+      working = addIncome(working, scaleBundle(totalIncomePerSecond(working, modifiers), step));
     }
     working = { ...working, clock: working.clock + step };
     remaining -= step;
@@ -226,17 +252,23 @@ function advance(state, deltaSeconds) {
     working = expirePowerups(working);
     working = { ...working, roster: processCampCompletions(working.roster, working.clock) };
 
-    if (working.season.phase === 'regular' && working.clock >= working.season.nextGameAtClock) {
-      working = resolveGameSlot(working, modifiers);
-    }
-    if (working.season.phase === 'playoffs' && working.season.playoffs && working.clock >= working.season.playoffs.nextRoundAtClock) {
-      working = resolvePlayoffRound(working, computeModifiers(working));
-    }
-    if (working.season.phase === 'offseason') {
-      working = runOffseasonTransition(working, computeModifiers(working));
+    // One guard for the whole phase-handling block: acts before Little League have no
+    // season at all (design doc, Decision 2).
+    if (working.season) {
+      if (working.season.phase === 'regular' && working.clock >= working.season.nextGameAtClock) {
+        working = resolveGameSlot(working, modifiers);
+      }
+      if (working.season.phase === 'playoffs' && working.season.playoffs && working.clock >= working.season.playoffs.nextRoundAtClock) {
+        working = resolvePlayoffRound(working, computeModifiers(working));
+      }
+      if (working.season.phase === 'offseason') {
+        working = runOffseasonTransition(working, computeModifiers(working));
+      }
     }
 
     working = updatePeakRating(working);
+    // After phase handling (PRD §6.1) so an act boundary crossed mid-catch-up still fires.
+    working = checkActTransition(working);
   }
 
   return working;
