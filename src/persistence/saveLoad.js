@@ -1,5 +1,7 @@
 const STORAGE_KEY = 'idle-base-save-v1';
-const CURRENT_VERSION = 1;
+// v2 adds state.progression. There is no migration path (see design.md "Save compatibility") —
+// v1 saves are deliberately discarded rather than given a fabricated progression state.
+const CURRENT_VERSION = 2;
 
 function saveGame(state) {
   try {

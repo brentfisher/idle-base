@@ -16,7 +16,9 @@ function createInitialState() {
 
   return {
     clock: 0,
-    meta: { version: 1, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
+    // Keep in sync with CURRENT_VERSION in persistence/saveLoad.js — a mismatch makes every
+    // fresh save unreadable on the next load.
+    meta: { version: 2, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
     cash: balanceConfig.startingCash,
     reputation: balanceConfig.startingReputation,
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
@@ -48,6 +50,16 @@ function createInitialState() {
       // Sticky across season rollovers so a title won during offline catch-up can't
       // be silently overwritten by a later season's offseason summary.
       victoryAcknowledgedCount: 0,
+    },
+    // Act progression. `act` is the only driver of what is unlocked — unlocks themselves are
+    // derived on read (engine/progression.js), never persisted. `seenTabs` / `storyBeatsSeen`
+    // are presentation state: which reveals the player has already been shown.
+    progression: {
+      act: 0,
+      actEnteredAtClock: 0,
+      milestones: {},
+      seenTabs: [],
+      storyBeatsSeen: [],
     },
     hasWonLeagueThisRun: false,
   };
