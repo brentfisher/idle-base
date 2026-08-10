@@ -1,6 +1,7 @@
 const balanceConfig = require('../data/balanceConfig');
 const { computeModifiers } = require('./modifiers');
 const { totalIncomePerSecond } = require('./income');
+const { creditWallet } = require('./wallet');
 const { simulateGame } = require('./gameSim');
 const { playerOverall, teamStrength } = require('./strength');
 const {
@@ -52,7 +53,7 @@ function getTeamStrength(working, modifiers, teamId) {
 function addRevenue(working, revenue) {
   return {
     ...working,
-    wallet: { ...working.wallet, cash: working.wallet.cash + revenue },
+    wallet: creditWallet(working.wallet, 'cash', revenue),
     prestige: {
       ...working.prestige,
       runStats: { ...working.prestige.runStats, totalRevenue: working.prestige.runStats.totalRevenue + revenue },
@@ -73,7 +74,7 @@ function creditIncome(working, incomePerSecond, step) {
   const coins = incomePerSecond.coins * step;
   if (caps > 0 || coins > 0) {
     const wallet = next.wallet || { caps: 0, coins: 0, cash: 0 };
-    next = { ...next, wallet: { ...wallet, caps: wallet.caps + caps, coins: wallet.coins + coins } };
+    next = { ...next, wallet: creditWallet(creditWallet(wallet, 'caps', caps), 'coins', coins) };
   }
 
   return next;

@@ -6,6 +6,7 @@
 // zero, any state is recoverable in bounded time — the anti-softlock guarantee of PRD §6.4
 // and design Decision 6. Nothing here may ever gate it off.
 const { getActConfig } = require('../data/acts');
+const { creditWallet } = require('./wallet');
 
 function actClickRules(state) {
   const act = getActConfig(state.progression ? state.progression.act : 0);
@@ -33,7 +34,7 @@ function applyClick(state) {
   const value = clickValue(state);
   return {
     ...state,
-    wallet: { ...state.wallet, [currency]: state.wallet[currency] + value },
+    wallet: creditWallet(state.wallet, currency, value),
     clicker: { ...state.clicker, totalClicks: state.clicker.totalClicks + 1 },
   };
 }
