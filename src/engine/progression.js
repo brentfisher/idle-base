@@ -1,5 +1,7 @@
 const { ACTS, FINAL_ACT_INDEX, getActConfig } = require('../data/acts');
 const { STARTER_KIT_ITEMS } = require('../data/actOneConfig');
+const { isCrewAssembled } = require('./wallBall');
+const { CHALLENGERS, REPUTATION_PER_RESPECT } = require('../data/wallBallConfig');
 
 // Which features are unlocked is DERIVED from the act index on every read and is never stored.
 // That makes it self-healing: retuning which act unlocks a feature takes effect immediately on
@@ -27,6 +29,9 @@ const EXIT_PREDICATES = {
   // Act I: derived from what the player actually owns rather than a stored milestone, so it
   // cannot drift from the inventory that produced it.
   starterKitOwned: (state) => !!state.lot && state.lot.starterKit.length >= STARTER_KIT_ITEMS.length,
+  // Act II: five wall-ball wins AND a crew of three. Both halves read what the player can
+  // see (the wins counter, the crew that turned up) rather than a stored milestone.
+  crewAssembled: (state) => isCrewAssembled(state),
 };
 
 function isExitSatisfied(state, act) {
@@ -40,6 +45,42 @@ function isExitSatisfied(state, act) {
 // generateSeasonSchedule(), entering Act V is what first creates state.stadium. Each act's
 // implementing story adds its own entry; only the Act VI rule below belongs to this story.
 const ACT_INITIALIZERS = {
+  // Entering Act II opens the wall: someone is waiting, and the first challenge is available
+  // immediately rather than one cooldown after the act begins.
+  1: function openTheWall(state) {
+    const wallBall = state.wallBall || {};
+    return {
+      ...state,
+      wallBall: {
+        wins: 0,
+        losses: 0,
+        respect: 0,
+        lastResult: null,
+        ...wallBall,
+        challengerId: wallBall.challengerId || CHALLENGERS[0].id,
+        nextChallengeAtClock: state.clock,
+      },
+      crew: state.crew || [],
+    };
+  },
+
+  // Entering Act III spends Act II's Respect: it becomes state.reputation, the currency the
+  // franchise game already runs on. Zeroed as it converts, so the same Respect cannot be
+  // banked twice — and because the odyssey is played once per save and prestige resets to
+  // the final act (engine/prestige.js), this runs exactly once per run.
+  //
+  // The crew stay in state.crew as ordinary player entities (engine/playerFactory.js). Act
+  // III owns roster creation and is what promotes them; they need no conversion when it does.
+  2: function bankActTwoRespect(state) {
+    const respect = (state.wallBall && state.wallBall.respect) || 0;
+    if (respect <= 0) return state;
+    return {
+      ...state,
+      reputation: state.reputation + respect * REPUTATION_PER_RESPECT,
+      wallBall: { ...state.wallBall, respect: 0, reputationBanked: respect * REPUTATION_PER_RESPECT },
+    };
+  },
+
   // Entering the final act zeroes runStats. addRevenue() accumulates totalRevenue and
   // calculateLegacyPoints() divides it by 100,000, so without this the entire odyssey's
   // earnings would inflate the very first legacy payout exactly once.
