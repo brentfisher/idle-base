@@ -18,6 +18,10 @@ function createInitialState() {
     clock: 0,
     meta: { version: 1, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
     cash: balanceConfig.startingCash,
+    // Per-currency purse for the income bundle engine/income.js returns. STORY-001 owns
+    // this field and will fold `cash` above into `wallet.cash`; until then `state.cash`
+    // stays the single source of truth for cash and `wallet.cash` is left at 0.
+    wallet: { caps: 0, coins: 0, cash: 0 },
     reputation: balanceConfig.startingReputation,
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
     roster: createStartingRoster(),
