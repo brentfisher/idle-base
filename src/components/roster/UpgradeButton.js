@@ -11,7 +11,7 @@ function UpgradeButton({ playerId, stat, currentValue }) {
   const modifiers = computeModifiers(state);
   const cost = statUpgradeCost(currentValue, modifiers);
   const maxed = currentValue >= balanceConfig.statCap;
-  const disabled = maxed || state.cash < cost;
+  const disabled = maxed || state.wallet.cash < cost;
 
   return (
     <button

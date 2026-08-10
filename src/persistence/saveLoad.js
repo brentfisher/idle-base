@@ -1,5 +1,7 @@
 const STORAGE_KEY = 'idle-base-save-v1';
-const CURRENT_VERSION = 1;
+// v2 replaced the single `cash` number with `wallet: { caps, coins, cash }`. There is no
+// migration by design — loadGame() discards any save whose version differs.
+const CURRENT_VERSION = 2;
 
 function saveGame(state) {
   try {

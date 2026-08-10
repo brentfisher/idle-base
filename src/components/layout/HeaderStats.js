@@ -16,7 +16,7 @@ function HeaderStats() {
       <span className="title">⚾ Idle Base</span>
       <span className="stat-chip">
         <span className="label">Cash</span>
-        {formatCash(state.cash)}
+        {formatCash(state.wallet.cash)}
       </span>
       <span className="stat-chip">
         <span className="label">Reputation</span>

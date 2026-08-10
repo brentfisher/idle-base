@@ -15,17 +15,15 @@ function createInitialState() {
 
   return {
     clock: 0,
-    meta: { version: 1, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
+    meta: { version: 2, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
+    wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash },
     progression: {
       act: 0,
       actEnteredAtClock: 0,
-      // Intra-act boolean triggers, e.g. { starterKitOwned: true }. Which *features* are
-      // unlocked is derived from `act` on read and is never stored here.
       milestones: {},
       seenTabs: [],
       storyBeatsSeen: [],
     },
-    cash: balanceConfig.startingCash,
     reputation: balanceConfig.startingReputation,
     stadium: null,
     roster: [],
