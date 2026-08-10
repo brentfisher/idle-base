@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'idle-base-save-v1';
-// v2 adds state.progression. There is no migration path (see design.md "Save compatibility") —
-// v1 saves are deliberately discarded rather than given a fabricated progression state.
+// v2 replaced the single `cash` number with `wallet: { caps, coins, cash }`. There is no
+// migration by design — loadGame() discards any save whose version differs.
 const CURRENT_VERSION = 2;
 
 function saveGame(state) {

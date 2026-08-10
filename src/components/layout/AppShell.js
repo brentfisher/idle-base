@@ -35,9 +35,12 @@ function AppShell() {
   const [activeTab, setActiveTab] = React.useState('field');
   useGameTick();
 
-  const tradeOpen = state.season.tradeWindows.some((w) => w.open);
-  const playoffsActive = state.season.phase === 'playoffs';
-  const summary = state.season.lastOffseasonSummary;
+  // There is no season until Act III creates one, so every season-derived flag here reads as
+  // "absent", not "zero".
+  const tradeOpen = !!state.season && state.season.tradeWindows.some((w) => w.open);
+  const playoffsActive = !!state.season && state.season.phase === 'playoffs';
+  const ActivePanel = PANELS[activeTab] || FieldView;
+  const summary = state.season ? state.season.lastOffseasonSummary : null;
 
   // Locked tabs are not rendered at all — no greyed-out teasers. The reveal is the reward.
   const act = state.progression.act;
@@ -97,7 +100,7 @@ function AppShell() {
         </Modal>
       )}
 
-      {!showVictory && state.season.offseasonSummaryPending && summary && (
+      {!showVictory && state.season && state.season.offseasonSummaryPending && summary && (
         <Modal
           title={`Season ${summary.seasonNumber} Recap`}
           onClose={() => dispatch({ type: actionTypes.DISMISS_OFFSEASON_SUMMARY })}

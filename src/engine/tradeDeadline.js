@@ -1,4 +1,3 @@
-const balanceConfig = require('../data/balanceConfig');
 const { createPlayer } = require('./playerFactory');
 const { playerOverall } = require('./strength');
 const { shuffle } = require('../utils/randomUtils');
@@ -14,7 +13,9 @@ function generateTradeCandidates(state, modifiers) {
     const candidate = createPlayer(position, {
       qualityMult: 1.15,
       ageRange: [24, 30],
-      retireAtSeasonsRange: balanceConfig.retireAtSeasonsRange,
+      // Resolved: eras 3-4 shorten careers, and a traded player must age out on the same
+      // schedule as a drafted one (engine/retirement.js already uses the resolved range).
+      retireAtSeasonsRange: modifiers.rules.retireAtSeasonsRange,
       acquiredVia: 'trade',
     });
     const overall = playerOverall(candidate);

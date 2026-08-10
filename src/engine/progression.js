@@ -1,31 +1,89 @@
-// Act progression queries. Pure — no React, no DOM (src/engine/ convention).
-//
-// PARTIAL STUB — STORY-004 owns this module and will add checkActTransition(state) and
-// enterAct(state, actIndex). Only the two read-side queries the progressive tab reveal needs
-// are implemented here; names and signatures match the agreed shared shapes exactly.
-const { ACTS } = require('../data/acts');
+const { ACTS, FINAL_ACT_INDEX, getActConfig } = require('../data/acts');
 
-// Clamp-and-extrapolate like getEraConfig, so an out-of-range act index (e.g. Decision 4 pins
-// `progression.act` to the final act on prestige) can never throw.
-function getActConfig(actIndex) {
-  const index = Math.max(0, Math.floor(actIndex || 0));
-  if (index < ACTS.length) return ACTS[index];
-  const last = ACTS[ACTS.length - 1];
-  return { ...last, id: index };
-}
-
-// Decision 5 — unlocks are derived, not stored: the cumulative union of the `unlocks` arrays for
-// acts 0..actIndex, computed on read. Retuning which act unlocks a feature needs no migration.
+// Which features are unlocked is DERIVED from the act index on every read and is never stored.
+// That makes it self-healing: retuning which act unlocks a feature takes effect immediately on
+// an existing save with no migration. Only *intra-act* triggers are persisted, in
+// `progression.milestones`, alongside presentation state (`seenTabs`, `storyBeatsSeen`).
 function getUnlockedFeatures(actIndex) {
-  const index = Math.max(0, Math.floor(actIndex || 0));
+  const current = getActConfig(actIndex);
   const features = [];
-  for (let i = 0; i <= index; i += 1) {
-    const config = getActConfig(i);
-    (config.unlocks || []).forEach((feature) => {
-      if (features.indexOf(feature) === -1) features.push(feature);
+  for (let i = 0; i <= current.id; i += 1) {
+    ACTS[i].unlocks.forEach((feature) => {
+      if (!features.includes(feature)) features.push(feature);
     });
   }
   return features;
 }
 
-module.exports = { getActConfig, getUnlockedFeatures };
+// Exit predicates live here, not in data/acts.js, because src/data/ is config with no logic.
+// An act's story registers its real predicate under the `exit.id` its act declares; until then
+// the default below reads a boolean of the same name out of `progression.milestones`, which is
+// where intra-act triggers are stored anyway. Predicates must be pure reads of `state`.
+const EXIT_PREDICATES = {};
+
+function isExitSatisfied(state, act) {
+  if (!act.exit) return false;
+  const predicate = EXIT_PREDICATES[act.exit.id];
+  if (predicate) return !!predicate(state);
+  return !!state.progression.milestones[act.exit.id];
+}
+
+// Initializers create the content their act owns — entering Act III is what first calls
+// generateSeasonSchedule(), entering Act V is what first creates state.stadium. Each act's
+// implementing story adds its own entry; only the Act VI rule below belongs to this story.
+const ACT_INITIALIZERS = {
+  // Entering the final act zeroes runStats. addRevenue() accumulates totalRevenue and
+  // calculateLegacyPoints() divides it by 100,000, so without this the entire odyssey's
+  // earnings would inflate the very first legacy payout exactly once.
+  [FINAL_ACT_INDEX]: function zeroRunStatsForFinalAct(state) {
+    return {
+      ...state,
+      prestige: {
+        ...state.prestige,
+        runStats: { championships: 0, peakOverallRating: 0, totalRevenue: 0 },
+      },
+    };
+  },
+};
+
+function enterAct(state, actIndex) {
+  const act = getActConfig(actIndex);
+  const entered = {
+    ...state,
+    progression: { ...state.progression, act: act.id, actEnteredAtClock: state.clock },
+  };
+  const initializer = ACT_INITIALIZERS[act.id];
+  return initializer ? initializer(entered) : entered;
+}
+
+// Called from advance() once per loop iteration, so transitions fire during offline catch-up
+// exactly as they do live.
+//
+// This loops rather than advancing a single act, and that is load-bearing: with no discrete
+// event pending, findNextEventClock() returns Infinity and advance() consumes an entire 8-hour
+// catch-up in ONE iteration — so it calls this exactly once. A player who was two exit
+// conditions past the boundary would otherwise be stranded mid-odyssey. Bounded by the number
+// of acts, and Act VI declares no exit, so this can never run past the final act.
+function checkActTransition(state) {
+  // Tolerate a save written before the progression slice existed rather than throwing.
+  if (!state.progression) return state;
+
+  let working = state;
+  let steps = 0;
+  while (working.progression.act < FINAL_ACT_INDEX && steps < FINAL_ACT_INDEX) {
+    steps += 1;
+    const act = getActConfig(working.progression.act);
+    if (!isExitSatisfied(working, act)) break;
+    working = enterAct(working, working.progression.act + 1);
+  }
+  return working;
+}
+
+module.exports = {
+  getActConfig,
+  getUnlockedFeatures,
+  checkActTransition,
+  enterAct,
+  EXIT_PREDICATES,
+  FINAL_ACT_INDEX,
+};
