@@ -67,6 +67,115 @@ button:disabled {
   margin-right: 4px;
 }
 
+/* Live indicators — heartbeat, per-currency rates, floating gains, event countdown.
+   All motion is CSS: the components re-key elements on state.clock to restart an
+   animation, so nothing here needs a per-frame render. */
+.heartbeat {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #6ab04c;
+  animation: heartbeat-pulse 1s ease-out;
+}
+
+@keyframes heartbeat-pulse {
+  0% {
+    transform: scale(0.65);
+    opacity: 0.5;
+    box-shadow: 0 0 0 0 rgba(106, 176, 76, 0.6);
+  }
+  20% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.65);
+    opacity: 0.5;
+    box-shadow: 0 0 0 9px rgba(106, 176, 76, 0);
+  }
+}
+
+.currency-chip {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+
+.currency-chip .currency-rate {
+  color: #6ab04c;
+  font-size: 0.68rem;
+}
+
+/* Rises out of the top of the chip rather than over its own number, and stays inside
+   the header box (which is sticky, so a taller travel would overhang it). */
+.floating-gain {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #f4d35e;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: float-gain 0.9s ease-out forwards;
+}
+
+@keyframes float-gain {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  15% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+}
+
+.countdown-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.countdown-track {
+  width: 48px;
+  height: 5px;
+  background: #0a170f;
+  border: 1px solid #23522f;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.countdown-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #6ab04c, #f4d35e);
+  transition: width 1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heartbeat,
+  .floating-gain {
+    animation: none;
+  }
+  .floating-gain {
+    opacity: 1;
+    transform: translate(-50%, -8px);
+  }
+  .countdown-fill {
+    transition: none;
+  }
+}
+
 /* Tabs */
 .tab-nav {
   display: flex;

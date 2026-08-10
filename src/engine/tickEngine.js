@@ -396,4 +396,6 @@ function advance(state, deltaSeconds) {
   return working;
 }
 
-module.exports = { advance, getTeamStrength };
+// findNextEventClock is exported for display: the header's countdown bar reads the
+// same value the loop steps to, rather than recomputing the schedule from state.
+module.exports = { advance, getTeamStrength, findNextEventClock };
