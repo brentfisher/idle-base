@@ -17,6 +17,18 @@ const { generateTradeCandidates } = require('./tradeDeadline');
 const { processCampCompletions } = require('./trainingCamp');
 const { checkRetirements } = require('./retirement');
 
+// generateBracket() halves each round down to a single final, so it requires a power-of-2
+// field. `playoffTeams` was hardcoded to balanceConfig's 4 before rules resolution made it
+// authorable, and an odd size (6 teams, or 8 declared in a 6-team little league) builds a
+// bracket whose final match never gets both slots filled — leaving the season stuck in the
+// playoffs phase forever. Round down to the nearest power of 2; anything under 2 means no
+// postseason at all, which is what `playoffTeams: 0` declares.
+function playoffFieldSize(declared, availableTeams) {
+  const n = Math.min(declared || 0, availableTeams);
+  if (n < 2) return 0;
+  return 2 ** Math.floor(Math.log2(n));
+}
+
 function getTeamStrength(working, modifiers, teamId) {
   if (teamId === PLAYER_TEAM_ID) return teamStrength(working.roster, modifiers);
   const team = working.league.teams.find((t) => t.id === teamId);
@@ -116,12 +128,16 @@ function resolveGameSlot(working, modifiers) {
 
   if (scheduleIndex >= season.gamesPerSeason) {
     const sorted = sortStandings(standings);
-    const top = sorted.slice(0, balanceConfig.playoffTeams).map((r) => r.teamId);
+    // Resolved, not balanceConfig: an act may declare `playoffTeams: 0` for a league with no
+    // postseason, in which case `top` is empty and the season rolls straight to offseason.
+    // `season.gamesPerSeason`/`secondsPerGame` above stay as-is on purpose — those were fixed
+    // when this season was built, so a mid-season act change must not reshape a season in flight.
+    const top = sorted.slice(0, playoffFieldSize(modifiers.rules.playoffTeams, sorted.length)).map((r) => r.teamId);
     if (top.includes(PLAYER_TEAM_ID)) {
       season.phase = 'playoffs';
       season.playoffs = {
         ...generateBracket(top),
-        nextRoundAtClock: working.clock + balanceConfig.secondsPerPlayoffRound,
+        nextRoundAtClock: working.clock + modifiers.rules.secondsPerPlayoffRound,
       };
     } else {
       season.phase = 'offseason';
@@ -147,25 +163,26 @@ function resolvePlayoffRound(working, modifiers) {
       hasWonLeagueThisRun = true;
     }
   } else {
-    season.playoffs.nextRoundAtClock = working.clock + balanceConfig.secondsPerPlayoffRound;
+    season.playoffs.nextRoundAtClock = working.clock + modifiers.rules.secondsPerPlayoffRound;
   }
 
   return { ...working, season, prestige, hasWonLeagueThisRun };
 }
 
 function runOffseasonTransition(working, modifiers) {
-  const eraRules = modifiers.era.rules;
-  const retireAtSeasonsRange = eraRules.retireAtSeasonsRange || balanceConfig.retireAtSeasonsRange;
-  const { roster, retired, rookies } = checkRetirements(working.roster, modifiers, retireAtSeasonsRange);
+  // The offseason transition is where the next season's shape is decided, so it is the one place
+  // rules are re-resolved: balanceConfig <- act.rules <- era.rules (see engine/modifiers.js).
+  const rules = modifiers.rules;
+  const { roster, retired, rookies } = checkRetirements(working.roster, modifiers, rules.retireAtSeasonsRange);
 
   const wonChampionship = !!(working.season.playoffs && working.season.playoffs.champion === PLAYER_TEAM_ID);
   const playerRow = working.season.standings.find((s) => s.teamId === PLAYER_TEAM_ID);
 
   const leagueTeams = driftLeagueStrength(working.league.teams);
-  const gamesPerSeason = eraRules.gamesPerSeason || balanceConfig.gamesPerSeason;
+  const gamesPerSeason = rules.gamesPerSeason;
   const schedule = generateSeasonSchedule(leagueTeams, gamesPerSeason);
   const standings = resetStandings(leagueTeams);
-  const tradeWindows = buildTradeWindows(gamesPerSeason, eraRules.tradeWindows).map((w) => ({
+  const tradeWindows = buildTradeWindows(gamesPerSeason, rules.tradeWindows).map((w) => ({
     ...w,
     open: false,
     used: false,
@@ -192,8 +209,10 @@ function runOffseasonTransition(working, modifiers) {
       gamesPerSeason,
       scheduleIndex: 0,
       schedule,
-      secondsPerGame: balanceConfig.secondsPerGame,
-      nextGameAtClock: working.clock + balanceConfig.secondsPerGame,
+      // Resolved, not balanceConfig: hardcoding these reverted per-act/era pacing to 60s at the
+      // first offseason transition, silently undoing the pacing applied when the act was entered.
+      secondsPerGame: rules.secondsPerGame,
+      nextGameAtClock: working.clock + rules.secondsPerGame,
       standings,
       tradeWindows,
       playoffs: null,

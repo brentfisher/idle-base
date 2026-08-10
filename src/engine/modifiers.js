@@ -1,3 +1,4 @@
+const balanceConfig = require('../data/balanceConfig');
 const { getEraConfig } = require('../data/eras');
 const { PERKS } = require('../data/perksConfig');
 const { clamp } = require('../utils/statUtils');
@@ -27,6 +28,66 @@ const PERKS_BY_ID = PERKS.reduce((map, perk) => {
   map[perk.id] = perk;
   return map;
 }, {});
+
+// `data/acts.js` is authored by the act-system story and may not exist yet. The path is built
+// from an expression on purpose: webpack then resolves `../data/` as a directory context, so a
+// missing acts.js is a runtime miss this try/catch absorbs rather than a build failure. A plain
+// static `require('../data/acts')` would fail the bundle outright while the file is absent.
+const ACTS_MODULE = 'acts';
+let actsModule; // undefined = not looked up yet, null = looked up and absent
+function getActsModule() {
+  if (actsModule !== undefined) return actsModule;
+  try {
+    actsModule = require(`../data/${ACTS_MODULE}`);
+  } catch (err) {
+    actsModule = null;
+  }
+  return actsModule;
+}
+
+// Rules the current act declares, or {} when there is no act system / no act rules yet.
+function actRules(state) {
+  const progression = state && state.progression;
+  if (!progression || progression.act == null) return {};
+  const acts = getActsModule();
+  if (!acts || typeof acts.getActConfig !== 'function') return {};
+  const act = acts.getActConfig(progression.act);
+  return (act && act.rules) || {};
+}
+
+// Rules the current era declares. Era 0's is `{}`, which is why today's resolved values are
+// identical to balanceConfig.
+function eraRules(state) {
+  const era = getEraConfig(state && state.prestige ? state.prestige.era : 0);
+  return era.rules || {};
+}
+
+// An explicit `undefined` in a rules object must not clobber the layer beneath it; only keys
+// with a real value count as an override.
+function definedOnly(rules) {
+  return Object.entries(rules).reduce((kept, [key, value]) => {
+    if (value !== undefined) kept[key] = value;
+    return kept;
+  }, {});
+}
+
+// The *rules* axis: what shape the league/season takes (team count, games, pacing, playoff
+// size). Distinct from the additive `modifierBonuses` axis in computeModifiers below — rules
+// replace a balanceConfig value, bonuses accumulate into a multiplier.
+//
+// Precedence: balanceConfig <- act.rules <- era.rules, era last/highest. Acts I-V run at era 0
+// (rules `{}`), so era-last preserves today's behavior where prestige eras reshape the endgame.
+//
+// Layering is by spread, never by `||`: the old `era.rules.x || balanceConfig.x` idiom treats a
+// legitimate 0 as absent, and `playoffTeams: 0` (a league with no playoffs) is a real value.
+// "Not overridden" is key-absent; "overridden to 0" is key-present-with-0, and they differ here.
+function resolveRules(state) {
+  return {
+    ...balanceConfig,
+    ...definedOnly(actRules(state)),
+    ...definedOnly(eraRules(state)),
+  };
+}
 
 function zeroBonuses() {
   return BONUS_KEYS.reduce((bundle, key) => {
@@ -60,7 +121,10 @@ function computeModifiers(state) {
     modifiers[key] = clamp(1 + bonuses[key], floor, ceiling);
   });
   modifiers.era = era;
+  // Carried on the modifiers bundle so every consumer that already receives `modifiers` reads
+  // resolved rules without a signature change. Call resolveRules(state) directly elsewhere.
+  modifiers.rules = resolveRules(state);
   return modifiers;
 }
 
-module.exports = { computeModifiers, BONUS_KEYS };
+module.exports = { computeModifiers, resolveRules, BONUS_KEYS };
