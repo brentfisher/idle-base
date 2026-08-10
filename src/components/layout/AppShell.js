@@ -2,6 +2,7 @@ const React = require('react');
 const { useGame } = require('../../state/GameContext');
 const actionTypes = require('../../state/actionTypes');
 const useGameTick = require('../../hooks/useGameTick');
+const { getUnlockedFeatures } = require('../../engine/progression');
 const HeaderStats = require('./HeaderStats');
 const TabNav = require('./TabNav');
 const FieldView = require('../field/FieldView');
@@ -14,6 +15,10 @@ const TradeDeadlinePanel = require('../tradeDeadline/TradeDeadlinePanel');
 const PrestigePanel = require('../prestige/PrestigePanel');
 const Modal = require('../common/Modal');
 
+// Tab id === feature id in an act's `unlocks` array (data/acts.js). This is the single point of
+// coupling between the tab bar and the act config: if the real acts name a feature differently,
+// change the key here (or map it) rather than hunting through the components.
+// Declaration order is the tab order.
 const PANELS = {
   field: FieldView,
   roster: RosterPanel,
@@ -32,8 +37,28 @@ function AppShell() {
 
   const tradeOpen = state.season.tradeWindows.some((w) => w.open);
   const playoffsActive = state.season.phase === 'playoffs';
-  const ActivePanel = PANELS[activeTab] || FieldView;
   const summary = state.season.lastOffseasonSummary;
+
+  // Locked tabs are not rendered at all — no greyed-out teasers. The reveal is the reward.
+  const act = state.progression.act;
+  const visibleTabs = React.useMemo(() => {
+    const unlocked = getUnlockedFeatures(act);
+    return Object.keys(PANELS).filter((tabId) => unlocked.indexOf(tabId) !== -1);
+  }, [act]);
+
+  // If the tab the player is on ever stops being unlocked, fall back to the first visible tab
+  // instead of rendering blank. `PANELS[...] || FieldView` stays as the final backstop.
+  const effectiveTab = visibleTabs.indexOf(activeTab) !== -1 ? activeTab : visibleTabs[0] || 'field';
+  const ActivePanel = PANELS[effectiveTab] || FieldView;
+
+  // Looking at a tab is what marks it seen, which covers the tab the app opens on as well as
+  // one the player clicks. markTabSeen is a no-op once the id is recorded, so this settles.
+  const seenTabs = state.progression.seenTabs;
+  React.useEffect(() => {
+    if (seenTabs.indexOf(effectiveTab) === -1) {
+      dispatch({ type: actionTypes.MARK_TAB_SEEN, tabId: effectiveTab });
+    }
+  }, [effectiveTab, seenTabs, dispatch]);
 
   // Sticky on prestige.runStats.championships (not the transient per-season summary, which
   // a later season's offseason transition can overwrite during a long offline catch-up) so
@@ -44,7 +69,14 @@ function AppShell() {
   return (
     <div className="app-shell">
       <HeaderStats />
-      <TabNav activeTab={activeTab} onChange={setActiveTab} tradeOpen={tradeOpen} playoffsActive={playoffsActive} />
+      <TabNav
+        activeTab={effectiveTab}
+        visibleTabs={visibleTabs}
+        seenTabs={seenTabs}
+        onChange={setActiveTab}
+        tradeOpen={tradeOpen}
+        playoffsActive={playoffsActive}
+      />
       <ActivePanel />
 
       {showVictory && (
