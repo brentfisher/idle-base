@@ -2,6 +2,7 @@ const balanceConfig = require('../data/balanceConfig');
 const { createStartingRoster } = require('./playerFactory');
 const { createLeagueTeams, resetStandings, generateSeasonSchedule, buildTradeWindows } = require('./schedule');
 const { computeModifiers } = require('./modifiers');
+const { FINAL_ACT_INDEX } = require('../data/acts');
 
 function calculateLegacyPoints(state) {
   const { championships, peakOverallRating, totalRevenue } = state.prestige.runStats;
@@ -39,9 +40,13 @@ function resetForPrestige(state) {
     candidates: [],
   }));
 
+  // Prestige resets to the final-act floor, not to Act I: the odyssey is played exactly
+  // once per save, and prestige remains an endgame replay axis (design.md Decision 4).
+  // Earlier acts' unlocks stay on because getUnlockedFeatures() unions acts 0..act.
   return {
     ...state,
-    cash: balanceConfig.startingCash,
+    progression: { ...state.progression, act: FINAL_ACT_INDEX, actEnteredAtClock: state.clock },
+    wallet: { ...state.wallet, cash: balanceConfig.startingCash },
     reputation: balanceConfig.startingReputation,
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
     roster: createStartingRoster(),

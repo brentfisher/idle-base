@@ -15,7 +15,14 @@ function randomStatsForPosition(position, qualityMult) {
   };
 }
 
-// options: { isStarter, qualityMult, ageRange, retireAtSeasonsRange, seasonsPlayed, acquiredVia }
+// options: { isStarter, qualityMult, ageRange, retireAtSeasonsRange, seasonsPlayed,
+//            acquiredVia, simplified, visibleStat }
+//
+// `simplified: true` produces an Act II crew member: the *same* player entity, with one
+// stat flagged for display. It is deliberately not a stripped-down parallel type — the
+// full stats block means every engine function (playerOverall, teamStrength, camp,
+// retirement) keeps working the moment a crew member is promoted onto the roster at the
+// Act III boundary, instead of quietly producing NaN.
 function createPlayer(position, options = {}) {
   const {
     isStarter = true,
@@ -24,20 +31,31 @@ function createPlayer(position, options = {}) {
     retireAtSeasonsRange = [8, 14],
     seasonsPlayed = 0,
     acquiredVia = 'draft',
+    simplified = false,
+    visibleStat = null,
   } = options;
+
+  const stats = randomStatsForPosition(position, qualityMult);
 
   return {
     id: generateId('player'),
     name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
     position,
     isStarter,
-    stats: randomStatsForPosition(position, qualityMult),
+    stats,
     age: randInt(ageRange[0], ageRange[1]),
     seasonsPlayed,
     retireAtSeasons: randInt(retireAtSeasonsRange[0], retireAtSeasonsRange[1]),
     campStatus: null,
     acquiredVia,
+    simplified,
+    // Which of `stats` the UI is allowed to show while the player is simplified.
+    visibleStat: simplified ? visibleStat || bestStatKey(stats) : null,
   };
+}
+
+function bestStatKey(stats) {
+  return Object.keys(stats).reduce((best, key) => (stats[key] > stats[best] ? key : best), 'contact');
 }
 
 // A fresh 15-man roster: one starter per field position, plus 5 bench players drawn

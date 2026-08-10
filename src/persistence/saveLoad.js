@@ -1,5 +1,5 @@
-const STORAGE_KEY = 'idle-base-save-v1';
-const CURRENT_VERSION = 1;
+const STORAGE_KEY = 'idle-base-save-v2';
+const CURRENT_VERSION = 2;
 
 function saveGame(state) {
   try {
