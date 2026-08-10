@@ -5,6 +5,7 @@ const useGameTick = require('../../hooks/useGameTick');
 const { getUnlockedFeatures } = require('../../engine/progression');
 const HeaderStats = require('./HeaderStats');
 const TabNav = require('./TabNav');
+const EventFeed = require('./EventFeed');
 const FieldView = require('../field/FieldView');
 const RosterPanel = require('../roster/RosterPanel');
 const TicketingPanel = require('../ticketing/TicketingPanel');
@@ -81,6 +82,9 @@ function AppShell() {
         playoffsActive={playoffsActive}
       />
       <ActivePanel />
+      {/* Rendered below the active panel rather than inside a tab: the feed is the only
+          always-on signal that the simulation is running, so it must never be hidden. */}
+      <EventFeed />
 
       {showVictory && (
         <Modal
