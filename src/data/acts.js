@@ -37,7 +37,10 @@ const ACTS = [
     description: 'A brick wall, a chalk strike zone, and every kid on the block wants a piece of you.',
     entry: 'Own the Starter Kit.',
     exit: { id: 'crewAssembled', description: 'Win 5 wall-ball challenges and recruit 3 crew members.' },
-    rules: {},
+    // The manual click is never removed, but from here on it is the Hustle — the same button
+    // under a name that fits a kid who has somewhere to be. engine/clicker.js reads this key
+    // off act.rules directly (see actClickRules there), so it takes effect on entering the act.
+    rules: { clickLabel: 'Hustle' },
     modifierBonuses: {},
     unlocks: ['wallBall', 'wagers', 'crew', 'respect'],
   },

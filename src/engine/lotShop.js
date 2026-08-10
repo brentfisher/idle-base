@@ -2,6 +2,7 @@
 // it does. Pure — no React, no DOM. Every number comes from data/, never from here.
 const { COLLECTOR_TIERS, getCollectorTier } = require('../data/collectorTiers');
 const { CLICK_UPGRADES, STARTER_KIT_ITEMS, ACT_ONE } = require('../data/actOneConfig');
+const { canAfford, debitWallet } = require('./wallet');
 
 const KIND_COLLECTOR = 'collector';
 const KIND_CLICK_UPGRADE = 'clickUpgrade';
@@ -102,9 +103,9 @@ function purchase(state, offerId) {
 
   const { kind, config } = offer;
   if (isOwned(state, kind, config)) return null;
-  if (state.wallet.caps < config.cost) return null;
+  if (!canAfford(state.wallet, 'caps', config.cost)) return null;
 
-  let next = { ...state, wallet: { ...state.wallet, caps: state.wallet.caps - config.cost } };
+  let next = { ...state, wallet: debitWallet(state.wallet, 'caps', config.cost) };
 
   if (kind === KIND_COLLECTOR) {
     next = addCollector(next, getCollectorTier(config.id));

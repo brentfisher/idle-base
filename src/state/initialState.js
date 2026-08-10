@@ -1,4 +1,5 @@
 const balanceConfig = require('../data/balanceConfig');
+const { CHALLENGERS } = require('../data/wallBallConfig');
 
 // A fresh game constructs only what Act I needs. Act transitions are the initializer boundary:
 // entering Act III is what first calls generateSeasonSchedule(), entering Act V is what first
@@ -22,6 +23,19 @@ function createInitialState() {
     clicker: { totalClicks: 0, perClick: 1 },
     income: { collectors: [], sponsorships: [] },
     lot: { clickUpgrades: [], starterKit: [] },
+    // Act II state. Present-and-empty from t=0 rather than null: `crew` is iterated by the
+    // wallBallDues income contributor on every tick, and `wallBall` is a bag of counters
+    // with no "absent" reading — a challenge not yet played is zero wins, not no wins.
+    // `challengerId` is who is at the wall next; engine/wallBall.js re-picks after each rally.
+    wallBall: {
+      wins: 0,
+      losses: 0,
+      respect: 0,
+      challengerId: CHALLENGERS[0].id,
+      nextChallengeAtClock: 0,
+      lastResult: null,
+    },
+    crew: [],
     progression: {
       act: 0,
       actEnteredAtClock: 0,

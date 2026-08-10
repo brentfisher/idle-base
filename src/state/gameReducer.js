@@ -7,6 +7,7 @@ const progressionActions = require('./actions/progressionActions');
 const clickerActions = require('./actions/clickerActions');
 const lotActions = require('./actions/lotActions');
 const narrativeActions = require('./actions/narrativeActions');
+const wallBallActions = require('./actions/wallBallActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -24,6 +25,9 @@ function gameReducer(state, action) {
       return lotActions.buyLotItem(state, action);
     case actionTypes.DISMISS_STORY_BEAT:
       return narrativeActions.dismissStoryBeat(state, action);
+
+    case actionTypes.RESOLVE_WALL_BALL_CHALLENGE:
+      return wallBallActions.resolveWallBallChallenge(state, action);
 
     case actionTypes.SET_TICKET_PRICE:
       return economyActions.setTicketPrice(state, action);

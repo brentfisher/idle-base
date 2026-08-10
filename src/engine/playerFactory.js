@@ -15,7 +15,14 @@ function randomStatsForPosition(position, qualityMult) {
   };
 }
 
-// options: { isStarter, qualityMult, ageRange, retireAtSeasonsRange, seasonsPlayed, acquiredVia }
+// options: { isStarter, qualityMult, ageRange, retireAtSeasonsRange, seasonsPlayed, acquiredVia,
+//            simplified, signatureStat }
+//
+// `simplified` is a PRESENTATION flag, not a second kind of entity: Act II's crew are made
+// here, with the same stat block and the same fields as anyone else, and are simply shown as
+// a name, a position and one stat (`signatureStat`). Because they are ordinary players,
+// promoting a crew member into the roster at the Act III boundary needs no conversion step
+// and cannot produce an undefined stat — which is the whole reason they are not a parallel type.
 function createPlayer(position, options = {}) {
   const {
     isStarter = true,
@@ -24,6 +31,8 @@ function createPlayer(position, options = {}) {
     retireAtSeasonsRange = [8, 14],
     seasonsPlayed = 0,
     acquiredVia = 'draft',
+    simplified = false,
+    signatureStat = null,
   } = options;
 
   return {
@@ -37,6 +46,8 @@ function createPlayer(position, options = {}) {
     retireAtSeasons: randInt(retireAtSeasonsRange[0], retireAtSeasonsRange[1]),
     campStatus: null,
     acquiredVia,
+    simplified,
+    signatureStat,
   };
 }
 

@@ -1,5 +1,6 @@
 const { getCollectorTier } = require('../data/collectorTiers');
 const { revenuePerSecond } = require('./economy');
+const { CREW_DUES_PER_SECOND } = require('../data/wallBallConfig');
 
 // Act I: each owned collector tier contributes its authored caps/second.
 function collectorsPerSecond(state) {
@@ -8,6 +9,13 @@ function collectorsPerSecond(state) {
     const tier = getCollectorTier(entry.tierId);
     return tier ? sum + tier.capsPerSecond * entry.count : sum;
   }, 0);
+}
+
+// Act II: the crew kick in dues. A rate like any other contributor's, so it integrates
+// across an offline catch-up with everything else rather than being paid per event.
+function wallBallDuesPerSecond(state) {
+  const crew = (state && state.crew) || [];
+  return crew.length * CREW_DUES_PER_SECOND;
 }
 
 // Per-currency income rates. STORY-003 owns this file and adds the early-act
@@ -26,7 +34,7 @@ function ticketingPerSecond(state, modifiers) {
 
 function totalIncomePerSecond(state, modifiers) {
   return {
-    caps: collectorsPerSecond(state),
+    caps: collectorsPerSecond(state) + wallBallDuesPerSecond(state),
     coins: 0,
     cash: ticketingPerSecond(state, modifiers),
   };
@@ -34,4 +42,4 @@ function totalIncomePerSecond(state, modifiers) {
 
 // collectorsPerSecond is exported for display: Act I's panel shows the caps rate
 // on its own, rather than re-deriving it from the whole bundle.
-module.exports = { totalIncomePerSecond, collectorsPerSecond };
+module.exports = { totalIncomePerSecond, collectorsPerSecond, wallBallDuesPerSecond };
