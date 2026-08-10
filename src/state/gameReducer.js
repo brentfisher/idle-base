@@ -3,6 +3,7 @@ const economyActions = require('./actions/economyActions');
 const rosterActions = require('./actions/rosterActions');
 const seasonActions = require('./actions/seasonActions');
 const prestigeActions = require('./actions/prestigeActions');
+const progressionActions = require('./actions/progressionActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -34,6 +35,9 @@ function gameReducer(state, action) {
       return prestigeActions.buyPerkAction(state, action);
     case actionTypes.ACKNOWLEDGE_VICTORY:
       return prestigeActions.acknowledgeVictoryAction(state);
+
+    case actionTypes.MARK_TAB_SEEN:
+      return progressionActions.markTabSeen(state, action);
 
     case actionTypes.HARD_RESET:
       return createInitialState();

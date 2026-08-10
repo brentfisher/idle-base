@@ -41,7 +41,7 @@ function TicketingPanel() {
         </div>
         <button
           className="btn"
-          disabled={state.cash < upgradeCost}
+          disabled={state.wallet.cash < upgradeCost}
           onClick={() => dispatch({ type: actionTypes.UPGRADE_STADIUM })}
           style={{ marginTop: 6 }}
         >

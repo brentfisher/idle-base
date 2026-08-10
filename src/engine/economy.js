@@ -30,8 +30,10 @@ function revenuePerSecond(state, modifiers) {
 }
 
 function statUpgradeCost(currentStatValue, modifiers) {
-  const base = balanceConfig.statUpgradeBaseCost;
-  const growth = balanceConfig.statUpgradeCostGrowth;
+  // Resolved: the Analytics era declares `statUpgradeCostGrowth: 1.15`, an override that read
+  // straight from balanceConfig here and so never actually applied.
+  const base = modifiers.rules.statUpgradeBaseCost;
+  const growth = modifiers.rules.statUpgradeCostGrowth;
   const raw = base * growth ** ((currentStatValue - 5) / 5);
   return Math.round(raw * modifiers.upgradeCostMult);
 }

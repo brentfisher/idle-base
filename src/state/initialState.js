@@ -16,12 +16,14 @@ function createInitialState() {
 
   return {
     clock: 0,
-    meta: { version: 1, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
-    // Capped ring buffer of narrated events, oldest-first. Written only by engine/tickEngine.js
-    // via engine/feed.js, which enforces FEED_CAP on every write. Persisted with the rest of
-    // state so the feed survives a reload and can act as the offline-progress summary.
-    feed: [],
+    // Keep in sync with CURRENT_VERSION in persistence/saveLoad.js — a mismatch makes every
+    // fresh save unreadable on the next load.
+    meta: { version: 2, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
     cash: balanceConfig.startingCash,
+    // Per-currency purse for the income bundle engine/income.js returns. STORY-001 owns
+    // this field and will fold `cash` above into `wallet.cash`; until then `state.cash`
+    // stays the single source of truth for cash and `wallet.cash` is left at 0.
+    wallet: { caps: 0, coins: 0, cash: 0 },
     reputation: balanceConfig.startingReputation,
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
     roster: createStartingRoster(),
@@ -52,6 +54,16 @@ function createInitialState() {
       // Sticky across season rollovers so a title won during offline catch-up can't
       // be silently overwritten by a later season's offseason summary.
       victoryAcknowledgedCount: 0,
+    },
+    // Act progression. `act` is the only driver of what is unlocked — unlocks themselves are
+    // derived on read (engine/progression.js), never persisted. `seenTabs` / `storyBeatsSeen`
+    // are presentation state: which reveals the player has already been shown.
+    progression: {
+      act: 0,
+      actEnteredAtClock: 0,
+      milestones: {},
+      seenTabs: [],
+      storyBeatsSeen: [],
     },
     hasWonLeagueThisRun: false,
   };

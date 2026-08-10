@@ -15,13 +15,13 @@ function buyStatUpgrade(state, action) {
 
   const modifiers = computeModifiers(state);
   const cost = statUpgradeCost(current, modifiers);
-  if (state.cash < cost) return state;
+  if (state.wallet.cash < cost) return state;
 
   const newValue = clamp(current + balanceConfig.statUpgradeAmount, 5, balanceConfig.statCap);
   const roster = state.roster.map((p) =>
     p.id === playerId ? { ...p, stats: { ...p.stats, [stat]: newValue } } : p
   );
-  return { ...state, cash: state.cash - cost, roster };
+  return { ...state, wallet: { ...state.wallet, cash: state.wallet.cash - cost }, roster };
 }
 
 // Only one player can be in training camp at a time (balanceConfig.campSlots).
@@ -30,13 +30,13 @@ function startCampAction(state, action) {
   const player = state.roster.find((p) => p.id === playerId);
   const program = CAMP_PROGRAMS.find((p) => p.id === programId);
   if (!player || !program || player.campStatus) return state;
-  if (state.cash < program.cost) return state;
+  if (state.wallet.cash < program.cost) return state;
   if (state.roster.some((p) => p.campStatus)) return state;
 
   const modifiers = computeModifiers(state);
   const updatedPlayer = startCamp(player, programId, state.clock, modifiers);
   const roster = state.roster.map((p) => (p.id === playerId ? updatedPlayer : p));
-  return { ...state, cash: state.cash - program.cost, roster };
+  return { ...state, wallet: { ...state.wallet, cash: state.wallet.cash - program.cost }, roster };
 }
 
 function executeTradeAction(state, action) {
@@ -44,7 +44,7 @@ function executeTradeAction(state, action) {
   const window = state.season.tradeWindows[windowIndex];
   if (!window || !window.open || window.used) return state;
   const candidate = window.candidates.find((c) => c.id === candidateId);
-  if (!candidate || state.cash < candidate.cost) return state;
+  if (!candidate || state.wallet.cash < candidate.cost) return state;
 
   const roster = executeTrade(state.roster, candidate);
   const tradeWindows = state.season.tradeWindows.map((w, i) =>
@@ -52,7 +52,7 @@ function executeTradeAction(state, action) {
   );
   return {
     ...state,
-    cash: state.cash - candidate.cost,
+    wallet: { ...state.wallet, cash: state.wallet.cash - candidate.cost },
     roster,
     season: { ...state.season, tradeWindows },
   };
