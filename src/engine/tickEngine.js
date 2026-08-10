@@ -1,6 +1,6 @@
 const balanceConfig = require('../data/balanceConfig');
 const { computeModifiers } = require('./modifiers');
-const { revenuePerSecond } = require('./economy');
+const { totalIncomePerSecond } = require('./income');
 const { simulateGame } = require('./gameSim');
 const { playerOverall, teamStrength } = require('./strength');
 const {
@@ -16,6 +16,31 @@ const { generateBracket, resolveCurrentRound } = require('./playoffs');
 const { generateTradeCandidates } = require('./tradeDeadline');
 const { processCampCompletions } = require('./trainingCamp');
 const { checkRetirements } = require('./retirement');
+const { createFeedEntry, appendFeedEntries } = require('./feed');
+const {
+  feedMessages,
+  powerupDisplayName,
+  campProgramDisplayName,
+  playoffRoundLabel,
+} = require('../data/feedMessages');
+
+function teamDisplayName(working, teamId) {
+  if (teamId === PLAYER_TEAM_ID) return 'home side';
+  const team = working.league.teams.find((t) => t.id === teamId);
+  return team ? team.name : 'unknown club';
+const { checkActTransition } = require('./progression');
+
+// generateBracket() halves each round down to a single final, so it requires a power-of-2
+// field. `playoffTeams` was hardcoded to balanceConfig's 4 before rules resolution made it
+// authorable, and an odd size (6 teams, or 8 declared in a 6-team little league) builds a
+// bracket whose final match never gets both slots filled — leaving the season stuck in the
+// playoffs phase forever. Round down to the nearest power of 2; anything under 2 means no
+// postseason at all, which is what `playoffTeams: 0` declares.
+function playoffFieldSize(declared, availableTeams) {
+  const n = Math.min(declared || 0, availableTeams);
+  if (n < 2) return 0;
+  return 2 ** Math.floor(Math.log2(n));
+}
 
 function getTeamStrength(working, modifiers, teamId) {
   if (teamId === PLAYER_TEAM_ID) return teamStrength(working.roster, modifiers);
@@ -26,7 +51,7 @@ function getTeamStrength(working, modifiers, teamId) {
 function addRevenue(working, revenue) {
   return {
     ...working,
-    cash: working.cash + revenue,
+    wallet: { ...working.wallet, cash: working.wallet.cash + revenue },
     prestige: {
       ...working.prestige,
       runStats: { ...working.prestige.runStats, totalRevenue: working.prestige.runStats.totalRevenue + revenue },
@@ -34,11 +59,34 @@ function addRevenue(working, revenue) {
   };
 }
 
+// Integrates a per-second income bundle over `step` seconds and credits each currency.
+// Cash still flows through addRevenue() so prestige.runStats.totalRevenue keeps tracking it;
+// caps and coins land in state.wallet (STORY-001 owns that field — see initialState.js).
+function creditIncome(working, incomePerSecond, step) {
+  let next = working;
+
+  const cash = incomePerSecond.cash * step;
+  if (cash > 0) next = addRevenue(next, cash);
+
+  const caps = incomePerSecond.caps * step;
+  const coins = incomePerSecond.coins * step;
+  if (caps > 0 || coins > 0) {
+    const wallet = next.wallet || { caps: 0, coins: 0, cash: 0 };
+    next = { ...next, wallet: { ...wallet, caps: wallet.caps + caps, coins: wallet.coins + coins } };
+  }
+
+  return next;
+}
+
 function expirePowerups(working) {
   const before = working.powerups.active;
   const active = before.filter((p) => p.expiresAtClock == null || p.expiresAtClock > working.clock);
   if (active.length === before.length) return working;
-  return { ...working, powerups: { ...working.powerups, active } };
+  const expired = before.filter((p) => !active.includes(p));
+  return appendFeedEntries(
+    { ...working, powerups: { ...working.powerups, active } },
+    expired.map((p) => createFeedEntry(working.clock, 'powerup', feedMessages.powerupExpired(powerupDisplayName(p.id))))
+  );
 }
 
 function updatePeakRating(working) {
@@ -54,9 +102,11 @@ function updatePeakRating(working) {
 
 function findNextEventClock(working) {
   const candidates = [];
-  if (working.season.phase === 'regular') candidates.push(working.season.nextGameAtClock);
-  if (working.season.phase === 'playoffs' && working.season.playoffs) {
-    candidates.push(working.season.playoffs.nextRoundAtClock);
+  if (working.season) {
+    if (working.season.phase === 'regular') candidates.push(working.season.nextGameAtClock);
+    if (working.season.phase === 'playoffs' && working.season.playoffs) {
+      candidates.push(working.season.playoffs.nextRoundAtClock);
+    }
   }
   working.powerups.active.forEach((p) => {
     if (p.expiresAtClock != null) candidates.push(p.expiresAtClock);
@@ -114,28 +164,79 @@ function resolveGameSlot(working, modifiers) {
     nextGameAtClock: working.clock + working.season.secondsPerGame,
   };
 
+  const entries = [
+    createFeedEntry(
+      working.clock,
+      'game',
+      feedMessages.gameResult(
+        teamDisplayName(working, slot.opponentTeamId),
+        slot.isHome,
+        result.aWins,
+        result.scoreA,
+        result.scoreB
+      )
+    ),
+  ];
+
   if (scheduleIndex >= season.gamesPerSeason) {
     const sorted = sortStandings(standings);
-    const top = sorted.slice(0, balanceConfig.playoffTeams).map((r) => r.teamId);
+    // Resolved, not balanceConfig: an act may declare `playoffTeams: 0` for a league with no
+    // postseason, in which case `top` is empty and the season rolls straight to offseason.
+    // `season.gamesPerSeason`/`secondsPerGame` above stay as-is on purpose — those were fixed
+    // when this season was built, so a mid-season act change must not reshape a season in flight.
+    const top = sorted.slice(0, playoffFieldSize(modifiers.rules.playoffTeams, sorted.length)).map((r) => r.teamId);
     if (top.includes(PLAYER_TEAM_ID)) {
       season.phase = 'playoffs';
       season.playoffs = {
         ...generateBracket(top),
-        nextRoundAtClock: working.clock + balanceConfig.secondsPerPlayoffRound,
+        nextRoundAtClock: working.clock + modifiers.rules.secondsPerPlayoffRound,
       };
     } else {
       season.phase = 'offseason';
     }
+    entries.push(
+      createFeedEntry(
+        working.clock,
+        'season',
+        feedMessages.regularSeasonComplete(season.seasonNumber, season.phase === 'playoffs')
+      )
+    );
   }
 
-  return { ...working, season };
+  return appendFeedEntries({ ...working, season }, entries);
 }
 
 function resolvePlayoffRound(working, modifiers) {
+  const playedRoundIndex = working.season.playoffs.currentRoundIndex;
   const resolved = resolveCurrentRound(working.season.playoffs, (teamId) => getTeamStrength(working, modifiers, teamId));
   let season = { ...working.season, playoffs: { ...working.season.playoffs, ...resolved } };
   let prestige = working.prestige;
   let hasWonLeagueThisRun = working.hasWonLeagueThisRun;
+
+  const roundLabel = playoffRoundLabel(playedRoundIndex, resolved.rounds.length);
+  // The bracket keeps resolving after the player is eliminated, so a player match may not exist.
+  const playerMatch = resolved.rounds[playedRoundIndex].find(
+    (m) => m.teamA === PLAYER_TEAM_ID || m.teamB === PLAYER_TEAM_ID
+  );
+  const entries = [];
+  if (playerMatch) {
+    const playerIsA = playerMatch.teamA === PLAYER_TEAM_ID;
+    entries.push(
+      createFeedEntry(
+        working.clock,
+        'playoffs',
+        feedMessages.playoffGameResult(
+          roundLabel,
+          teamDisplayName(working, playerIsA ? playerMatch.teamB : playerMatch.teamA),
+          playerMatch.winner === PLAYER_TEAM_ID,
+          playerIsA ? playerMatch.scoreA : playerMatch.scoreB,
+          playerIsA ? playerMatch.scoreB : playerMatch.scoreA
+        )
+      )
+    );
+  } else {
+    entries.push(createFeedEntry(working.clock, 'playoffs', feedMessages.playoffRoundElsewhere(roundLabel)));
+  }
 
   if (resolved.champion) {
     season.phase = 'offseason';
@@ -145,27 +246,39 @@ function resolvePlayoffRound(working, modifiers) {
         runStats: { ...prestige.runStats, championships: prestige.runStats.championships + 1 },
       };
       hasWonLeagueThisRun = true;
+      entries.push(
+        createFeedEntry(working.clock, 'championship', feedMessages.championshipWon(season.seasonNumber))
+      );
+    } else {
+      entries.push(
+        createFeedEntry(
+          working.clock,
+          'championship',
+          feedMessages.championshipLost(teamDisplayName(working, resolved.champion))
+        )
+      );
     }
   } else {
-    season.playoffs.nextRoundAtClock = working.clock + balanceConfig.secondsPerPlayoffRound;
+    season.playoffs.nextRoundAtClock = working.clock + modifiers.rules.secondsPerPlayoffRound;
   }
 
-  return { ...working, season, prestige, hasWonLeagueThisRun };
+  return appendFeedEntries({ ...working, season, prestige, hasWonLeagueThisRun }, entries);
 }
 
 function runOffseasonTransition(working, modifiers) {
-  const eraRules = modifiers.era.rules;
-  const retireAtSeasonsRange = eraRules.retireAtSeasonsRange || balanceConfig.retireAtSeasonsRange;
-  const { roster, retired, rookies } = checkRetirements(working.roster, modifiers, retireAtSeasonsRange);
+  // The offseason transition is where the next season's shape is decided, so it is the one place
+  // rules are re-resolved: balanceConfig <- act.rules <- era.rules (see engine/modifiers.js).
+  const rules = modifiers.rules;
+  const { roster, retired, rookies } = checkRetirements(working.roster, modifiers, rules.retireAtSeasonsRange);
 
   const wonChampionship = !!(working.season.playoffs && working.season.playoffs.champion === PLAYER_TEAM_ID);
   const playerRow = working.season.standings.find((s) => s.teamId === PLAYER_TEAM_ID);
 
   const leagueTeams = driftLeagueStrength(working.league.teams);
-  const gamesPerSeason = eraRules.gamesPerSeason || balanceConfig.gamesPerSeason;
+  const gamesPerSeason = rules.gamesPerSeason;
   const schedule = generateSeasonSchedule(leagueTeams, gamesPerSeason);
   const standings = resetStandings(leagueTeams);
-  const tradeWindows = buildTradeWindows(gamesPerSeason, eraRules.tradeWindows).map((w) => ({
+  const tradeWindows = buildTradeWindows(gamesPerSeason, rules.tradeWindows).map((w) => ({
     ...w,
     open: false,
     used: false,
@@ -182,7 +295,22 @@ function runOffseasonTransition(working, modifiers) {
     rookies: rookies.map((r) => ({ id: r.id, name: r.name, position: r.position })),
   };
 
-  return {
+  const entries = [];
+  retired.forEach((p) => {
+    entries.push(createFeedEntry(working.clock, 'roster', feedMessages.playerRetired(p.name, p.position)));
+  });
+  rookies.forEach((p) => {
+    entries.push(createFeedEntry(working.clock, 'roster', feedMessages.rookieSigned(p.name, p.position)));
+  });
+  entries.push(
+    createFeedEntry(
+      working.clock,
+      'season',
+      feedMessages.seasonRollover(summary.seasonNumber, summary.wins, summary.losses)
+    )
+  );
+
+  return appendFeedEntries({
     ...working,
     roster,
     league: { teams: leagueTeams },
@@ -192,15 +320,17 @@ function runOffseasonTransition(working, modifiers) {
       gamesPerSeason,
       scheduleIndex: 0,
       schedule,
-      secondsPerGame: balanceConfig.secondsPerGame,
-      nextGameAtClock: working.clock + balanceConfig.secondsPerGame,
+      // Resolved, not balanceConfig: hardcoding these reverted per-act/era pacing to 60s at the
+      // first offseason transition, silently undoing the pacing applied when the act was entered.
+      secondsPerGame: rules.secondsPerGame,
+      nextGameAtClock: working.clock + rules.secondsPerGame,
       standings,
       tradeWindows,
       playoffs: null,
       offseasonSummaryPending: true,
       lastOffseasonSummary: summary,
     },
-  };
+  }, entries);
 }
 
 // The single place simulation happens. Called identically by the live 1s timer and by
@@ -216,27 +346,51 @@ function advance(state, deltaSeconds) {
     const nextEventClock = findNextEventClock(working);
     const step = nextEventClock === Infinity ? remaining : Math.min(remaining, Math.max(0, nextEventClock - working.clock));
 
-    if (working.season.phase !== 'offseason' && step > 0) {
-      const revenue = revenuePerSecond(working, modifiers) * step;
-      working = addRevenue(working, revenue);
+    // Rate-integrated, never event-driven: one pass covers the whole step, so an 8h
+    // offline return never approaches safetyCapIterations. Each contributor owns its own
+    // gating — the offseason suspension now lives inside ticketing (see engine/income.js).
+    if (step > 0) {
+      working = creditIncome(working, totalIncomePerSecond(working, modifiers), step);
     }
     working = { ...working, clock: working.clock + step };
     remaining -= step;
 
     working = expirePowerups(working);
+    const completingCamps = working.roster.filter(
+      (p) => p.campStatus && p.campStatus.completesAtClock <= working.clock
+    );
     working = { ...working, roster: processCampCompletions(working.roster, working.clock) };
+    if (completingCamps.length > 0) {
+      working = appendFeedEntries(
+        working,
+        completingCamps.map((p) =>
+          createFeedEntry(
+            working.clock,
+            'camp',
+            feedMessages.campCompleted(p.name, campProgramDisplayName(p.campStatus.programId))
+          )
+        )
+      );
+    }
 
-    if (working.season.phase === 'regular' && working.clock >= working.season.nextGameAtClock) {
-      working = resolveGameSlot(working, modifiers);
-    }
-    if (working.season.phase === 'playoffs' && working.season.playoffs && working.clock >= working.season.playoffs.nextRoundAtClock) {
-      working = resolvePlayoffRound(working, computeModifiers(working));
-    }
-    if (working.season.phase === 'offseason') {
-      working = runOffseasonTransition(working, computeModifiers(working));
+    // ONE guard for the whole phase block rather than a check per branch: there is no season
+    // at all until Act III creates one, and every branch below is a season phase transition.
+    if (working.season) {
+      if (working.season.phase === 'regular' && working.clock >= working.season.nextGameAtClock) {
+        working = resolveGameSlot(working, modifiers);
+      }
+      if (working.season.phase === 'playoffs' && working.season.playoffs && working.clock >= working.season.playoffs.nextRoundAtClock) {
+        working = resolvePlayoffRound(working, computeModifiers(working));
+      }
+      if (working.season.phase === 'offseason') {
+        working = runOffseasonTransition(working, computeModifiers(working));
+      }
     }
 
     working = updatePeakRating(working);
+    // Inside the loop, so act transitions fire during offline catch-up too — a player who
+    // closes the tab mid-act returns having actually crossed the boundary.
+    working = checkActTransition(working);
   }
 
   return working;

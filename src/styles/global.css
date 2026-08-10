@@ -204,6 +204,18 @@ button:disabled {
   box-shadow: 0 0 0 2px #e07a5f;
 }
 
+.tab-nav button .tab-badge {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: #e07a5f;
+  color: #14210f;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
 /* Cards / panels */
 .panel {
   background: #143620;
@@ -394,4 +406,51 @@ table.standings tr.me {
 .muted {
   color: #9fc6a9;
   font-size: 0.8rem;
+}
+
+/* Event feed */
+.event-feed .feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.feed-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #1c4426;
+  font-size: 0.82rem;
+}
+
+.feed-item:last-child {
+  border-bottom: none;
+}
+
+.feed-icon {
+  flex: none;
+  font-size: 0.9rem;
+}
+
+.feed-text {
+  flex: 1;
+}
+
+.feed-time {
+  flex: none;
+  color: #9fc6a9;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.feed-playoffs .feed-text {
+  color: #f4d35e;
+}
+
+.feed-championship .feed-text {
+  color: #f4d35e;
+  font-weight: 700;
 }

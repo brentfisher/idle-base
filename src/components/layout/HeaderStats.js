@@ -91,6 +91,10 @@ function HeaderStats() {
   } else if (countdownRef.current.target !== null) {
     countdownRef.current = { target: null, span: 1 };
   }
+  // The stadium and the season are absent, not zero, until their act creates them.
+  const phaseLabel = state.season
+    ? { regular: 'Regular Season', playoffs: 'Playoffs', offseason: 'Offseason' }[state.season.phase]
+    : null;
 
   return (
     <div className="header-stats">
@@ -114,6 +118,10 @@ function HeaderStats() {
         </span>
       ))}
 
+      <span className="stat-chip">
+        <span className="label">Cash</span>
+        {formatCash(state.wallet.cash)}
+      </span>
       <span className="stat-chip">
         <span className="label">Reputation</span>
         {Math.round(state.reputation)}

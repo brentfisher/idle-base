@@ -24,7 +24,7 @@ function PowerupShop() {
           const isPermanent = powerup.durationSeconds === null;
           const owned = isPermanent && state.powerups.purchasedPermanentIds.includes(powerup.id);
           const active = state.powerups.active.find((p) => p.id === powerup.id);
-          const disabled = owned || state.cash < powerup.cost;
+          const disabled = owned || state.wallet.cash < powerup.cost;
           const sign = powerup.value >= 0 ? '+' : '';
 
           return (
