@@ -16,6 +16,7 @@ const TradeDeadlinePanel = require('../tradeDeadline/TradeDeadlinePanel');
 const PrestigePanel = require('../prestige/PrestigePanel');
 const Modal = require('../common/Modal');
 const LotPanel = require('../lot/LotPanel');
+const WallBallPanel = require('../wallBall/WallBallPanel');
 const StoryCard = require('../narrative/StoryCard');
 const { getActIntroBeat } = require('../../data/storyBeats');
 
@@ -41,10 +42,11 @@ function AppShell() {
 
   // Locked tabs are not rendered at all — no greyed-out teasers. The reveal is the reward.
   const act = state.progression.act;
-  const visibleTabs = React.useMemo(() => {
-    const unlocked = getUnlockedFeatures(act);
-    return Object.keys(PANELS).filter((tabId) => unlocked.indexOf(tabId) !== -1);
-  }, [act]);
+  const unlocked = React.useMemo(() => getUnlockedFeatures(act), [act]);
+  const visibleTabs = React.useMemo(
+    () => Object.keys(PANELS).filter((tabId) => unlocked.indexOf(tabId) !== -1),
+    [unlocked]
+  );
 
   // If the tab the player is on ever stops being unlocked, fall back to the first visible tab
   // instead of rendering blank. `PANELS[...] || FieldView` stays as the final backstop.
@@ -69,9 +71,14 @@ function AppShell() {
   // (design doc, Decision 2) — pre-season acts are the lot, and nothing else. This early return
   // is also what stops the tab gate above from rendering an empty shell during Acts I-II, when
   // no franchise feature is unlocked yet. Every hook must stay above it.
+  //
+  // Act II adds the wall BESIDE the lot rather than replacing it: LotPanel is what carries
+  // the Hustle button, which exists in every act and is never gated (PRD 6.4). A broke
+  // player who cannot make the minimum wager is always one click away from being able to.
   if (!state.season) {
     return (
       <div className="app-shell">
+        {unlocked.indexOf('wallBall') !== -1 && <WallBallPanel />}
         <LotPanel />
         {pendingBeat && <StoryCard beat={pendingBeat} />}
       </div>
