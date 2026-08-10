@@ -6,7 +6,10 @@ const { getEraConfig } = require('../../data/eras');
 function HeaderStats() {
   const { state } = useGame();
   const era = getEraConfig(state.prestige.era);
-  const phaseLabel = { regular: 'Regular Season', playoffs: 'Playoffs', offseason: 'Offseason' }[state.season.phase];
+  // The stadium and the season are absent, not zero, until their act creates them.
+  const phaseLabel = state.season
+    ? { regular: 'Regular Season', playoffs: 'Playoffs', offseason: 'Offseason' }[state.season.phase]
+    : null;
 
   return (
     <div className="header-stats">
@@ -19,14 +22,18 @@ function HeaderStats() {
         <span className="label">Reputation</span>
         {Math.round(state.reputation)}
       </span>
-      <span className="stat-chip">
-        <span className="label">Capacity</span>
-        {formatNumber(state.stadium.capacity)}
-      </span>
-      <span className="stat-chip">
-        <span className="label">Season</span>
-        {state.season.seasonNumber} · {phaseLabel}
-      </span>
+      {state.stadium && (
+        <span className="stat-chip">
+          <span className="label">Capacity</span>
+          {formatNumber(state.stadium.capacity)}
+        </span>
+      )}
+      {state.season && (
+        <span className="stat-chip">
+          <span className="label">Season</span>
+          {state.season.seasonNumber} · {phaseLabel}
+        </span>
+      )}
       <span className="stat-chip">
         <span className="label">Era</span>
         {era.name}

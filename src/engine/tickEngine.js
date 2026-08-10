@@ -16,6 +16,7 @@ const { generateBracket, resolveCurrentRound } = require('./playoffs');
 const { generateTradeCandidates } = require('./tradeDeadline');
 const { processCampCompletions } = require('./trainingCamp');
 const { checkRetirements } = require('./retirement');
+const { checkActTransition } = require('./progression');
 
 function getTeamStrength(working, modifiers, teamId) {
   if (teamId === PLAYER_TEAM_ID) return teamStrength(working.roster, modifiers);
@@ -54,9 +55,11 @@ function updatePeakRating(working) {
 
 function findNextEventClock(working) {
   const candidates = [];
-  if (working.season.phase === 'regular') candidates.push(working.season.nextGameAtClock);
-  if (working.season.phase === 'playoffs' && working.season.playoffs) {
-    candidates.push(working.season.playoffs.nextRoundAtClock);
+  if (working.season) {
+    if (working.season.phase === 'regular') candidates.push(working.season.nextGameAtClock);
+    if (working.season.phase === 'playoffs' && working.season.playoffs) {
+      candidates.push(working.season.playoffs.nextRoundAtClock);
+    }
   }
   working.powerups.active.forEach((p) => {
     if (p.expiresAtClock != null) candidates.push(p.expiresAtClock);
@@ -216,7 +219,9 @@ function advance(state, deltaSeconds) {
     const nextEventClock = findNextEventClock(working);
     const step = nextEventClock === Infinity ? remaining : Math.min(remaining, Math.max(0, nextEventClock - working.clock));
 
-    if (working.season.phase !== 'offseason' && step > 0) {
+    // Ticket revenue dereferences the stadium and is suspended in the offseason, so it needs
+    // both to exist. Acts before The Minors earn through other contributors entirely.
+    if (working.stadium && working.season && working.season.phase !== 'offseason' && step > 0) {
       const revenue = revenuePerSecond(working, modifiers) * step;
       working = addRevenue(working, revenue);
     }
@@ -226,17 +231,24 @@ function advance(state, deltaSeconds) {
     working = expirePowerups(working);
     working = { ...working, roster: processCampCompletions(working.roster, working.clock) };
 
-    if (working.season.phase === 'regular' && working.clock >= working.season.nextGameAtClock) {
-      working = resolveGameSlot(working, modifiers);
-    }
-    if (working.season.phase === 'playoffs' && working.season.playoffs && working.clock >= working.season.playoffs.nextRoundAtClock) {
-      working = resolvePlayoffRound(working, computeModifiers(working));
-    }
-    if (working.season.phase === 'offseason') {
-      working = runOffseasonTransition(working, computeModifiers(working));
+    // ONE guard for the whole phase block rather than a check per branch: there is no season
+    // at all until Act III creates one, and every branch below is a season phase transition.
+    if (working.season) {
+      if (working.season.phase === 'regular' && working.clock >= working.season.nextGameAtClock) {
+        working = resolveGameSlot(working, modifiers);
+      }
+      if (working.season.phase === 'playoffs' && working.season.playoffs && working.clock >= working.season.playoffs.nextRoundAtClock) {
+        working = resolvePlayoffRound(working, computeModifiers(working));
+      }
+      if (working.season.phase === 'offseason') {
+        working = runOffseasonTransition(working, computeModifiers(working));
+      }
     }
 
     working = updatePeakRating(working);
+    // Inside the loop, so act transitions fire during offline catch-up too — a player who
+    // closes the tab mid-act returns having actually crossed the boundary.
+    working = checkActTransition(working);
   }
 
   return working;
