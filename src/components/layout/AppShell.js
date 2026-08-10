@@ -13,6 +13,9 @@ const TrainingCampPanel = require('../trainingCamp/TrainingCampPanel');
 const TradeDeadlinePanel = require('../tradeDeadline/TradeDeadlinePanel');
 const PrestigePanel = require('../prestige/PrestigePanel');
 const Modal = require('../common/Modal');
+const LotPanel = require('../lot/LotPanel');
+const StoryCard = require('../narrative/StoryCard');
+const { getActIntroBeat } = require('../../data/storyBeats');
 
 const PANELS = {
   field: FieldView,
@@ -30,6 +33,22 @@ function AppShell() {
   const [activeTab, setActiveTab] = React.useState('field');
   useGameTick();
 
+  // Entering an act raises its story card once; dismissing records it in
+  // progression.storyBeatsSeen, so it never returns on reload.
+  const introBeat = getActIntroBeat(state.progression.act);
+  const pendingBeat = introBeat && !state.progression.storyBeatsSeen.includes(introBeat.id) ? introBeat : null;
+
+  // The franchise UI does not exist until the act that creates a season runs its
+  // initializer (design doc, Decision 2) — pre-season acts are the lot, and nothing else.
+  if (!state.season) {
+    return (
+      <div className="app-shell">
+        <LotPanel />
+        {pendingBeat && <StoryCard beat={pendingBeat} />}
+      </div>
+    );
+  }
+
   const tradeOpen = state.season.tradeWindows.some((w) => w.open);
   const playoffsActive = state.season.phase === 'playoffs';
   const ActivePanel = PANELS[activeTab] || FieldView;
@@ -46,6 +65,8 @@ function AppShell() {
       <HeaderStats />
       <TabNav activeTab={activeTab} onChange={setActiveTab} tradeOpen={tradeOpen} playoffsActive={playoffsActive} />
       <ActivePanel />
+
+      {pendingBeat && <StoryCard beat={pendingBeat} />}
 
       {showVictory && (
         <Modal
