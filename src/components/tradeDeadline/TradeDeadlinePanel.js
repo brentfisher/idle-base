@@ -35,7 +35,7 @@ function TradeDeadlinePanel() {
                     <div className="muted">OVR {Math.round(playerOverall(candidate))} · Age {candidate.age}</div>
                     <button
                       className="btn"
-                      disabled={state.cash < candidate.cost}
+                      disabled={state.wallet.cash < candidate.cost}
                       onClick={() =>
                         dispatch({ type: actionTypes.EXECUTE_TRADE, windowIndex: index, candidateId: candidate.id })
                       }

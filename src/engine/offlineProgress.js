@@ -11,9 +11,9 @@ function computeCappedElapsedSeconds(lastSaveTimestamp, now) {
 // with increasing `now` values (e.g. React 18 dev double-invoke) — see hooks/useGameTick.js.
 function applyOfflineProgress(state, now) {
   const elapsedSeconds = computeCappedElapsedSeconds(state.meta.lastSaveTimestamp, now);
-  const before = state.cash;
+  const before = state.wallet.cash;
   const next = advance(state, elapsedSeconds);
-  const revenueEarned = next.cash - before;
+  const revenueEarned = next.wallet.cash - before;
 
   return {
     state: {

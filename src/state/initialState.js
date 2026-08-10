@@ -16,8 +16,12 @@ function createInitialState() {
 
   return {
     clock: 0,
-    meta: { version: 1, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
-    cash: balanceConfig.startingCash,
+    // Must match CURRENT_VERSION in persistence/saveLoad.js — a fresh state stamped with an
+    // older version would be discarded by loadGame() on the very next reload.
+    meta: { version: 2, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
+    // caps and coins are the early-act currencies; they exist from t=0 so nothing has to
+    // guard for their absence, but no mechanic touches them yet.
+    wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash },
     reputation: balanceConfig.startingReputation,
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
     roster: createStartingRoster(),

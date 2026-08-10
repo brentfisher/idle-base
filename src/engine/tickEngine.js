@@ -26,7 +26,7 @@ function getTeamStrength(working, modifiers, teamId) {
 function addRevenue(working, revenue) {
   return {
     ...working,
-    cash: working.cash + revenue,
+    wallet: { ...working.wallet, cash: working.wallet.cash + revenue },
     prestige: {
       ...working.prestige,
       runStats: { ...working.prestige.runStats, totalRevenue: working.prestige.runStats.totalRevenue + revenue },
