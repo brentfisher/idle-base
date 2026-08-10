@@ -1,13 +1,15 @@
 const React = require('react');
 const { useGame } = require('../../state/GameContext');
 const { computeModifiers } = require('../../engine/modifiers');
-const { revenuePerSecond, attendanceFraction } = require('../../engine/economy');
+const { attendanceFraction } = require('../../engine/economy');
+const { totalIncomePerSecond } = require('../../engine/income');
 const { formatCash } = require('../../utils/formatNumber');
 
 function RevenueTicker() {
   const { state } = useGame();
   const modifiers = computeModifiers(state);
-  const perSecond = revenuePerSecond(state, modifiers);
+  // Same source as the header's per-currency rates, so the two can't disagree.
+  const perSecond = totalIncomePerSecond(state, modifiers).cash;
   const fraction = attendanceFraction(state, modifiers);
 
   return (
