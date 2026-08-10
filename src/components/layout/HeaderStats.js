@@ -4,11 +4,10 @@ const { computeModifiers } = require('../../engine/modifiers');
 const { totalIncomePerSecond } = require('../../engine/income');
 const { getUnlockedFeatures } = require('../../engine/progression');
 const { findNextEventClock } = require('../../engine/tickEngine');
-const { formatNumber, formatCash, formatDuration } = require('../../utils/formatNumber');
+const { formatNumber, formatDuration } = require('../../utils/formatNumber');
 const { getEraConfig } = require('../../data/eras');
 
 // Ordered cheapest-first: the last unlocked entry is the act's own currency.
-// formatCash(v) is '$' + formatNumber(v), so cash renders exactly as it did before.
 const CURRENCIES = [
   { id: 'caps', label: 'Caps', symbol: '' },
   { id: 'coins', label: 'Coins', symbol: '' },
@@ -118,10 +117,6 @@ function HeaderStats() {
         </span>
       ))}
 
-      <span className="stat-chip">
-        <span className="label">Cash</span>
-        {formatCash(state.wallet.cash)}
-      </span>
       <span className="stat-chip">
         <span className="label">Reputation</span>
         {Math.round(state.reputation)}
