@@ -84,10 +84,10 @@ const STAKE_FRACTION_CAP = 0.25;
 const MIN_STAKE = 5;
 const MIN_CAPS_TO_CHALLENGE = Math.ceil(MIN_STAKE / STAKE_FRACTION_CAP); // 20
 
-// Respect thresholds at which the next neighborhood kid joins the crew. Tuned so crew
-// recruitment lands near the flat point (~6-8 rally attempts) on a Showboat-leaning line
-// and a little later on a Normal-leaning one.
-const CREW_RESPECT_THRESHOLDS = [7, 16, 28];
+// Respect thresholds at which the next neighborhood kid joins the crew. Tuned so the first
+// kid lands at 3 wins on a Showboat line and ~6 on a Normal one, i.e. near the identified
+// flat point (~6-8 rally attempts) rather than before any flatness is felt.
+const CREW_RESPECT_THRESHOLDS = [11, 19, 28];
 
 const CREW_POSITIONS = ['CF', 'SS', '1B', 'C', 'LF', '3B'];
 
