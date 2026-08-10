@@ -2,6 +2,7 @@ const balanceConfig = require('../data/balanceConfig');
 const { createStartingRoster } = require('./playerFactory');
 const { createLeagueTeams, resetStandings, generateSeasonSchedule, buildTradeWindows } = require('./schedule');
 const { computeModifiers } = require('./modifiers');
+const { enterAct, FINAL_ACT_INDEX } = require('./progression');
 
 function calculateLegacyPoints(state) {
   const { championships, peakOverallRating, totalRevenue } = state.prestige.runStats;
@@ -11,6 +12,11 @@ function calculateLegacyPoints(state) {
 // Resets the run (roster, wallet, season, league) but keeps everything permanent:
 // legacyPoints, purchasedPerks, and the era counter (which is what makes the next
 // run feel different, per data/eras.js).
+//
+// Prestige resets to the FINAL-ACT FLOOR, never below it: the odyssey is played once per save
+// and prestige stays what it is today, an Act VI replay axis. Every earlier act's unlocks stay
+// on, because unlocks are derived from the act index (engine/progression.js) and the index
+// never moves backwards.
 function resetForPrestige(state) {
   const earned = calculateLegacyPoints(state);
   const nextEra = state.prestige.era + 1;
@@ -39,7 +45,7 @@ function resetForPrestige(state) {
     candidates: [],
   }));
 
-  return {
+  return enterAct({
     ...state,
     // Prestige clears every currency, not just cash — mirrors the wallet in createInitialState().
     wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash },
@@ -63,7 +69,7 @@ function resetForPrestige(state) {
     },
     prestige,
     hasWonLeagueThisRun: false,
-  };
+  }, FINAL_ACT_INDEX);
 }
 
 module.exports = { calculateLegacyPoints, resetForPrestige };
