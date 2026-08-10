@@ -4,6 +4,19 @@ module.exports = {
   DISMISS_OFFSEASON_SUMMARY: 'DISMISS_OFFSEASON_SUMMARY',
   ACKNOWLEDGE_VICTORY: 'ACKNOWLEDGE_VICTORY',
 
+  // Act I — the Hustle (manual click) and its upgrades. HUSTLE is available in every act
+  // and is never removed: it is the mechanical anti-softlock guarantee (PRD §6.4).
+  HUSTLE: 'HUSTLE',
+  BUY_COLLECTOR: 'BUY_COLLECTOR',
+  BUY_CLICK_UPGRADE: 'BUY_CLICK_UPGRADE',
+  BUY_KIT_ITEM: 'BUY_KIT_ITEM',
+
+  // Act II — wall ball.
+  RESOLVE_WALL_BALL_CHALLENGE: 'RESOLVE_WALL_BALL_CHALLENGE',
+
+  MARK_TAB_SEEN: 'MARK_TAB_SEEN',
+  MARK_STORY_BEAT_SEEN: 'MARK_STORY_BEAT_SEEN',
+
   SET_TICKET_PRICE: 'SET_TICKET_PRICE',
   BUY_POWERUP: 'BUY_POWERUP',
   UPGRADE_STADIUM: 'UPGRADE_STADIUM',

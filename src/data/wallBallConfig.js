@@ -29,7 +29,7 @@ const APPROACHES = [
     strengthDelta: 6,
     payoutMult: 0.5,
     respectOnWin: 1,
-    cooldownSeconds: 15,
+    cooldownSeconds: 18,
   },
   {
     id: 'normal',
@@ -38,7 +38,7 @@ const APPROACHES = [
     strengthDelta: 0,
     payoutMult: 1.2,
     respectOnWin: 2,
-    cooldownSeconds: 20,
+    cooldownSeconds: 24,
   },
   {
     id: 'showboat',
@@ -47,7 +47,7 @@ const APPROACHES = [
     strengthDelta: -4.5,
     payoutMult: 3,
     respectOnWin: 4,
-    cooldownSeconds: 30,
+    cooldownSeconds: 36,
   },
 ];
 
@@ -87,7 +87,7 @@ const MIN_CAPS_TO_CHALLENGE = Math.ceil(MIN_STAKE / STAKE_FRACTION_CAP); // 20
 // Respect thresholds at which the next neighborhood kid joins the crew. Tuned so crew
 // recruitment lands near the flat point (~6-8 rally attempts) on a Showboat-leaning line
 // and a little later on a Normal-leaning one.
-const CREW_RESPECT_THRESHOLDS = [6, 14, 24];
+const CREW_RESPECT_THRESHOLDS = [7, 16, 28];
 
 const CREW_POSITIONS = ['CF', 'SS', '1B', 'C', 'LF', '3B'];
 

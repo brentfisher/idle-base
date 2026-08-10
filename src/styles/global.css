@@ -286,3 +286,231 @@ table.standings tr.me {
   color: #9fc6a9;
   font-size: 0.8rem;
 }
+
+/* Header rate + NEW badge */
+.stat-chip .rate {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: #8fbf9c;
+}
+
+.tab-nav button .tab-new {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #f2c14e;
+  color: #14240f;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}
+
+/* Act I — the Hustle */
+.hustle-button {
+  display: block;
+  width: 100%;
+  padding: 22px 16px;
+  margin: 8px 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  background: #2f7a45;
+  border-color: #47a862;
+}
+
+.hustle-button:hover:not(:disabled) {
+  background: #389352;
+}
+
+.hustle-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.hustle-yield {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Act II — wall ball */
+.wall-ball-scoreboard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 16px;
+}
+
+.challenge-card {
+  border: 1px solid #2c5b3a;
+  border-radius: 10px;
+  padding: 14px;
+  background: #123019;
+}
+
+.challenge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.challenge-header h3 {
+  margin: 0;
+}
+
+.challenger-taunt {
+  margin: 4px 0 0;
+  font-style: italic;
+}
+
+.challenge-strengths {
+  display: flex;
+  gap: 16px;
+  text-align: right;
+}
+
+.challenge-strengths .label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8fbf9c;
+}
+
+.approach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.approach {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #2c5b3a;
+  background: #0f2716;
+  color: inherit;
+  font-size: 12px;
+}
+
+.approach.selected {
+  border-color: #f2c14e;
+  background: #1b3f24;
+}
+
+.approach-odds {
+  font-size: 15px;
+  font-weight: 700;
+  color: #9fe0b0;
+}
+
+.approach-payout {
+  font-weight: 600;
+  color: #f2c14e;
+}
+
+.approach-desc,
+.approach-meta {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.stake-selector {
+  margin: 16px 0 10px;
+}
+
+.stake-selector input[type='range'] {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+}
+
+.stake-presets {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.throw-button {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  background: #a8631f;
+  border-color: #d08434;
+}
+
+.throw-button:hover:not(:disabled) {
+  background: #bd7126;
+}
+
+.last-result {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.last-result.won {
+  background: #1b4a29;
+  border: 1px solid #3f8a56;
+}
+
+.last-result.lost {
+  background: #4a2020;
+  border: 1px solid #8a3f3f;
+}
+
+.crew-card .crew-position {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #24522f;
+  font-size: 11px;
+}
+
+.crew-card .crew-stat {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #9fe0b0;
+}
+
+.result-log {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.result-log li {
+  padding: 6px 8px;
+  border-left: 3px solid #2c5b3a;
+  margin-bottom: 4px;
+  background: #102a17;
+}
+
+.result-log li.won {
+  border-left-color: #4fbf72;
+}
+
+.result-log li.lost {
+  border-left-color: #bf4f4f;
+}
+
+.result-verdict {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.result-recruit {
+  color: #f2c14e;
+}
