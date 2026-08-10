@@ -1,13 +1,56 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Domain: idle-base is a baseball-themed idle/incremental browser game. Client-only —
+  no backend, no network calls, no accounts. State lives in React Context + useReducer;
+  persistence is localStorage.
+
+  Tech stack: React 18 (the only runtime dependency), Webpack 5, Babel. No TypeScript,
+  no routing library, no state-management library, no UI kit.
+
+  IMPORTANT — CommonJS, not ES modules. Every file uses require() and module.exports,
+  including React imports (`const React = require('react')`), despite Babel being
+  configured for ESM. Do not introduce import/export syntax; it breaks the established
+  pattern throughout the codebase.
+
+  Style: plain `function foo() {}` declarations rather than arrow-assigned consts
+  (except short inline callbacks). Single quotes, semicolons, 2-space indent. No
+  PropTypes and no runtime prop validation.
+
+  Layering is strict and load-bearing:
+    - src/engine/  — pure simulation. Must NOT import React or DOM APIs. Highly testable.
+    - src/state/   — reducer + per-domain action modules, all pure (state, action) => newState.
+    - src/components/ — the only layer importing React or dispatching actions.
+    - src/data/    — static config/tuning tables with no logic.
+  New simulation logic belongs in engine/, never inlined into a reducer action or a
+  component. Magic numbers belong in src/data/, not in engine/ or state/.
+
+  State updates are immutable spreads. No mutation, no Immer or similar.
+
+  Single simulation entry point: engine/tickEngine.js `advance(state, deltaSeconds)` is
+  called identically by the live 1s tick and by engine/offlineProgress.js's load-time
+  catch-up. Any time-driven mechanic MUST fold into that function — a separate timer
+  will silently fail to apply during offline catch-up. Always verify changes against the
+  offline path, not just the live tick.
+
+  Testing: there is NO test framework, linter, or CI in this repo — package.json has only
+  `start` and `build`. Verify by running the app (npm start) and by diff review. Do not
+  add a test framework as a side effect of unrelated work; propose it as its own change.
+
+  Comments explain non-obvious invariants and hidden constraints, not what the code says.
+  See engine/tickEngine.js, engine/offlineProgress.js and state/initialState.js for the
+  house style.
+
+  Saves: persistence/saveLoad.js DISCARDS any save whose meta.version mismatches — there
+  is no migration path. Bumping the version is a breaking change for existing players.
+
+  Hard invariant (see changes/odyssey-progression-architecture/design.md, Decision 6):
+  no mechanic may reduce a currency below zero, and no mechanic may remove the manual
+  click/Hustle income action. This is the structural guarantee that no sequence of
+  gambling losses can leave a save unrecoverable.
+
+  Planning docs: docs/PRD-incremental-odyssey.md is the product spec for the in-progress
+  restructure of the game into a six-act progression.
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
