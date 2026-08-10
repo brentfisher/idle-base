@@ -30,10 +30,12 @@ function AppShell() {
   const [activeTab, setActiveTab] = React.useState('field');
   useGameTick();
 
-  const tradeOpen = state.season.tradeWindows.some((w) => w.open);
-  const playoffsActive = state.season.phase === 'playoffs';
+  // There is no season until Act III creates one, so every season-derived flag here reads as
+  // "absent", not "zero".
+  const tradeOpen = !!state.season && state.season.tradeWindows.some((w) => w.open);
+  const playoffsActive = !!state.season && state.season.phase === 'playoffs';
   const ActivePanel = PANELS[activeTab] || FieldView;
-  const summary = state.season.lastOffseasonSummary;
+  const summary = state.season ? state.season.lastOffseasonSummary : null;
 
   // Sticky on prestige.runStats.championships (not the transient per-season summary, which
   // a later season's offseason transition can overwrite during a long offline catch-up) so
@@ -65,7 +67,7 @@ function AppShell() {
         </Modal>
       )}
 
-      {!showVictory && state.season.offseasonSummaryPending && summary && (
+      {!showVictory && state.season && state.season.offseasonSummaryPending && summary && (
         <Modal
           title={`Season ${summary.seasonNumber} Recap`}
           onClose={() => dispatch({ type: actionTypes.DISMISS_OFFSEASON_SUMMARY })}
