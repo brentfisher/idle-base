@@ -1,6 +1,7 @@
 const balanceConfig = require('../data/balanceConfig');
 const { createStartingRoster } = require('../engine/playerFactory');
 const { createLeagueTeams, resetStandings, generateSeasonSchedule, buildTradeWindows } = require('../engine/schedule');
+const { FINAL_ACT_INDEX } = require('../engine/progression');
 
 function createInitialState() {
   const leagueTeams = createLeagueTeams(balanceConfig.leagueTeamCount - 1);
@@ -22,6 +23,18 @@ function createInitialState() {
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
     roster: createStartingRoster(),
     powerups: { active: [], purchasedPermanentIds: [] },
+    // Owned by STORY-004, which starts a fresh game in the first act. Until the acts
+    // exist, a new game already contains the full league and stadium, so it sits at
+    // the final act — every feature unlocked, which is what the game does today.
+    // Note there is deliberately no `wallet` here: STORY-001 owns it, and a
+    // wallet.cash that the tick engine never writes would freeze the header chip.
+    progression: {
+      act: FINAL_ACT_INDEX,
+      actEnteredAtClock: 0,
+      milestones: {},
+      seenTabs: [],
+      storyBeatsSeen: [],
+    },
     league: { teams: leagueTeams },
     season: {
       seasonNumber: 1,
