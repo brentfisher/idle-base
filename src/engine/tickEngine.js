@@ -1,6 +1,6 @@
 const balanceConfig = require('../data/balanceConfig');
 const { computeModifiers } = require('./modifiers');
-const { revenuePerSecond } = require('./economy');
+const { totalIncomePerSecond } = require('./income');
 const { simulateGame } = require('./gameSim');
 const { playerOverall, teamStrength } = require('./strength');
 const {
@@ -32,6 +32,25 @@ function addRevenue(working, revenue) {
       runStats: { ...working.prestige.runStats, totalRevenue: working.prestige.runStats.totalRevenue + revenue },
     },
   };
+}
+
+// Integrates a per-second income bundle over `step` seconds and credits each currency.
+// Cash still flows through addRevenue() so prestige.runStats.totalRevenue keeps tracking it;
+// caps and coins land in state.wallet (STORY-001 owns that field — see initialState.js).
+function creditIncome(working, incomePerSecond, step) {
+  let next = working;
+
+  const cash = incomePerSecond.cash * step;
+  if (cash > 0) next = addRevenue(next, cash);
+
+  const caps = incomePerSecond.caps * step;
+  const coins = incomePerSecond.coins * step;
+  if (caps > 0 || coins > 0) {
+    const wallet = next.wallet || { caps: 0, coins: 0, cash: 0 };
+    next = { ...next, wallet: { ...wallet, caps: wallet.caps + caps, coins: wallet.coins + coins } };
+  }
+
+  return next;
 }
 
 function expirePowerups(working) {
@@ -216,9 +235,11 @@ function advance(state, deltaSeconds) {
     const nextEventClock = findNextEventClock(working);
     const step = nextEventClock === Infinity ? remaining : Math.min(remaining, Math.max(0, nextEventClock - working.clock));
 
-    if (working.season.phase !== 'offseason' && step > 0) {
-      const revenue = revenuePerSecond(working, modifiers) * step;
-      working = addRevenue(working, revenue);
+    // Rate-integrated, never event-driven: one pass covers the whole step, so an 8h
+    // offline return never approaches safetyCapIterations. Each contributor owns its own
+    // gating — the offseason suspension now lives inside ticketing (see engine/income.js).
+    if (step > 0) {
+      working = creditIncome(working, totalIncomePerSecond(working, modifiers), step);
     }
     working = { ...working, clock: working.clock + step };
     remaining -= step;
