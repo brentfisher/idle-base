@@ -40,7 +40,6 @@ function AppShell() {
   // "absent", not "zero".
   const tradeOpen = !!state.season && state.season.tradeWindows.some((w) => w.open);
   const playoffsActive = !!state.season && state.season.phase === 'playoffs';
-  const ActivePanel = PANELS[activeTab] || FieldView;
   const summary = state.season ? state.season.lastOffseasonSummary : null;
 
   // Locked tabs are not rendered at all — no greyed-out teasers. The reveal is the reward.

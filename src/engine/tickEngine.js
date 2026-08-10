@@ -16,6 +16,7 @@ const { generateBracket, resolveCurrentRound } = require('./playoffs');
 const { generateTradeCandidates } = require('./tradeDeadline');
 const { processCampCompletions } = require('./trainingCamp');
 const { checkRetirements } = require('./retirement');
+const { checkActTransition } = require('./progression');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
 const {
   feedMessages,
@@ -28,7 +29,7 @@ function teamDisplayName(working, teamId) {
   if (teamId === PLAYER_TEAM_ID) return 'home side';
   const team = working.league.teams.find((t) => t.id === teamId);
   return team ? team.name : 'unknown club';
-const { checkActTransition } = require('./progression');
+}
 
 // generateBracket() halves each round down to a single final, so it requires a power-of-2
 // field. `playoffTeams` was hardcoded to balanceConfig's 4 before rules resolution made it

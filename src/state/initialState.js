@@ -1,61 +1,35 @@
 const balanceConfig = require('../data/balanceConfig');
-const { createStartingRoster } = require('../engine/playerFactory');
-const { createLeagueTeams, resetStandings, generateSeasonSchedule, buildTradeWindows } = require('../engine/schedule');
-const { FINAL_ACT_INDEX } = require('../engine/progression');
 
+// A fresh game constructs only what Act I needs. Act transitions are the initializer boundary:
+// entering Act III is what first calls generateSeasonSchedule(), entering Act V is what first
+// creates the stadium (see engine/progression.js).
+//
+// The split below is deliberate and is not the same rule twice:
+//   * Player-visible CONTENT is `null` until its act creates it — `stadium`, `league`, `season`
+//     (and `season.playoffs` with it). Components must treat these as absent, not as zero.
+//   * Tick-loop COLLECTIONS are present-and-empty from t=0 — `roster`, `powerups`,
+//     `prestige.runStats`. advance() dereferences all three unconditionally on every iteration;
+//     iterating an empty array is free and correct, whereas guarding every call site is neither.
 function createInitialState() {
-  const leagueTeams = createLeagueTeams(balanceConfig.leagueTeamCount - 1);
-  const standings = resetStandings(leagueTeams);
-  const schedule = generateSeasonSchedule(leagueTeams, balanceConfig.gamesPerSeason);
-  const tradeWindows = buildTradeWindows(balanceConfig.gamesPerSeason).map((w) => ({
-    ...w,
-    open: false,
-    used: false,
-    candidates: [],
-  }));
   const now = Date.now();
 
   return {
     clock: 0,
-    // Keep in sync with CURRENT_VERSION in persistence/saveLoad.js — a mismatch makes every
-    // fresh save unreadable on the next load.
     meta: { version: 2, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
-    cash: balanceConfig.startingCash,
-    // Per-currency purse for the income bundle engine/income.js returns. STORY-001 owns
-    // this field and will fold `cash` above into `wallet.cash`; until then `state.cash`
-    // stays the single source of truth for cash and `wallet.cash` is left at 0.
-    wallet: { caps: 0, coins: 0, cash: 0 },
-    reputation: balanceConfig.startingReputation,
-    stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
-    roster: createStartingRoster(),
-    powerups: { active: [], purchasedPermanentIds: [] },
-    // Owned by STORY-004, which starts a fresh game in the first act. Until the acts
-    // exist, a new game already contains the full league and stadium, so it sits at
-    // the final act — every feature unlocked, which is what the game does today.
-    // Note there is deliberately no `wallet` here: STORY-001 owns it, and a
-    // wallet.cash that the tick engine never writes would freeze the header chip.
+    wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash },
     progression: {
-      act: FINAL_ACT_INDEX,
+      act: 0,
       actEnteredAtClock: 0,
       milestones: {},
       seenTabs: [],
       storyBeatsSeen: [],
     },
-    league: { teams: leagueTeams },
-    season: {
-      seasonNumber: 1,
-      phase: 'regular',
-      gamesPerSeason: balanceConfig.gamesPerSeason,
-      scheduleIndex: 0,
-      schedule,
-      secondsPerGame: balanceConfig.secondsPerGame,
-      nextGameAtClock: balanceConfig.secondsPerGame,
-      standings,
-      tradeWindows,
-      playoffs: null,
-      offseasonSummaryPending: false,
-      lastOffseasonSummary: null,
-    },
+    reputation: balanceConfig.startingReputation,
+    stadium: null,
+    roster: [],
+    powerups: { active: [], purchasedPermanentIds: [] },
+    league: null,
+    season: null,
     prestige: {
       legacyPoints: 0,
       totalLegacyEarned: 0,
@@ -68,16 +42,10 @@ function createInitialState() {
       // be silently overwritten by a later season's offseason summary.
       victoryAcknowledgedCount: 0,
     },
-    // Act progression. `act` is the only driver of what is unlocked — unlocks themselves are
-    // derived on read (engine/progression.js), never persisted. `seenTabs` / `storyBeatsSeen`
-    // are presentation state: which reveals the player has already been shown.
-    progression: {
-      act: 0,
-      actEnteredAtClock: 0,
-      milestones: {},
-      seenTabs: [],
-      storyBeatsSeen: [],
-    },
+    // Capped ring buffer of narrated simulation events, appended by engine/tickEngine.js
+    // via engine/feed.js, which enforces FEED_CAP on every write. Persisted with the rest of
+    // state so the feed survives a reload and can act as the offline-progress summary.
+    feed: [],
     hasWonLeagueThisRun: false,
   };
 }
