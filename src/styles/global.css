@@ -1,0 +1,288 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0d1f14;
+  color: #eef3ec;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.app-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 12px 16px 48px;
+}
+
+/* Header */
+.header-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  background: #143620;
+  border: 1px solid #23522f;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  position: sticky;
+  top: 8px;
+  z-index: 10;
+}
+
+.header-stats .title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-right: auto;
+  color: #f4d35e;
+}
+
+.stat-chip {
+  background: #0d1f14;
+  border: 1px solid #23522f;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.stat-chip .label {
+  color: #9fc6a9;
+  margin-right: 4px;
+}
+
+/* Tabs */
+.tab-nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tab-nav button {
+  background: #143620;
+  border: 1px solid #23522f;
+  color: #cfe4d4;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.tab-nav button.active {
+  background: #f4d35e;
+  border-color: #f4d35e;
+  color: #14210f;
+}
+
+.tab-nav button.attention {
+  box-shadow: 0 0 0 2px #e07a5f;
+}
+
+/* Cards / panels */
+.panel {
+  background: #143620;
+  border: 1px solid #23522f;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.panel h2 {
+  margin-top: 0;
+  color: #f4d35e;
+  font-size: 1.1rem;
+}
+
+.panel h3 {
+  color: #cfe4d4;
+  font-size: 0.95rem;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.card {
+  background: #0d1f14;
+  border: 1px solid #23522f;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+/* Stat bars */
+.stat-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  margin: 3px 0;
+}
+
+.stat-bar-row .stat-label {
+  width: 46px;
+  color: #9fc6a9;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
+
+.stat-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #0a170f;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6ab04c, #f4d35e);
+}
+
+.stat-bar-value {
+  width: 24px;
+  text-align: right;
+  font-size: 0.72rem;
+  color: #eef3ec;
+}
+
+/* Buttons */
+.btn {
+  background: #6ab04c;
+  border: none;
+  color: #0d1f14;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+}
+
+.btn.secondary {
+  background: #23522f;
+  color: #eef3ec;
+}
+
+.btn.danger {
+  background: #e07a5f;
+  color: #14210f;
+}
+
+/* Field view */
+.field-view {
+  display: flex;
+  justify-content: center;
+}
+
+.field-svg {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+}
+
+.player-icon-label {
+  font-size: 3px;
+  fill: #eef3ec;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: #0d1f14;
+  stroke-width: 0.5px;
+}
+
+.player-icon-pos {
+  font-size: 3.6px;
+  fill: #14210f;
+  text-anchor: middle;
+  font-weight: 700;
+}
+
+/* Tables */
+table.standings {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+table.standings th, table.standings td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid #23522f;
+}
+
+table.standings tr.me {
+  background: rgba(244, 211, 94, 0.12);
+  font-weight: 700;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.modal-box {
+  background: #143620;
+  border: 1px solid #f4d35e;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* Bracket */
+.bracket {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+}
+
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 16px;
+  min-width: 160px;
+}
+
+.bracket-match {
+  background: #0d1f14;
+  border: 1px solid #23522f;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 0.8rem;
+}
+
+.bracket-match .winner {
+  color: #f4d35e;
+  font-weight: 700;
+}
+
+.muted {
+  color: #9fc6a9;
+  font-size: 0.8rem;
+}
