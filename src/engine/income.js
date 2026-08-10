@@ -32,6 +32,6 @@ function totalIncomePerSecond(state, modifiers) {
   };
 }
 
-// collectorsPerSecond is exported for display: components/lot/LotPanel.js shows the
-// lot's caps rate and must read the same contributor the tick loop integrates.
+// collectorsPerSecond is exported for display: Act I's panel shows the caps rate
+// on its own, rather than re-deriving it from the whole bundle.
 module.exports = { totalIncomePerSecond, collectorsPerSecond };
