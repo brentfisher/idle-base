@@ -32,4 +32,6 @@ function totalIncomePerSecond(state, modifiers) {
   };
 }
 
-module.exports = { totalIncomePerSecond };
+// collectorsPerSecond is exported for display: Act I's panel shows the caps rate
+// on its own, rather than re-deriving it from the whole bundle.
+module.exports = { totalIncomePerSecond, collectorsPerSecond };

@@ -4,7 +4,7 @@ const { computeModifiers } = require('../../engine/modifiers');
 const { totalIncomePerSecond } = require('../../engine/income');
 const { getUnlockedFeatures } = require('../../engine/progression');
 const { findNextEventClock } = require('../../engine/tickEngine');
-const { formatNumber, formatDuration } = require('../../utils/formatNumber');
+const { formatNumber, formatCash, formatDuration } = require('../../utils/formatNumber');
 const { getEraConfig } = require('../../data/eras');
 
 // Ordered cheapest-first: the last unlocked entry is the act's own currency.
