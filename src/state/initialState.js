@@ -17,6 +17,10 @@ function createInitialState() {
   return {
     clock: 0,
     meta: { version: 1, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
+    // Capped ring buffer of narrated events, oldest-first. Written only by engine/tickEngine.js
+    // via engine/feed.js, which enforces FEED_CAP on every write. Persisted with the rest of
+    // state so the feed survives a reload and can act as the offline-progress summary.
+    feed: [],
     cash: balanceConfig.startingCash,
     reputation: balanceConfig.startingReputation,
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },

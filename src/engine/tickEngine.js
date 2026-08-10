@@ -16,6 +16,19 @@ const { generateBracket, resolveCurrentRound } = require('./playoffs');
 const { generateTradeCandidates } = require('./tradeDeadline');
 const { processCampCompletions } = require('./trainingCamp');
 const { checkRetirements } = require('./retirement');
+const { createFeedEntry, appendFeedEntries } = require('./feed');
+const {
+  feedMessages,
+  powerupDisplayName,
+  campProgramDisplayName,
+  playoffRoundLabel,
+} = require('../data/feedMessages');
+
+function teamDisplayName(working, teamId) {
+  if (teamId === PLAYER_TEAM_ID) return 'home side';
+  const team = working.league.teams.find((t) => t.id === teamId);
+  return team ? team.name : 'unknown club';
+}
 
 function getTeamStrength(working, modifiers, teamId) {
   if (teamId === PLAYER_TEAM_ID) return teamStrength(working.roster, modifiers);
@@ -38,7 +51,11 @@ function expirePowerups(working) {
   const before = working.powerups.active;
   const active = before.filter((p) => p.expiresAtClock == null || p.expiresAtClock > working.clock);
   if (active.length === before.length) return working;
-  return { ...working, powerups: { ...working.powerups, active } };
+  const expired = before.filter((p) => !active.includes(p));
+  return appendFeedEntries(
+    { ...working, powerups: { ...working.powerups, active } },
+    expired.map((p) => createFeedEntry(working.clock, 'powerup', feedMessages.powerupExpired(powerupDisplayName(p.id))))
+  );
 }
 
 function updatePeakRating(working) {
@@ -114,6 +131,20 @@ function resolveGameSlot(working, modifiers) {
     nextGameAtClock: working.clock + working.season.secondsPerGame,
   };
 
+  const entries = [
+    createFeedEntry(
+      working.clock,
+      'game',
+      feedMessages.gameResult(
+        teamDisplayName(working, slot.opponentTeamId),
+        slot.isHome,
+        result.aWins,
+        result.scoreA,
+        result.scoreB
+      )
+    ),
+  ];
+
   if (scheduleIndex >= season.gamesPerSeason) {
     const sorted = sortStandings(standings);
     const top = sorted.slice(0, balanceConfig.playoffTeams).map((r) => r.teamId);
@@ -126,16 +157,49 @@ function resolveGameSlot(working, modifiers) {
     } else {
       season.phase = 'offseason';
     }
+    entries.push(
+      createFeedEntry(
+        working.clock,
+        'season',
+        feedMessages.regularSeasonComplete(season.seasonNumber, season.phase === 'playoffs')
+      )
+    );
   }
 
-  return { ...working, season };
+  return appendFeedEntries({ ...working, season }, entries);
 }
 
 function resolvePlayoffRound(working, modifiers) {
+  const playedRoundIndex = working.season.playoffs.currentRoundIndex;
   const resolved = resolveCurrentRound(working.season.playoffs, (teamId) => getTeamStrength(working, modifiers, teamId));
   let season = { ...working.season, playoffs: { ...working.season.playoffs, ...resolved } };
   let prestige = working.prestige;
   let hasWonLeagueThisRun = working.hasWonLeagueThisRun;
+
+  const roundLabel = playoffRoundLabel(playedRoundIndex, resolved.rounds.length);
+  // The bracket keeps resolving after the player is eliminated, so a player match may not exist.
+  const playerMatch = resolved.rounds[playedRoundIndex].find(
+    (m) => m.teamA === PLAYER_TEAM_ID || m.teamB === PLAYER_TEAM_ID
+  );
+  const entries = [];
+  if (playerMatch) {
+    const playerIsA = playerMatch.teamA === PLAYER_TEAM_ID;
+    entries.push(
+      createFeedEntry(
+        working.clock,
+        'playoffs',
+        feedMessages.playoffGameResult(
+          roundLabel,
+          teamDisplayName(working, playerIsA ? playerMatch.teamB : playerMatch.teamA),
+          playerMatch.winner === PLAYER_TEAM_ID,
+          playerIsA ? playerMatch.scoreA : playerMatch.scoreB,
+          playerIsA ? playerMatch.scoreB : playerMatch.scoreA
+        )
+      )
+    );
+  } else {
+    entries.push(createFeedEntry(working.clock, 'playoffs', feedMessages.playoffRoundElsewhere(roundLabel)));
+  }
 
   if (resolved.champion) {
     season.phase = 'offseason';
@@ -145,12 +209,23 @@ function resolvePlayoffRound(working, modifiers) {
         runStats: { ...prestige.runStats, championships: prestige.runStats.championships + 1 },
       };
       hasWonLeagueThisRun = true;
+      entries.push(
+        createFeedEntry(working.clock, 'championship', feedMessages.championshipWon(season.seasonNumber))
+      );
+    } else {
+      entries.push(
+        createFeedEntry(
+          working.clock,
+          'championship',
+          feedMessages.championshipLost(teamDisplayName(working, resolved.champion))
+        )
+      );
     }
   } else {
     season.playoffs.nextRoundAtClock = working.clock + balanceConfig.secondsPerPlayoffRound;
   }
 
-  return { ...working, season, prestige, hasWonLeagueThisRun };
+  return appendFeedEntries({ ...working, season, prestige, hasWonLeagueThisRun }, entries);
 }
 
 function runOffseasonTransition(working, modifiers) {
@@ -182,7 +257,22 @@ function runOffseasonTransition(working, modifiers) {
     rookies: rookies.map((r) => ({ id: r.id, name: r.name, position: r.position })),
   };
 
-  return {
+  const entries = [];
+  retired.forEach((p) => {
+    entries.push(createFeedEntry(working.clock, 'roster', feedMessages.playerRetired(p.name, p.position)));
+  });
+  rookies.forEach((p) => {
+    entries.push(createFeedEntry(working.clock, 'roster', feedMessages.rookieSigned(p.name, p.position)));
+  });
+  entries.push(
+    createFeedEntry(
+      working.clock,
+      'season',
+      feedMessages.seasonRollover(summary.seasonNumber, summary.wins, summary.losses)
+    )
+  );
+
+  return appendFeedEntries({
     ...working,
     roster,
     league: { teams: leagueTeams },
@@ -200,7 +290,7 @@ function runOffseasonTransition(working, modifiers) {
       offseasonSummaryPending: true,
       lastOffseasonSummary: summary,
     },
-  };
+  }, entries);
 }
 
 // The single place simulation happens. Called identically by the live 1s timer and by
@@ -224,7 +314,22 @@ function advance(state, deltaSeconds) {
     remaining -= step;
 
     working = expirePowerups(working);
+    const completingCamps = working.roster.filter(
+      (p) => p.campStatus && p.campStatus.completesAtClock <= working.clock
+    );
     working = { ...working, roster: processCampCompletions(working.roster, working.clock) };
+    if (completingCamps.length > 0) {
+      working = appendFeedEntries(
+        working,
+        completingCamps.map((p) =>
+          createFeedEntry(
+            working.clock,
+            'camp',
+            feedMessages.campCompleted(p.name, campProgramDisplayName(p.campStatus.programId))
+          )
+        )
+      );
+    }
 
     if (working.season.phase === 'regular' && working.clock >= working.season.nextGameAtClock) {
       working = resolveGameSlot(working, modifiers);
