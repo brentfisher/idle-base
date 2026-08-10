@@ -1,4 +1,5 @@
 const { ACTS, FINAL_ACT_INDEX, getActConfig } = require('../data/acts');
+const { STARTER_KIT_ITEMS } = require('../data/actOneConfig');
 
 // Which features are unlocked is DERIVED from the act index on every read and is never stored.
 // That makes it self-healing: retuning which act unlocks a feature takes effect immediately on
@@ -19,7 +20,14 @@ function getUnlockedFeatures(actIndex) {
 // An act's story registers its real predicate under the `exit.id` its act declares; until then
 // the default below reads a boolean of the same name out of `progression.milestones`, which is
 // where intra-act triggers are stored anyway. Predicates must be pure reads of `state`.
-const EXIT_PREDICATES = {};
+// Each act's implementing story registers its exit predicate here. acts.js only NAMES the
+// condition (Decision 3); the engine owns how it is evaluated. Anything unregistered falls
+// back to progression.milestones[id] in isExitSatisfied().
+const EXIT_PREDICATES = {
+  // Act I: derived from what the player actually owns rather than a stored milestone, so it
+  // cannot drift from the inventory that produced it.
+  starterKitOwned: (state) => !!state.lot && state.lot.starterKit.length >= STARTER_KIT_ITEMS.length,
+};
 
 function isExitSatisfied(state, act) {
   if (!act.exit) return false;

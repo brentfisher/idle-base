@@ -4,6 +4,9 @@ const rosterActions = require('./actions/rosterActions');
 const seasonActions = require('./actions/seasonActions');
 const prestigeActions = require('./actions/prestigeActions');
 const progressionActions = require('./actions/progressionActions');
+const clickerActions = require('./actions/clickerActions');
+const lotActions = require('./actions/lotActions');
+const narrativeActions = require('./actions/narrativeActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -14,6 +17,13 @@ function gameReducer(state, action) {
       return seasonActions.applyOfflineProgressAction(state, action);
     case actionTypes.DISMISS_OFFSEASON_SUMMARY:
       return seasonActions.dismissOffseasonSummary(state);
+
+    case actionTypes.SEARCH_LOT:
+      return clickerActions.searchLot(state, action);
+    case actionTypes.BUY_LOT_ITEM:
+      return lotActions.buyLotItem(state, action);
+    case actionTypes.DISMISS_STORY_BEAT:
+      return narrativeActions.dismissStoryBeat(state, action);
 
     case actionTypes.SET_TICKET_PRICE:
       return economyActions.setTicketPrice(state, action);

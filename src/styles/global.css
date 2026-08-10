@@ -454,3 +454,167 @@ table.standings tr.me {
   color: #f4d35e;
   font-weight: 700;
 }
+
+/* Act I — The Vacant Lot */
+.lot-panel {
+  max-width: 560px;
+  margin: 0 auto;
+  padding-top: 8vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.lot-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.lot-act {
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9fc6a9;
+  margin-bottom: 6px;
+}
+
+.lot-caps {
+  font-size: 3.2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #f4d35e;
+  font-variant-numeric: tabular-nums;
+}
+
+.lot-caps-label {
+  font-size: 0.85rem;
+  color: #9fc6a9;
+}
+
+.lot-rate {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: #7fd497;
+}
+
+.lot-click-button {
+  width: 100%;
+  max-width: 320px;
+  padding: 26px 20px;
+  background: #1c5030;
+  color: #eef3ec;
+  border: 2px solid #f4d35e;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.06s ease, background 0.12s ease;
+}
+
+.lot-click-button:hover {
+  background: #22623a;
+}
+
+.lot-click-button:active {
+  transform: scale(0.97);
+}
+
+.lot-click-label {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f4d35e;
+}
+
+.lot-click-value {
+  font-size: 0.85rem;
+  color: #9fc6a9;
+}
+
+.lot-shop {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.lot-offer {
+  text-align: left;
+  background: #143620;
+  border: 1px solid #23522f;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #eef3ec;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lot-offer:hover:not(:disabled) {
+  border-color: #f4d35e;
+}
+
+.lot-offer.owned {
+  opacity: 0.55;
+}
+
+.lot-offer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.lot-offer-name {
+  font-weight: 700;
+}
+
+.lot-offer-cost {
+  font-size: 0.8rem;
+  color: #f4d35e;
+  white-space: nowrap;
+}
+
+.lot-offer-desc {
+  font-size: 0.78rem;
+  color: #9fc6a9;
+}
+
+.lot-offer-effect {
+  font-size: 0.78rem;
+  color: #7fd497;
+}
+
+.lot-objective {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #9fc6a9;
+  text-align: center;
+}
+
+/* Narrative layer */
+.story-card p {
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.story-objective {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: #0d1f14;
+  border-left: 3px solid #f4d35e;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.story-objective .label {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f4d35e;
+}

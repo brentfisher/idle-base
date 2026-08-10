@@ -17,6 +17,11 @@ function createInitialState() {
     clock: 0,
     meta: { version: 2, createdAt: now, lastSaveTimestamp: now, lastTickTimestamp: now },
     wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash },
+    // Act I state: the manual click, its owned automation, and what has been bought
+    // out of the lot. `income.collectors` is what engine/income.js sums into caps.
+    clicker: { totalClicks: 0, perClick: 1 },
+    income: { collectors: [], sponsorships: [] },
+    lot: { clickUpgrades: [], starterKit: [] },
     progression: {
       act: 0,
       actEnteredAtClock: 0,

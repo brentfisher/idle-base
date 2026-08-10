@@ -1,4 +1,14 @@
+const { getCollectorTier } = require('../data/collectorTiers');
 const { revenuePerSecond } = require('./economy');
+
+// Act I: each owned collector tier contributes its authored caps/second.
+function collectorsPerSecond(state) {
+  const collectors = (state.income && state.income.collectors) || [];
+  return collectors.reduce((sum, entry) => {
+    const tier = getCollectorTier(entry.tierId);
+    return tier ? sum + tier.capsPerSecond * entry.count : sum;
+  }, 0);
+}
 
 // Per-currency income rates. STORY-003 owns this file and adds the early-act
 // contributors (collectors, wall-ball dues, concessions, sponsorships); only the
@@ -16,7 +26,7 @@ function ticketingPerSecond(state, modifiers) {
 
 function totalIncomePerSecond(state, modifiers) {
   return {
-    caps: 0,
+    caps: collectorsPerSecond(state),
     coins: 0,
     cash: ticketingPerSecond(state, modifiers),
   };

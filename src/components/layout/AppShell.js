@@ -15,6 +15,9 @@ const TrainingCampPanel = require('../trainingCamp/TrainingCampPanel');
 const TradeDeadlinePanel = require('../tradeDeadline/TradeDeadlinePanel');
 const PrestigePanel = require('../prestige/PrestigePanel');
 const Modal = require('../common/Modal');
+const LotPanel = require('../lot/LotPanel');
+const StoryCard = require('../narrative/StoryCard');
+const { getActIntroBeat } = require('../../data/storyBeats');
 
 // Tab id === feature id in an act's `unlocks` array (data/acts.js). This is the single point of
 // coupling between the tab bar and the act config: if the real acts name a feature differently,
@@ -35,12 +38,6 @@ function AppShell() {
   const { state, dispatch } = useGame();
   const [activeTab, setActiveTab] = React.useState('field');
   useGameTick();
-
-  // There is no season until Act III creates one, so every season-derived flag here reads as
-  // "absent", not "zero".
-  const tradeOpen = !!state.season && state.season.tradeWindows.some((w) => w.open);
-  const playoffsActive = !!state.season && state.season.phase === 'playoffs';
-  const summary = state.season ? state.season.lastOffseasonSummary : null;
 
   // Locked tabs are not rendered at all — no greyed-out teasers. The reveal is the reward.
   const act = state.progression.act;
@@ -63,6 +60,29 @@ function AppShell() {
     }
   }, [effectiveTab, seenTabs, dispatch]);
 
+  // Entering an act raises its story card once; dismissing records it in
+  // progression.storyBeatsSeen, so it never returns on reload.
+  const introBeat = getActIntroBeat(state.progression.act);
+  const pendingBeat = introBeat && !state.progression.storyBeatsSeen.includes(introBeat.id) ? introBeat : null;
+
+  // The franchise UI does not exist until the act that creates a season runs its initializer
+  // (design doc, Decision 2) — pre-season acts are the lot, and nothing else. This early return
+  // is also what stops the tab gate above from rendering an empty shell during Acts I-II, when
+  // no franchise feature is unlocked yet. Every hook must stay above it.
+  if (!state.season) {
+    return (
+      <div className="app-shell">
+        <LotPanel />
+        {pendingBeat && <StoryCard beat={pendingBeat} />}
+      </div>
+    );
+  }
+
+  // Past this point a season is guaranteed, so these read it directly.
+  const tradeOpen = state.season.tradeWindows.some((w) => w.open);
+  const playoffsActive = state.season.phase === 'playoffs';
+  const summary = state.season.lastOffseasonSummary;
+
   // Sticky on prestige.runStats.championships (not the transient per-season summary, which
   // a later season's offseason transition can overwrite during a long offline catch-up) so
   // a title win is never silently missed. Shown once per championship, ahead of the recap.
@@ -84,6 +104,8 @@ function AppShell() {
       {/* Rendered below the active panel rather than inside a tab: the feed is the only
           always-on signal that the simulation is running, so it must never be hidden. */}
       <EventFeed />
+
+      {pendingBeat && <StoryCard beat={pendingBeat} />}
 
       {showVictory && (
         <Modal
