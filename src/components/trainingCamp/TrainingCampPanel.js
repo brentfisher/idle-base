@@ -51,7 +51,7 @@ function TrainingCampPanel() {
                 <div className="muted">{formatDuration(program.durationSeconds)}</div>
                 <button
                   className="btn"
-                  disabled={!selectedPlayer || state.cash < program.cost}
+                  disabled={!selectedPlayer || state.wallet.cash < program.cost}
                   onClick={() =>
                     dispatch({ type: actionTypes.START_CAMP, playerId: selectedPlayerId, programId: program.id })
                   }

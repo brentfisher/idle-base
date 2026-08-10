@@ -8,7 +8,7 @@ function calculateLegacyPoints(state) {
   return Math.floor(championships * 50 + peakOverallRating + totalRevenue / 100000);
 }
 
-// Resets the run (roster, cash, season, league) but keeps everything permanent:
+// Resets the run (roster, wallet, season, league) but keeps everything permanent:
 // legacyPoints, purchasedPerks, and the era counter (which is what makes the next
 // run feel different, per data/eras.js).
 function resetForPrestige(state) {
@@ -41,7 +41,8 @@ function resetForPrestige(state) {
 
   return {
     ...state,
-    cash: balanceConfig.startingCash,
+    // Prestige clears every currency, not just cash — mirrors the wallet in createInitialState().
+    wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash },
     reputation: balanceConfig.startingReputation,
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
     roster: createStartingRoster(),
