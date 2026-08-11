@@ -10,6 +10,24 @@ const PowerupShop = require('./PowerupShop');
 function TicketingPanel() {
   const { state, dispatch } = useGame();
   const modifiers = computeModifiers(state);
+
+  // Act V unlocks this tab; the initializer that creates `state.stadium` is Act V's own story
+  // and does not exist yet. Until Act IV's exit was registered nobody could reach Act V at
+  // all, so every line below dereferenced a stadium that was always there. Now a player can
+  // finish Act IV, land here, click Ticketing and white-screen. engine/income.js already
+  // treats an absent stadium as "no revenue" rather than as zero; this is the same reading.
+  if (!state.stadium) {
+    return (
+      <div className="panel">
+        <h2>Ticketing</h2>
+        <p className="muted">
+          Nobody sells tickets to a travel-ball game. There is no gate, no turnstile and no
+          stadium — just whoever pulled over to watch.
+        </p>
+      </div>
+    );
+  }
+
   const upgradeCost = stadiumUpgradeCost(state.stadium.level, modifiers);
   const capacityGain = stadiumCapacityGain(state.stadium.level);
 
