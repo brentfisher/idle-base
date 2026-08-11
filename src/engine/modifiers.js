@@ -55,6 +55,23 @@ function actRules(state) {
   return (act && act.rules) || {};
 }
 
+// The additive bonuses the current act declares — the second of the two axes data/acts.js
+// documents, and the one that was never wired up. `resolveRules()` below has always layered
+// `act.rules`, but `act.modifierBonuses` was read by nothing, so an act declaring one got no
+// effect and no error: Act IV asked for 0.6-quality rookies and was handed full-strength
+// adults, which is a thirteen-year-old with a 94 stat block and a free strength boost every
+// time somebody ages out.
+//
+// Acts I-III, V and VI declare `{}`, so wiring this changes Act IV and nothing else.
+function actModifierBonuses(state) {
+  const progression = state && state.progression;
+  if (!progression || progression.act == null) return {};
+  const acts = getActsModule();
+  if (!acts || typeof acts.getActConfig !== 'function') return {};
+  const act = acts.getActConfig(progression.act);
+  return (act && act.modifierBonuses) || {};
+}
+
 // Rules the current era declares. Era 0's is `{}`, which is why today's resolved values are
 // identical to balanceConfig.
 function eraRules(state) {
@@ -113,6 +130,14 @@ function computeModifiers(state) {
   const rules = resolveRules(state);
 
   bonuses.strengthMult += reputationBonus(state, rules);
+
+  // Composition order is the one data/acts.js states: act <- era <- perks <- powerups, acts
+  // being the most general layer. Additive, so an act and an era both declaring a key sum
+  // rather than one silently winning — which is the difference between this axis and `rules`,
+  // where the later layer replaces the earlier one outright.
+  Object.entries(actModifierBonuses(state)).forEach(([key, value]) => {
+    if (key in bonuses) bonuses[key] += value;
+  });
 
   Object.entries(era.modifierBonuses || {}).forEach(([key, value]) => {
     if (key in bonuses) bonuses[key] += value;

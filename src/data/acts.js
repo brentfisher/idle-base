@@ -126,23 +126,38 @@ const ACTS = [
       // little leaguers the player actually promoted, at whatever reputation their Act III
       // shopping left them: entry strength averages ~34.5), played to the exit. Seasons to
       // exit, and the simulated minutes they take:
-      //                 buys nothing      stat upgrades only      + the sponsor board
-      //   [30, 48]      9.9 / 98.7 min    2.1 / 21.0 min          2.0 / 20.0 min
-      //   [36, 54]     11.6 / 116.3 min   2.4 / 23.7 min          2.1 / 20.7 min
-      //   [42, 60]     13.0 / 130.3 min   3.2 / 32.0 min          2.2 / 22.0 min
-      // No run at any band failed to finish.
+      //                 buys nothing        stat upgrades only    + the sponsor board
+      //   [30, 48]      7.6 / 75.8 min      2.0 / 20.0 min        2.0 / 20.0 min
+      //   [36, 54]     11.2 / 112.0 min     2.3 / 22.8 min        2.0 / 20.4 min
+      //   [42, 60]      9.0 / 90.0 min      3.1 / 31.2 min        2.3 / 23.2 min
+      //
+      // Every run that spent anything finished, at every band. The "buys nothing" column did
+      // not: 4% of its runs failed to finish at [30, 48] and 96% at [42, 60], and that is the
+      // one number here that is a deliberate choice rather than an observation.
+      //
+      // A fifteen-game season judged over a rolling two-season window is 30 games, and 30
+      // games is too many for luck to rescue a team that never improves — where Act III's
+      // six-game season could be stolen by variance. So a player who buys literally nothing
+      // does stall. That is acceptable because it is not a dead end: the click is a cash
+      // faucet in this act (132 a press fully upgraded), the cheapest stat upgrade is ~300,
+      // and the "stat upgrades only" column above is what a player who spends that gets —
+      // 100% finished, every band, no exceptions. Nothing is ever lost, and the way out is
+      // always one purchase away. What is gone is finishing the act by waiting.
       //
       // [42, 60] is chosen on the same rule Act III's band was: it is where the shop is the
       // difference. At [30, 48] the act is over before the economy can matter — sponsors buy
       // nothing the stat-upgrade sink was not already going to buy — and the player wins their
       // first travel season, which is the wrong story for an act about being nobody in a
       // bigger league. At [42, 60] the first season is genuinely contested (8-7, 6-9, 5-10 in
-      // sampled runs), the sponsor board is a 31% speedup, and the disengaged path lands at 32
-      // minutes, in the middle of the PRD's 25-35 minute budget.
+      // sampled runs), the sponsor board is a 26% speedup, and the roster-only path lands at
+      // 31 minutes, in the middle of the PRD's 25-35 minute budget.
       //
-      // The "buys nothing" column is a strawman kept as a floor, not a target: it is a player
-      // who never spends the cash Act III's stands are still producing. It is finite at every
-      // band, which is the property that column exists to prove.
+      // RE-MEASURED once act `modifierBonuses` were actually wired into computeModifiers (see
+      // engine/modifiers.js). Until then the rookieQualityMult below was dead config and every
+      // replacement arrived at full adult quality, which handed a stalled player a free
+      // upgrade every offseason. The engaged columns barely moved — 3.2 seasons became 3.1 —
+      // because a team that is already spending does not need the charity. The "buys nothing"
+      // column is where it all was.
       aiTeamStrengthRange: [42, 60],
       // Retirement unlocks in THIS act, so this act is where it has to mean something. At
       // balanceConfig's [8, 14] nobody would age out inside a 2-4 season act and the unlock
