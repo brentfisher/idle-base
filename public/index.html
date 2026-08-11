@@ -2,7 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover so the page paints under the notch/home indicator rather
+         than letterboxing itself in white on a modern iPhone. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Colours the browser chrome to match the field, so the top of the screen does
+         not read as a white bar above a dark page. -->
+    <meta name="theme-color" content="#0d1f14" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="An idle baseball odyssey: a vacant lot, a brick wall, a Little League season, and everything after."
+    />
+    <!-- Added to the home screen, this opens without browser chrome. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Idle Base" />
     <title>Idle Base — Baseball Franchise Tycoon</title>
   </head>
   <body>

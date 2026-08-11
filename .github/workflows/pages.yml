@@ -1,0 +1,58 @@
+# Builds the game and publishes it to GitHub Pages.
+#
+# The build output is NOT committed — `dist/` stays in .gitignore and this workflow
+# produces it fresh, so what is served is always what the source on this branch
+# builds. `output.publicPath` is unset in webpack.config.js, which defaults to
+# 'auto' and emits a relative `<script src="bundle.js">`, so the bundle resolves
+# correctly under the /<repo>/ subpath Pages serves from.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  # Lets a deploy be run by hand from any branch — useful for previewing a story
+  # branch before it merges. The github-pages environment may restrict which
+  # branches are allowed to deploy; see the repository's environment settings.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race. In-progress runs are allowed to finish rather than
+# being cancelled, so a half-uploaded artifact is never what gets published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `npm ci` needs a lockfile in sync with package.json; this repo has one.
+      - run: npm ci
+
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
