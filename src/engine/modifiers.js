@@ -98,9 +98,21 @@ function zeroBonuses() {
 
 // Composition order: balanceConfig defaults (implicit 0) <- era <- perks <- active powerups.
 // Returns ready-to-multiply factors, e.g. modifiers.revenueMult === 1.08 means "+8%".
+// Reputation as a strength bonus, measured from the starting value so a fresh run is exactly
+// neutral. Floored at zero: reputation never falls today, and a negative here would quietly
+// turn a setback into a spiral. This is the one bonus sourced from live state rather than from
+// a config layer, which is why it is added explicitly rather than through modifierBonuses.
+function reputationBonus(state, rules) {
+  const reputation = typeof state.reputation === 'number' ? state.reputation : rules.startingReputation;
+  return Math.max(0, (reputation - rules.startingReputation) * rules.reputationStrengthPerPoint);
+}
+
 function computeModifiers(state) {
   const era = getEraConfig(state.prestige.era);
   const bonuses = zeroBonuses();
+  const rules = resolveRules(state);
+
+  bonuses.strengthMult += reputationBonus(state, rules);
 
   Object.entries(era.modifierBonuses || {}).forEach(([key, value]) => {
     if (key in bonuses) bonuses[key] += value;
@@ -123,7 +135,7 @@ function computeModifiers(state) {
   modifiers.era = era;
   // Carried on the modifiers bundle so every consumer that already receives `modifiers` reads
   // resolved rules without a signature change. Call resolveRules(state) directly elsewhere.
-  modifiers.rules = resolveRules(state);
+  modifiers.rules = rules;
   return modifiers;
 }
 

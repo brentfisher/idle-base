@@ -9,10 +9,12 @@ function ratingColor(rating) {
   return '#a44a4a';
 }
 
-function PlayerIcon({ x, y, position, player }) {
+// `active` marks the fielder the ball is hit toward during a replay; the transform is
+// animated in CSS so the shift reads as a player breaking on the ball, not a teleport.
+function PlayerIcon({ x, y, position, player, active }) {
   const rating = player ? Math.round(playerOverall(player)) : 0;
   return (
-    <g transform={`translate(${x}, ${y})`}>
+    <g className={`player-icon${active ? ' active' : ''}`} transform={`translate(${x}, ${y})`}>
       <circle r="5" fill={ratingColor(rating)} stroke="#0d1f14" strokeWidth="0.6" />
       <text className="player-icon-pos" y="1.3">
         {position}

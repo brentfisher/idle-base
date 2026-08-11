@@ -19,6 +19,11 @@ module.exports = {
 
   startingCash: 500,
   startingReputation: 20,
+  // What one point of reputation above startingReputation is worth as a team-strength bonus.
+  // Reputation used to feed attendanceFraction() and nothing else, which is gated on a stadium
+  // and so did literally nothing before Act V — including the +30 a full Act II crew banks.
+  // 0.004 makes that banked 30 worth +12% strength, and Act III's boosters worth ~+22% more.
+  reputationStrengthPerPoint: 0.004,
   startingCapacity: 5000,
   startingTicketPrice: 10,
 

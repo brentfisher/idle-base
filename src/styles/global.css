@@ -871,3 +871,151 @@ table.standings tr.me {
   color: #7fd497;
   text-transform: capitalize;
 }
+
+/* ---------------------------------------------------------------------------
+   Act III — concessions shop, the always-on hustle bar, and the game replay
+   --------------------------------------------------------------------------- */
+
+/* The manual click, rendered outside the tab switch so no panel can hide it. Sticky to the
+   bottom because it is the one control that must always be reachable (PRD 6.4). */
+.hustle-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 0.75rem;
+  margin-top: 0.75rem;
+  background: linear-gradient(to top, rgba(13, 31, 20, 0.96) 55%, rgba(13, 31, 20, 0));
+}
+.hustle-bar .lot-click-button {
+  max-width: 22rem;
+  width: 100%;
+}
+
+.cx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.cx-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #2f5a3d;
+  border-radius: 0.5rem;
+  background: #16301f;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.cx-offer:hover:not(:disabled) {
+  border-color: #6ab04c;
+  transform: translateY(-1px);
+}
+.cx-offer:disabled {
+  cursor: default;
+}
+.cx-offer.locked {
+  opacity: 0.55;
+}
+.cx-offer.owned {
+  opacity: 0.7;
+  border-style: dashed;
+}
+.cx-offer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.cx-offer-name {
+  font-weight: 600;
+}
+.cx-offer-count {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+.cx-offer-desc {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  line-height: 1.35;
+}
+.cx-offer-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+}
+.cx-offer-effect {
+  color: #8fd67a;
+}
+.cx-offer-cost {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+/* Replay. Everything here is presentational — engine/gameReplay.js builds the beats from a
+   result the simulation already decided, and nothing waits on these transitions. */
+.field-view {
+  position: relative;
+}
+.player-icon {
+  transition: transform 400ms cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+.player-icon.active circle {
+  stroke: #f4d35e;
+  stroke-width: 1.1;
+}
+.replay-ball {
+  fill: #fdfdf5;
+  stroke: #2a2a20;
+  stroke-width: 0.4;
+  transition: cx 380ms cubic-bezier(0.2, 0.8, 0.3, 1), cy 380ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.replay-ball.hit {
+  fill: #f4d35e;
+}
+.replay-runner {
+  fill: #e8f3ea;
+  opacity: 0.9;
+  transition: cx 420ms ease, cy 420ms ease;
+}
+.replay-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.7rem;
+  background: linear-gradient(to top, rgba(8, 20, 12, 0.92), rgba(8, 20, 12, 0));
+  pointer-events: none;
+}
+.replay-half {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+.replay-text {
+  font-size: 0.9rem;
+}
+.replay-overlay.done .replay-text {
+  font-weight: 600;
+  color: #f4d35e;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-icon,
+  .replay-ball,
+  .replay-runner {
+    transition: none;
+  }
+}

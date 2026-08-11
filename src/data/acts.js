@@ -63,14 +63,28 @@ const ACTS = [
       gamesPerSeason: 6,
       secondsPerGame: 25,
       playoffTeams: 0,
-      // Tuned by simulation, not by feel (40 sampled runs per candidate band):
-      //   [20, 30] -> 54% win rate, first place in 33% of seasons, ~10.5 min to clear
-      //   [18, 28] -> 65% win rate, first place in 45% of seasons, ~6.8 min to clear
-      // The second is chosen because Act III gives the player almost no lever: a stat upgrade
-      // moves team strength by ~0.06 (statUpgradeAmount 2, weighted, averaged over 10 starters),
-      // so the extra four minutes are spent watching, not deciding. Winning about two thirds of
-      // games is also the right feeling for the act — the crew you earned should be good.
-      aiTeamStrengthRange: [18, 28],
+      // Tuned by simulation, not by feel, and re-tuned once reputation became a strength
+      // bonus and the shop gave the player something to spend on. 30 runs per band, measured
+      // both with and without buying the boosters:
+      //   [18, 28] -> 68% win, ~4.7 min ignoring the shop; 84% and ~3.3 min with boosters
+      //   [22, 32] -> 50% win, ~11.8 min ignoring the shop; 68% and ~4.7 min with boosters
+      //   [26, 36] -> 46% win, ~14.6 min ignoring the shop; 55% and ~9.2 min with boosters
+      // [22, 32] is chosen because it is the band where the shop is the difference: engaging
+      // with it is a 2.5x speedup, where at [18, 28] the act is over before the economy can
+      // matter and at [26, 36] buying everything still leaves a grind. The act should be
+      // winnable by playing and *fast* by building.
+      aiTeamStrengthRange: [22, 32],
+      // The manual click becomes the act's cash faucet. Ticketing is gated on a stadium that
+      // does not exist until Act V, so without this the only cash in Act III is the 500 the
+      // game started with — barely two stat upgrades, and then nothing, ever.
+      //
+      // At clicker.perClick 2 (Sharper Eyes bought) this is 16 cash a click, so the first
+      // booster is ~22 clicks. Clicking stays viable against the stands rather than being
+      // token: it is the floor that guarantees recovery, and Act III is short enough that a
+      // player who would rather click than wait should not be punished for it.
+      clickCurrency: 'cash',
+      clickLabel: 'Work the concession line',
+      clickMultiplier: 8,
     },
     modifierBonuses: {},
     unlocks: ['field', 'roster', 'league', 'statUpgrades', 'concessions', 'cardPacks'],

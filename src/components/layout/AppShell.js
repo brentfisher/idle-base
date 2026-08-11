@@ -17,6 +17,8 @@ const PrestigePanel = require('../prestige/PrestigePanel');
 const Modal = require('../common/Modal');
 const LotPanel = require('../lot/LotPanel');
 const WallBallPanel = require('../wallBall/WallBallPanel');
+const ConcessionsPanel = require('../concessions/ConcessionsPanel');
+const SearchLotButton = require('../lot/SearchLotButton');
 const StoryCard = require('../narrative/StoryCard');
 const { getActIntroBeat } = require('../../data/storyBeats');
 
@@ -27,6 +29,7 @@ const { getActIntroBeat } = require('../../data/storyBeats');
 const PANELS = {
   field: FieldView,
   roster: RosterPanel,
+  concessions: ConcessionsPanel,
   ticketing: TicketingPanel,
   league: StandingsPanel,
   playoffs: PlayoffBracket,
@@ -108,6 +111,13 @@ function AppShell() {
         playoffsActive={playoffsActive}
       />
       <ActivePanel />
+      {/* The manual click, in every act. It lived inside LotPanel, which only renders in the
+          pre-season branch above — so creating a season in Act III silently deleted the one
+          action that guarantees any state is recoverable (engine/clicker.js, PRD 6.4). It is
+          rendered here, outside the tab switch, so no tab can ever hide it again. */}
+      <div className="hustle-bar">
+        <SearchLotButton />
+      </div>
       {/* Rendered below the active panel rather than inside a tab: the feed is the only
           always-on signal that the simulation is running, so it must never be hidden. */}
       <EventFeed />

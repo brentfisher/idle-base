@@ -6,6 +6,7 @@ const React = require('react');
 const TABS = [
   { id: 'field', label: 'Field' },
   { id: 'roster', label: 'Roster' },
+  { id: 'concessions', label: 'Concessions' },
   { id: 'ticketing', label: 'Ticketing' },
   { id: 'league', label: 'League' },
   { id: 'playoffs', label: 'Playoffs' },
