@@ -1,6 +1,7 @@
 const { getCollectorTier } = require('../data/collectorTiers');
 const { revenuePerSecond } = require('./economy');
-const { CREW_DUES_PER_SECOND } = require('../data/wallBallConfig');
+const { CREW_DUES_PER_SECOND, RESPECT_CAPS_BONUS_PER_POINT } = require('../data/wallBallConfig');
+const { handsPerSecond } = require('./wallBallShop');
 const { concessionsPerSecond } = require('./concessions');
 
 // Act I: each owned collector tier contributes its authored caps/second.
@@ -33,9 +34,19 @@ function ticketingPerSecond(state, modifiers) {
   return revenuePerSecond(state, modifiers);
 }
 
+// Respect is worth something before it is worth anything on a field: it multiplies every caps
+// contributor. Applied here rather than as a BONUS_KEY in engine/modifiers.js because, like
+// reputation's strength bonus, it is sourced from live state rather than from a config layer —
+// modifierBonuses compose act/era/perk/powerup, and Respect is none of those.
+function respectCapsMultiplier(state) {
+  const respect = (state && state.wallBall && state.wallBall.respect) || 0;
+  return 1 + Math.max(0, respect) * RESPECT_CAPS_BONUS_PER_POINT;
+}
+
 function totalIncomePerSecond(state, modifiers) {
   return {
-    caps: collectorsPerSecond(state) + wallBallDuesPerSecond(state),
+    caps: (collectorsPerSecond(state) + wallBallDuesPerSecond(state) + handsPerSecond(state))
+      * respectCapsMultiplier(state),
     coins: 0,
     // Act III's stands are the only cash source before the stadium exists: ticketing is gated
     // on state.stadium, which Act V creates, so without concessions cash income in Act III is
@@ -46,4 +57,10 @@ function totalIncomePerSecond(state, modifiers) {
 
 // collectorsPerSecond is exported for display: Act I's panel shows the caps rate
 // on its own, rather than re-deriving it from the whole bundle.
-module.exports = { totalIncomePerSecond, collectorsPerSecond, wallBallDuesPerSecond, concessionsPerSecond };
+module.exports = {
+  totalIncomePerSecond,
+  collectorsPerSecond,
+  wallBallDuesPerSecond,
+  concessionsPerSecond,
+  respectCapsMultiplier,
+};

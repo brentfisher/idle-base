@@ -6,6 +6,7 @@ const { DEFAULT_APPROACH_ID } = require('../../data/wallBallConfig');
 const { formatNumber } = require('../../utils/formatNumber');
 const StakeSelector = require('./StakeSelector');
 const CrewList = require('./CrewList');
+const WallBallShop = require('./WallBallShop');
 
 // Act II's panel. It renders whatever engine/wallBall.js says the wall currently looks like
 // and decides nothing about odds, payouts or stake ceilings itself (the same contract
@@ -25,21 +26,48 @@ function WallBallPanel() {
   const approach = view.approaches.find((a) => a.id === approachId) || view.approaches[0];
   const coolingDown = view.cooldownRemaining > 0;
   const ready = view.canWager && !coolingDown;
+  const progress = view.crewProgress;
 
   return (
     <div className="wb-panel">
-      <div className="wb-scoreline">
-        <span className="wb-scoreline-item">
-          <strong>{view.wins}</strong>/{view.winsRequired} wins
-        </span>
-        <span className="wb-scoreline-item">
-          <strong>{view.respect}</strong> respect
-          {view.nextCrewAt ? <em> · next kid at {view.nextCrewAt}</em> : null}
-        </span>
-        <span className="wb-scoreline-item">
-          <strong>{view.crewSize}</strong>/{view.crewRequired} crew
-        </span>
+      {/* What the player is working toward RIGHT NOW is one more kid, so that is the bar.
+          Cumulative wins against the exit requirement used to sit here and read as a broken
+          progress bar ("7/5"), because the win half of the exit is satisfied long before the
+          crew half ever is. The record is a record; it is not progress. */}
+      <div className="wb-progress">
+        <div className="wb-progress-head">
+          <span className="wb-progress-label">
+            {progress.done ? 'The crew is yours' : `Next kid at ${progress.to} respect`}
+          </span>
+          <span className="wb-progress-count">
+            {view.crewSize}/{view.crewRequired} crew
+          </span>
+        </div>
+        <div className="wb-progress-track">
+          <div className="wb-progress-fill" style={{ width: `${Math.round(progress.fraction * 100)}%` }} />
+        </div>
+        <div className="wb-progress-foot">
+          <span>
+            {progress.done ? `${view.respect} respect` : `${progress.have}/${progress.need} respect toward them`}
+          </span>
+          <span className="wb-record">
+            {view.wins}W · {view.losses}L
+          </span>
+        </div>
       </div>
+
+      {view.capsMultiplier > 1 && (
+        <p className="wb-note">
+          Being known is worth something: caps come in {Math.round((view.capsMultiplier - 1) * 100)}% faster.
+        </p>
+      )}
+
+      {view.canAdvance && (
+        <p className="wb-advance">
+          You have the crew and the record. Win one more and you are done with this wall — Little
+          League signs up at the hardware store.
+        </p>
+      )}
 
       <div className="wb-challenger">
         <span className="wb-section-label">At the wall</span>
@@ -73,7 +101,11 @@ function WallBallPanel() {
         onClick={() => dispatch({ type: actionTypes.RESOLVE_WALL_BALL_CHALLENGE, stake, approachId })}
       >
         {coolingDown && <span className="wb-challenge-label">Next kid steps up in {Math.ceil(view.cooldownRemaining)}s</span>}
-        {!coolingDown && !view.canWager && <span className="wb-challenge-label">Nothing to wager — go hustle some caps</span>}
+        {!coolingDown && !view.canWager && (
+          <span className="wb-challenge-label">
+            Nobody plays for less than {view.minStake} caps — go hustle, or buy some help
+          </span>
+        )}
         {ready && (
           <>
             <span className="wb-challenge-label">Take the challenge</span>
@@ -103,6 +135,7 @@ function WallBallPanel() {
       )}
 
       <CrewList crew={state.crew || []} crewRequired={view.crewRequired} />
+      <WallBallShop />
     </div>
   );
 }

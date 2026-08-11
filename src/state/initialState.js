@@ -36,9 +36,12 @@ function createInitialState() {
       lastResult: null,
     },
     crew: [],
+    // Act II shop purchases (engine/wallBallShop.js). Present-and-empty: the hands are an
+    // income contributor summed every tick.
+    wallBallShop: { grit: [], hands: [] },
     // Act III state: what has been bought out of the concessions shop. Present-and-empty from
     // t=0 rather than null because engine/income.js sums the stands on every tick.
-    concessions: { stands: [], boosters: [] },
+    concessions: { stands: [], boosters: [], capsUpgrades: [] },
     progression: {
       act: 0,
       actEnteredAtClock: 0,

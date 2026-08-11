@@ -78,8 +78,38 @@ const BOOSTERS = [
   },
 ];
 
+// Bought with CAPS, not cash. Caps keep arriving in Act III (collectors, the crew's dues, the
+// Act II hands) and had nothing left to buy, so they piled up meaning nothing. These are the
+// sink — and `perClickBonus` raises clicker.perClick, which engine/clicker.js multiplies by the
+// act's clickMultiplier, so a caps purchase here makes Act III's cash click better. Spending
+// the old currency to improve the new one is the point.
+const CAPS_UPGRADES = [
+  {
+    id: 'battingGloves',
+    name: 'Batting Gloves',
+    description: 'One size too big, but they were on the clearance peg and they are yours.',
+    cost: 250,
+    perClickBonus: 2,
+  },
+  {
+    id: 'cleats',
+    name: 'Hand-Me-Down Cleats',
+    description: 'Three sizes of foot have been in these. Two of them were faster than you.',
+    cost: 900,
+    perClickBonus: 3,
+  },
+  {
+    id: 'scorebook',
+    name: 'A Real Scorebook',
+    description: 'You keep every game in pencil. Coach starts asking you what the numbers say.',
+    cost: 2600,
+    perClickBonus: 5,
+  },
+];
+
 const KIND_STAND = 'stand';
 const KIND_BOOSTER = 'booster';
+const KIND_CAPS_UPGRADE = 'capsUpgrade';
 
 function getStand(standId) {
   return CONCESSION_STANDS.find((s) => s.id === standId) || null;
@@ -89,4 +119,18 @@ function getBooster(boosterId) {
   return BOOSTERS.find((b) => b.id === boosterId) || null;
 }
 
-module.exports = { CONCESSION_STANDS, BOOSTERS, KIND_STAND, KIND_BOOSTER, getStand, getBooster };
+function getCapsUpgrade(id) {
+  return CAPS_UPGRADES.find((u) => u.id === id) || null;
+}
+
+module.exports = {
+  CONCESSION_STANDS,
+  BOOSTERS,
+  CAPS_UPGRADES,
+  KIND_STAND,
+  KIND_BOOSTER,
+  KIND_CAPS_UPGRADE,
+  getStand,
+  getBooster,
+  getCapsUpgrade,
+};

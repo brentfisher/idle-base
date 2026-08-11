@@ -1019,3 +1019,113 @@ table.standings tr.me {
     transition: none;
   }
 }
+
+/* --- Act II: progress bar, shop, "there is more above you" marker --- */
+.new-above {
+  display: flex;
+  justify-content: center;
+  padding: 0.35rem 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: #f4d35e;
+  animation: nudge 1.8s ease-in-out 3;
+}
+@keyframes nudge { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+.wb-progress { margin-bottom: 0.75rem; }
+.wb-progress-head,
+.wb-progress-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.wb-progress-foot { margin-top: 0.3rem; opacity: 0.8; }
+.wb-progress-label { font-weight: 600; }
+.wb-progress-track {
+  height: 0.5rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: #14291c;
+  overflow: hidden;
+}
+.wb-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4a90a4, #6ab04c);
+  transition: width 420ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.wb-record { font-variant-numeric: tabular-nums; opacity: 0.85; }
+.wb-note { font-size: 0.8rem; color: #8fd67a; margin: 0.3rem 0; }
+.wb-advance {
+  font-size: 0.85rem;
+  color: #f4d35e;
+  border-left: 2px solid #f4d35e;
+  padding-left: 0.6rem;
+  margin: 0.5rem 0;
+}
+.wb-shop { margin-top: 1rem; }
+.wb-shop-note { font-size: 0.8rem; opacity: 0.7; margin: 0.2rem 0 0.5rem; }
+
+/* --- Toasts --- */
+.toast-host {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: center;
+  width: min(28rem, calc(100vw - 1.5rem));
+  pointer-events: none;
+}
+.toast {
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.5rem;
+  border: 1px solid #2f5a3d;
+  background: rgba(18, 40, 26, 0.97);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  animation: toast-in 220ms ease-out;
+}
+.toast-good { border-color: #6ab04c; }
+.toast-bad { border-color: #a44a4a; }
+.toast-crew { border-color: #f4d35e; color: #f7e6a8; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Box score --- */
+.box-score { margin: 0.6rem 0; overflow-x: auto; }
+.box-score table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+.box-score th,
+.box-score td {
+  padding: 0.2rem 0.55rem;
+  text-align: center;
+  border-bottom: 1px solid #24462f;
+}
+.box-score .box-team { text-align: left; min-width: 6rem; }
+.box-score .box-total { font-weight: 700; border-left: 1px solid #24462f; }
+.box-score thead th { opacity: 0.6; font-weight: 500; }
+.box-score tr.box-you { color: #f4d35e; }
+
+.replay-batter {
+  fill: #f4d35e;
+  stroke: #0d1f14;
+  stroke-width: 0.5;
+}
+.replay-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  opacity: 0.65;
+}

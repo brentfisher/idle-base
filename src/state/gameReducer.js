@@ -29,6 +29,8 @@ function gameReducer(state, action) {
 
     case actionTypes.RESOLVE_WALL_BALL_CHALLENGE:
       return wallBallActions.resolveWallBallChallenge(state, action);
+    case actionTypes.BUY_WALL_BALL_UPGRADE:
+      return wallBallActions.buyWallBallUpgrade(state, action);
 
     case actionTypes.BUY_CONCESSION:
       return concessionsActions.buyConcession(state, action);

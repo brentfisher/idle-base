@@ -4,11 +4,8 @@ const { POSITIONS, FIELDING_POSITIONS } = require('../../data/positions');
 const PlayerIcon = require('./PlayerIcon');
 const { teamStrength } = require('../../engine/strength');
 const { computeModifiers } = require('../../engine/modifiers');
-const { buildReplay, BASES, MOUND } = require('../../engine/gameReplay');
-
-// How long each batter's beat holds on screen. The whole replay is bounded by the beat count
-// in engine/gameReplay.js (at most 7 per half), so the longest possible replay is ~14s.
-const BEAT_MS = 950;
+const { buildReplay, BASES, MOUND, INNINGS } = require('../../engine/gameReplay');
+const BoxScore = require('./BoxScore');
 
 // The most recently played slot, or null. Used only to notice that a NEW one appeared.
 function lastPlayedGame(state) {
@@ -28,52 +25,73 @@ function lastPlayedGame(state) {
   };
 }
 
-// Plays the last result out on the diamond, one batter at a time.
+// Plays the last result out on the diamond, one pitch at a time.
 //
 // Entirely presentational: it reads a game the engine already decided and animates it. The
 // simulation never waits for this, which is what keeps an eight-hour offline catch-up (a whole
 // season resolved inside one advance() iteration) from having to care that a replay exists.
-function useGameReplay(state) {
+//
+// Beats carry their own `hold`, because a pitch should flick past and an action should land —
+// "sped up until something happens". engine/gameReplay.js scales those holds so the whole
+// sequence finishes before the next game starts.
+function useGameReplay(state, budgetMs) {
   const [replay, setReplay] = React.useState(null);
   const [beatIndex, setBeatIndex] = React.useState(0);
   const lastKey = React.useRef(null);
 
   const game = lastPlayedGame(state);
   const gameKey = game && game.key;
-  // Held in a ref so the effect below depends on the key alone: it must fire when a new game
-  // is played, not every time the roster re-renders.
   const rosterRef = React.useRef(state.roster);
   rosterRef.current = state.roster;
+  const budgetRef = React.useRef(budgetMs);
+  budgetRef.current = budgetMs;
 
   React.useEffect(() => {
-    if (!gameKey) return undefined;
+    if (!gameKey) return;
     // First render of an existing save would otherwise replay a game the player watched
     // before they reloaded.
     if (lastKey.current === null) {
       lastKey.current = gameKey;
-      return undefined;
+      return;
     }
-    if (lastKey.current === gameKey) return undefined;
+    if (lastKey.current === gameKey) return;
     lastKey.current = gameKey;
-
-    setReplay(buildReplay(game, rosterRef.current));
+    setReplay(buildReplay(game, rosterRef.current, { budgetMs: budgetRef.current }));
     setBeatIndex(0);
-    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameKey]);
 
   React.useEffect(() => {
     if (!replay) return undefined;
     if (beatIndex >= replay.beats.length) {
-      const done = setTimeout(() => setReplay(null), BEAT_MS);
+      const done = setTimeout(() => setReplay(null), 2200);
       return () => clearTimeout(done);
     }
-    const next = setTimeout(() => setBeatIndex((i) => i + 1), BEAT_MS);
+    const hold = replay.beats[beatIndex].hold;
+    const next = setTimeout(() => setBeatIndex((i) => i + 1), hold);
     return () => clearTimeout(next);
   }, [replay, beatIndex]);
 
-  const beat = replay && replay.beats[Math.min(beatIndex, replay.beats.length - 1)];
-  return { replay, beat, finished: !!replay && beatIndex >= replay.beats.length };
+  const finished = !!replay && beatIndex >= replay.beats.length;
+  const beat = replay && !finished ? replay.beats[beatIndex] : null;
+  return { replay, beat, finished, beatIndex };
+}
+
+// Runs scored per inning so far, so the box score fills in as the replay plays rather than
+// appearing complete before the innings have happened.
+function progressiveLineScore(replay, beatIndex) {
+  const away = new Array(INNINGS).fill(null);
+  const home = new Array(INNINGS).fill(null);
+  if (!replay) return { away, home };
+
+  replay.beats.slice(0, beatIndex + 1).forEach((b) => {
+    if (b.type === 'inningEnd') {
+      const target = b.half === 'top' ? away : home;
+      const source = b.half === 'top' ? replay.lineScore.away : replay.lineScore.home;
+      target[b.inning - 1] = source[b.inning - 1];
+    }
+  });
+  return { away, home };
 }
 
 function FieldView() {
@@ -82,14 +100,19 @@ function FieldView() {
   const strength = teamStrength(state.roster, modifiers);
   const dh = state.roster.find((p) => p.position === 'DH' && p.isStarter);
   const bench = state.roster.filter((p) => !p.isStarter);
-  const { replay, beat, finished } = useGameReplay(state);
+
+  // Fit the replay inside the gap between games, so one never runs into the next.
+  const secondsPerGame = state.season ? state.season.secondsPerGame : 25;
+  const { replay, beat, finished, beatIndex } = useGameReplay(state, Math.max(6000, (secondsPerGame - 6) * 1000));
 
   const nextGameIn = state.season && state.season.phase === 'regular'
     ? Math.max(0, Math.ceil(state.season.nextGameAtClock - state.clock))
     : null;
 
-  const ballTo = beat ? beat.ball.to : MOUND;
-  const runnerBase = beat ? BASES[beat.runnerTo] : BASES[0];
+  const action = beat && beat.type === 'action' ? beat : null;
+  const ballTo = action ? action.ball.to : MOUND;
+  const runnerBase = action && action.runnerTo > 0 ? BASES[Math.min(3, action.runnerTo)] : null;
+  const partial = progressiveLineScore(replay, beatIndex);
 
   return (
     <div className="panel">
@@ -112,9 +135,8 @@ function FieldView() {
 
           {POSITIONS.filter((pos) => FIELDING_POSITIONS.includes(pos.id)).map((pos) => {
             const player = state.roster.find((p) => p.position === pos.id && p.isStarter);
-            // During a replay the fielder nearest the ball leans toward it, so the defence
-            // reads as reacting rather than standing still.
-            const near = beat && Math.hypot(pos.x - ballTo.x, pos.y - ballTo.y) < 12;
+            // The fielder nearest the ball breaks toward it, so the defence reads as reacting.
+            const near = action && Math.hypot(pos.x - ballTo.x, pos.y - ballTo.y) < 12;
             return (
               <PlayerIcon
                 key={pos.id}
@@ -127,29 +149,47 @@ function FieldView() {
             );
           })}
 
-          {replay && (
+          {replay && !finished && (
             <>
-              <circle className="replay-runner" cx={runnerBase.x} cy={runnerBase.y} r="2.6" />
-              <circle className={`replay-ball${beat && beat.kind === 'hit' ? ' hit' : ''}`} cx={ballTo.x} cy={ballTo.y} r="1.7" />
+              {/* The batter stands in until they put the ball in play. */}
+              {!runnerBase && <circle className="replay-batter" cx="50" cy="90" r="2.4" />}
+              {runnerBase && <circle className="replay-runner" cx={runnerBase.x} cy={runnerBase.y} r="2.6" />}
+              <circle className={`replay-ball${action && action.kind === 'hit' ? ' hit' : ''}`} cx={ballTo.x} cy={ballTo.y} r="1.7" />
             </>
           )}
         </svg>
 
         {replay && (
           <div className={`replay-overlay${finished ? ' done' : ''}`}>
-            <span className="replay-half">{beat ? beat.half : ''}</span>
+            <span className="replay-half">
+              {finished
+                ? 'Final'
+                : `${beat.half === 'top' ? 'Top' : 'Bottom'} ${beat.inning} · ${beat.batter || ''}`}
+            </span>
             <span className="replay-text">
               {finished
                 ? `${replay.won ? 'Won' : 'Lost'} ${replay.scoreFor}-${replay.scoreAgainst} against ${replay.opponentName}.`
-                : beat && beat.text}
+                : beat.text}
             </span>
+            {beat && beat.type === 'pitch' && (
+              <span className="replay-count">
+                {beat.balls}-{beat.strikes}
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      {!replay && nextGameIn !== null && (
-        <p className="muted">Next game in {nextGameIn}s.</p>
+      {replay && (
+        <BoxScore
+          lineScore={replay.lineScore}
+          partial={finished ? replay.lineScore : partial}
+          innings={replay.innings}
+          final={finished}
+        />
       )}
+
+      {!replay && nextGameIn !== null && <p className="muted">Next game in {nextGameIn}s.</p>}
 
       <h3>Dugout</h3>
       <div className="card-grid">

@@ -2,7 +2,7 @@ const React = require('react');
 const actionTypes = require('../../state/actionTypes');
 const { useGame } = require('../../state/GameContext');
 const { listOffers, concessionsPerSecond } = require('../../engine/concessions');
-const { KIND_STAND } = require('../../data/concessionsConfig');
+const { KIND_STAND, KIND_BOOSTER, KIND_CAPS_UPGRADE } = require('../../data/concessionsConfig');
 const { formatNumber } = require('../../utils/formatNumber');
 
 // Act III's shop. Renders engine/concessions.js: listOffers() verbatim, including its
@@ -30,7 +30,13 @@ function OfferCard({ offer, onBuy }) {
       <span className="cx-offer-desc">{offer.description}</span>
       <span className="cx-offer-foot">
         <span className="cx-offer-effect">{offer.effect}</span>
-        <span className="cx-offer-cost">{offer.owned ? 'All bought' : `$${formatNumber(offer.cost)}`}</span>
+        <span className="cx-offer-cost">
+          {offer.owned
+            ? 'All bought'
+            : offer.currency === 'caps'
+              ? `${formatNumber(offer.cost)} caps`
+              : `$${formatNumber(offer.cost)}`}
+        </span>
       </span>
     </button>
   );
@@ -40,7 +46,8 @@ function ConcessionsPanel() {
   const { state, dispatch } = useGame();
   const offers = listOffers(state);
   const stands = offers.filter((o) => o.kind === KIND_STAND);
-  const boosters = offers.filter((o) => o.kind !== KIND_STAND);
+  const boosters = offers.filter((o) => o.kind === KIND_BOOSTER);
+  const capsUpgrades = offers.filter((o) => o.kind === KIND_CAPS_UPGRADE);
   const rate = concessionsPerSecond(state);
   const buy = (offerId) => dispatch({ type: actionTypes.BUY_CONCESSION, offerId });
 
@@ -49,7 +56,7 @@ function ConcessionsPanel() {
       <h2>Behind the Backstop</h2>
       <p className="muted">
         Somebody has to run the stand. Earning ${rate.toFixed(1)}/sec · reputation{' '}
-        {Math.round(state.reputation)}
+        {Math.round(state.reputation)} · {formatNumber(Math.floor(state.wallet.caps))} caps
       </p>
 
       <h3>Stands</h3>
@@ -67,6 +74,17 @@ function ConcessionsPanel() {
       </p>
       <div className="cx-grid">
         {boosters.map((offer) => (
+          <OfferCard key={offer.id} offer={offer} onBuy={buy} />
+        ))}
+      </div>
+
+      <h3>Still Got Caps</h3>
+      <p className="muted">
+        Bought with bottle caps, which keep turning up long after they stopped being the point.
+        Each one makes every click worth more — in this act and every one after it.
+      </p>
+      <div className="cx-grid">
+        {capsUpgrades.map((offer) => (
           <OfferCard key={offer.id} offer={offer} onBuy={buy} />
         ))}
       </div>

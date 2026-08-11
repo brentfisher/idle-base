@@ -36,6 +36,7 @@ const {
   MIN_STAKE,
   CHALLENGE_COOLDOWN_SECONDS,
   RESPECT_THRESHOLDS,
+  RESPECT_CAPS_BONUS_PER_POINT,
   CREW_QUALITY_MULT,
   CREW_AGE_RANGE,
   CREW_POSITIONS,
@@ -131,6 +132,27 @@ function crewSizeForRespect(respect) {
 
 function nextCrewThreshold(respect) {
   return RESPECT_THRESHOLDS.find((threshold) => respect < threshold) || null;
+}
+
+// Progress toward the NEXT crew member, measured inside the current band so it runs 0 -> 1 and
+// then starts again from zero. The panel used to print cumulative wins against the exit's
+// requirement ("7/5"), which read as a broken progress bar: the exit's win half is satisfied
+// long before the crew half, and cumulative respect against a rising threshold never resets.
+// What the player is actually working toward, at every moment, is one more kid.
+function crewProgress(respect) {
+  const size = crewSizeForRespect(respect);
+  const next = nextCrewThreshold(respect);
+  if (next === null) return { done: true, from: 0, to: 0, have: 0, need: 0, fraction: 1, crewSize: size };
+  const from = size === 0 ? 0 : RESPECT_THRESHOLDS[size - 1];
+  return {
+    done: false,
+    from,
+    to: next,
+    have: Math.max(0, respect - from),
+    need: next - from,
+    fraction: Math.min(1, Math.max(0, (respect - from) / (next - from))),
+    crewSize: size,
+  };
 }
 
 function crewSignatureStat(position) {
@@ -247,6 +269,11 @@ function challengeView(state, approachId) {
     respect: slice.respect,
     crewSize: crewList(state).length,
     nextCrewAt: nextCrewThreshold(slice.respect),
+    crewProgress: crewProgress(slice.respect),
+    // Whether the act can be left right now, as a single answer rather than two counters the
+    // player has to combine in their head.
+    canAdvance: isCrewAssembled(state),
+    capsMultiplier: 1 + Math.max(0, slice.respect) * RESPECT_CAPS_BONUS_PER_POINT,
     lastResult: slice.lastResult,
     winsRequired: EXIT_WINS_REQUIRED,
     crewRequired: EXIT_CREW_REQUIRED,
@@ -273,6 +300,7 @@ module.exports = {
   cooldownRemaining,
   canChallenge,
   crewSizeForRespect,
+  crewProgress,
   createCrewMember,
   resolveChallenge,
   isCrewAssembled,

@@ -7,21 +7,28 @@
 const {
   CONCESSION_STANDS,
   BOOSTERS,
+  CAPS_UPGRADES,
   KIND_STAND,
   KIND_BOOSTER,
+  KIND_CAPS_UPGRADE,
   getStand,
-  getBooster,
 } = require('../data/concessionsConfig');
 const { canAfford, debitWallet } = require('./wallet');
 
 const CURRENCY = 'cash';
+
+// The shop is no longer single-currency: the caps upgrades are priced in the act's *previous*
+// currency. Every affordability check and every debit reads this rather than assuming cash.
+function currencyOf(kind) {
+  return kind === KIND_CAPS_UPGRADE ? 'caps' : CURRENCY;
+}
 
 // Every read of the Act III slice goes through this. A save written before the shop existed
 // has neither key, and this codebase tolerates an absent slice rather than migrating (see
 // engine/wallBall.js, engine/feed.js).
 function concessionsSlice(state) {
   const slice = (state && state.concessions) || {};
-  return { stands: slice.stands || [], boosters: slice.boosters || [] };
+  return { stands: slice.stands || [], boosters: slice.boosters || [], capsUpgrades: slice.capsUpgrades || [] };
 }
 
 function standCount(state, standId) {
@@ -31,6 +38,10 @@ function standCount(state, standId) {
 
 function ownsBooster(state, boosterId) {
   return concessionsSlice(state).boosters.includes(boosterId);
+}
+
+function ownsCapsUpgrade(state, id) {
+  return concessionsSlice(state).capsUpgrades.includes(id);
 }
 
 // Cost rises per copy already owned, so the second Lemonade Table is dearer than the first.
@@ -53,11 +64,13 @@ function costOf(state, kind, config) {
 
 function isOwned(state, kind, config) {
   if (kind === KIND_STAND) return standCount(state, config.id) >= config.maxCount;
+  if (kind === KIND_CAPS_UPGRADE) return ownsCapsUpgrade(state, config.id);
   return ownsBooster(state, config.id);
 }
 
 function describe(kind, config) {
   if (kind === KIND_STAND) return `+$${config.cashPerSecond}/sec`;
+  if (kind === KIND_CAPS_UPGRADE) return `+${config.perClickBonus} per click, forever`;
   return `+${config.reputation} reputation`;
 }
 
@@ -65,6 +78,7 @@ function allOffers() {
   return [
     ...CONCESSION_STANDS.map((config) => ({ kind: KIND_STAND, config })),
     ...BOOSTERS.map((config) => ({ kind: KIND_BOOSTER, config })),
+    ...CAPS_UPGRADES.map((config) => ({ kind: KIND_CAPS_UPGRADE, config })),
   ];
 }
 
@@ -85,7 +99,8 @@ function listOffers(state) {
       effect: describe(kind, config),
       cost,
       owned: isOwned(state, kind, config),
-      affordable: canAfford(state.wallet, CURRENCY, cost),
+      currency: currencyOf(kind),
+      affordable: canAfford(state.wallet, currencyOf(kind), cost),
       count: kind === KIND_STAND ? standCount(state, config.id) : 0,
       maxCount: kind === KIND_STAND ? config.maxCount : 1,
     };
@@ -111,13 +126,22 @@ function purchase(state, offerId) {
   if (isOwned(state, kind, config)) return null;
 
   const cost = costOf(state, kind, config);
-  if (!canAfford(state.wallet, CURRENCY, cost)) return null;
+  const currency = currencyOf(kind);
+  if (!canAfford(state.wallet, currency, cost)) return null;
 
   const slice = concessionsSlice(state);
-  const next = { ...state, wallet: debitWallet(state.wallet, CURRENCY, cost) };
+  const next = { ...state, wallet: debitWallet(state.wallet, currency, cost) };
 
   if (kind === KIND_STAND) {
     return { ...next, concessions: addStand(slice, config.id) };
+  }
+
+  if (kind === KIND_CAPS_UPGRADE) {
+    return {
+      ...next,
+      clicker: { ...next.clicker, perClick: next.clicker.perClick + config.perClickBonus },
+      concessions: { ...slice, capsUpgrades: [...slice.capsUpgrades, config.id] },
+    };
   }
 
   return {

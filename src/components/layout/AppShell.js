@@ -20,6 +20,7 @@ const WallBallPanel = require('../wallBall/WallBallPanel');
 const ConcessionsPanel = require('../concessions/ConcessionsPanel');
 const SearchLotButton = require('../lot/SearchLotButton');
 const StoryCard = require('../narrative/StoryCard');
+const ToastHost = require('../common/ToastHost');
 const { getActIntroBeat } = require('../../data/storyBeats');
 
 // Tab id === feature id in an act's `unlocks` array (data/acts.js). This is the single point of
@@ -79,11 +80,21 @@ function AppShell() {
   // the Hustle button, which exists in every act and is never gated (PRD 6.4). A broke
   // player who cannot make the minimum wager is always one click away from being able to.
   if (!state.season) {
+    const wallUnlocked = unlocked.indexOf('wallBall') !== -1;
     return (
       <div className="app-shell">
-        {unlocked.indexOf('wallBall') !== -1 && <WallBallPanel />}
+        {/* The wall appears ABOVE the lot, which is the one place a player already scrolled
+            past. Entering Act II therefore looked like nothing had changed. This marker sits
+            where their eyes already are and points up. */}
+        {wallUnlocked && (
+          <div className="new-above" aria-hidden="true">
+            <span>The wall is up there ↑</span>
+          </div>
+        )}
+        {wallUnlocked && <WallBallPanel />}
         <LotPanel />
         {pendingBeat && <StoryCard beat={pendingBeat} />}
+        <ToastHost />
       </div>
     );
   }
@@ -123,6 +134,7 @@ function AppShell() {
       <EventFeed />
 
       {pendingBeat && <StoryCard beat={pendingBeat} />}
+      <ToastHost />
 
       {showVictory && (
         <Modal

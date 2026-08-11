@@ -63,6 +63,10 @@ const ACTS = [
       gamesPerSeason: 6,
       secondsPerGame: 25,
       playoffTeams: 0,
+      // No trade deadline in little league. Nine-year-olds do not trade each other, and the
+      // franchise code would otherwise open a window mid-season for a tab that should not
+      // exist yet — see the `trade` unlock, which now belongs to Act VI.
+      tradeWindows: [],
       // Tuned by simulation, not by feel, and re-tuned once reputation became a strength
       // bonus and the shop gave the player something to spend on. 30 runs per band, measured
       // both with and without buying the boosters:
@@ -96,9 +100,9 @@ const ACTS = [
       "Weekend tournaments three towns over. Somebody's dad is keeping stats. Somebody's uncle is taking bets.",
     entry: 'The Little League title.',
     exit: { id: 'travelBallWinRateReached', description: 'Reach a 60% career win rate across two full travel seasons.' },
-    rules: { leagueTeamCount: 8, gamesPerSeason: 15, secondsPerGame: 40, playoffTeams: 0 },
+    rules: { leagueTeamCount: 8, gamesPerSeason: 15, secondsPerGame: 40, playoffTeams: 0, tradeWindows: [] },
     modifierBonuses: {},
-    unlocks: ['camp', 'trade', 'retirement', 'bookie', 'sponsorships'],
+    unlocks: ['camp', 'retirement', 'bookie', 'sponsorships'],
   },
   {
     id: 4,
@@ -106,7 +110,7 @@ const ACTS = [
     description: 'A real stadium. A real payroll. The first time baseball is a business and not a game.',
     entry: 'A 60% career win rate over two travel seasons.',
     exit: { id: 'minorsPennantWon', description: 'Fill a 10,000-seat stadium and win the minor-league pennant.' },
-    rules: { leagueTeamCount: 10, gamesPerSeason: 24, secondsPerGame: 50, playoffTeams: 0 },
+    rules: { leagueTeamCount: 10, gamesPerSeason: 24, secondsPerGame: 50, playoffTeams: 0, tradeWindows: [] },
     modifierBonuses: {},
     unlocks: ['ticketing', 'stadium', 'powerups', 'scouting'],
   },
@@ -121,7 +125,9 @@ const ACTS = [
     // is preserved exactly.
     rules: {},
     modifierBonuses: {},
-    unlocks: ['playoffs', 'prestige'],
+    // `trade` lives here and nowhere earlier: a deadline is a big-league institution, and
+    // Acts III-V declare `tradeWindows: []` so no window ever opens before it.
+    unlocks: ['playoffs', 'trade', 'prestige'],
   },
 ];
 
