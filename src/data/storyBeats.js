@@ -52,6 +52,23 @@ const STORY_BEATS = [
     ],
     objective: 'Finish first in the six-game Little League season.',
   },
+  {
+    id: 'act-4-intro',
+    kind: 'actIntro',
+    actIndex: 3,
+    title: 'Travel Ball',
+    prose: [
+      'A man in a windbreaker watched the whole last game from behind the backstop and did not '
+        + 'clap once. Afterwards he asked your mother whether you could get to Ashland on a '
+        + 'Saturday.',
+      'So now there are eight clubs and fifteen games and a station wagon that smells like wet '
+        + 'infield dirt. Somebody\'s dad keeps a book of everything you have ever done at the '
+        + 'plate. Somebody\'s uncle stands by the fence and quietly takes bets on it.',
+      'Nobody here cares that you won a six-game season against three teams from your own town. '
+        + 'They want to know what you hit over a summer.',
+    ],
+    objective: 'Win 60% of your games across two full travel seasons.',
+  },
 ];
 
 function getStoryBeat(beatId) {

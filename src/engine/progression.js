@@ -7,6 +7,12 @@ const {
   repairMissingSeason,
   hasWonLittleLeagueTitle,
 } = require('./littleLeague');
+const {
+  TRAVEL_BALL_ACT_INDEX,
+  openTravelBall,
+  repairTravelBall,
+  hasReachedTravelWinRate,
+} = require('./travelBall');
 const { CHALLENGERS, REPUTATION_PER_RESPECT } = require('../data/wallBallConfig');
 
 // Which features are unlocked is DERIVED from the act index on every read and is never stored.
@@ -41,6 +47,10 @@ const EXIT_PREDICATES = {
   // Act III: finished first in a little-league season. Read from the season recap rather than
   // from standings, which the offseason transition has already reset by the time this runs.
   littleLeagueTitleWon: (state) => hasWonLittleLeagueTitle(state),
+  // Act IV: the first exit in the game that is accumulated rather than achieved in a moment —
+  // a 60% win rate over at least two completed travel seasons, counted from the act's own
+  // record so the little-league title cannot be spent twice. See engine/travelBall.js.
+  travelBallWinRateReached: (state) => hasReachedTravelWinRate(state),
 };
 
 function isExitSatisfied(state, act) {
@@ -100,6 +110,18 @@ const ACT_INITIALIZERS = {
     return banked.season ? banked : openLittleLeague(banked);
   },
 
+  // Entering Act IV rebuilds the league at travel-ball scale: eight clubs, fifteen games,
+  // and a fresh record for the act's win-rate exit to accumulate into.
+  //
+  // Note what this initializer does NOT guard on. Act III's guards on `state.season` being
+  // absent, because a season is the thing it creates. By the time Act IV is entered a season
+  // always exists — runOffseasonTransition() built one moments earlier, at Act III's rules —
+  // so the same guard here would silently skip the entire act. It guards on the Act IV slice
+  // instead, which is content only this initializer creates. See engine/travelBall.js.
+  [TRAVEL_BALL_ACT_INDEX]: function openTheTravelCircuit(state) {
+    return state.travelBall ? state : openTravelBall(state);
+  },
+
   // Entering the final act zeroes runStats. addRevenue() accumulates totalRevenue and
   // calculateLegacyPoints() divides it by 100,000, so without this the entire odyssey's
   // earnings would inflate the very first legacy payout exactly once.
@@ -139,7 +161,11 @@ function checkActTransition(state) {
   // Before checking whether the act can be *left*, make sure it was properly entered. A save
   // that crossed a boundary before that act had an initializer is missing the content the act
   // owns, and no amount of playing will produce it. See engine/littleLeague.js.
-  let working = repairMissingSeason(state);
+  //
+  // Ordered, and the order is the dependency: repairMissingSeason() builds the season Act III
+  // owns, and repairTravelBall() reshapes that season to Act IV's scale. Each is keyed on its
+  // own act's content being absent, so both are no-ops on a save that was never stranded.
+  let working = repairTravelBall(repairMissingSeason(state));
   let steps = 0;
   while (working.progression.act < FINAL_ACT_INDEX && steps < FINAL_ACT_INDEX) {
     steps += 1;

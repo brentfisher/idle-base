@@ -9,6 +9,7 @@ const lotActions = require('./actions/lotActions');
 const narrativeActions = require('./actions/narrativeActions');
 const wallBallActions = require('./actions/wallBallActions');
 const concessionsActions = require('./actions/concessionsActions');
+const travelBallActions = require('./actions/travelBallActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -34,6 +35,11 @@ function gameReducer(state, action) {
 
     case actionTypes.BUY_CONCESSION:
       return concessionsActions.buyConcession(state, action);
+
+    case actionTypes.BUY_SPONSORSHIP:
+      return travelBallActions.buySponsorship(state, action);
+    case actionTypes.PLACE_BOOKIE_WAGER:
+      return travelBallActions.placeBookieWager(state, action);
 
     case actionTypes.SET_TICKET_PRICE:
       return economyActions.setTicketPrice(state, action);

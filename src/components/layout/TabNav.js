@@ -7,6 +7,8 @@ const TABS = [
   { id: 'field', label: 'Field' },
   { id: 'roster', label: 'Roster' },
   { id: 'concessions', label: 'Concessions' },
+  { id: 'sponsorships', label: 'Sponsors' },
+  { id: 'bookie', label: 'The Bookie' },
   { id: 'ticketing', label: 'Ticketing' },
   { id: 'league', label: 'League' },
   { id: 'playoffs', label: 'Playoffs' },

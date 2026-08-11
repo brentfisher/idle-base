@@ -42,6 +42,14 @@ function createInitialState() {
     // Act III state: what has been bought out of the concessions shop. Present-and-empty from
     // t=0 rather than null because engine/income.js sums the stands on every tick.
     concessions: { stands: [], boosters: [], capsUpgrades: [] },
+    // Act IV state, and both are CONTENT rather than tick-loop collections, so both are null
+    // until engine/travelBall.js's initializer creates them: `travelBall` is the record the
+    // act's win-rate exit accumulates into, and `bookie` is a table that does not exist until
+    // somebody's uncle sets one up. Every reader of either goes through a defaulting accessor
+    // (travelBallSlice, bookieSlice), so an absent slice is never a crash — which is also what
+    // makes a save written before Act IV existed loadable.
+    travelBall: null,
+    bookie: null,
     progression: {
       act: 0,
       actEnteredAtClock: 0,

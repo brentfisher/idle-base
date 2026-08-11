@@ -18,6 +18,8 @@ const Modal = require('../common/Modal');
 const LotPanel = require('../lot/LotPanel');
 const WallBallPanel = require('../wallBall/WallBallPanel');
 const ConcessionsPanel = require('../concessions/ConcessionsPanel');
+const SponsorshipsPanel = require('../sponsorships/SponsorshipsPanel');
+const BookiePanel = require('../bookie/BookiePanel');
 const SearchLotButton = require('../lot/SearchLotButton');
 const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
@@ -31,6 +33,8 @@ const PANELS = {
   field: FieldView,
   roster: RosterPanel,
   concessions: ConcessionsPanel,
+  sponsorships: SponsorshipsPanel,
+  bookie: BookiePanel,
   ticketing: TicketingPanel,
   league: StandingsPanel,
   playoffs: PlayoffBracket,

@@ -18,6 +18,7 @@ const FEED_CATEGORIES = {
   roster: { label: 'Roster', icon: '👤' },
   camp: { label: 'Training Camp', icon: '🏋️' },
   powerup: { label: 'Promotion', icon: '✨' },
+  bookie: { label: 'The Bookie', icon: '🎲' },
 };
 
 function powerupDisplayName(powerupId) {
@@ -84,6 +85,15 @@ const feedMessages = {
 
   rookieSigned: function rookieSigned(playerName, position) {
     return `Signed rookie ${position} ${playerName}.`;
+  },
+
+  // Act IV. The Bookie is never named as a person and never says anything encouraging: he is
+  // a mechanism that pays or does not pay, and the copy stays as flat as he is.
+  bookieSettled: function bookieSettled(result) {
+    const backed = result.side === 'against' ? 'against your own team' : 'on your team';
+    return result.won
+      ? `The Bookie pays out $${result.payout} — you had $${result.amount} ${backed} against the ${result.opponentName}.`
+      : `The Bookie keeps your $${result.amount}. You had it ${backed} against the ${result.opponentName}.`;
   },
 
   seasonRollover: function seasonRollover(finishedSeasonNumber, wins, losses) {
