@@ -1349,3 +1349,171 @@ table.standings tr.me {
   margin-top: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* ===========================================================================
+   Mobile. Measured on a 390x844 viewport with a mid-Act-IV save loaded, which
+   is the worst case the game currently produces: seven unlocked tabs and a
+   header carrying six chips.
+
+   Before this block, that screen spent ~300px of 844 — 36% of the viewport —
+   on a sticky header and three wrapped rows of tabs before the panel began.
+   Nothing here changes the desktop layout: every rule is either inside the
+   640px breakpoint or a touch/viewport correction that desktop never sees.
+   =========================================================================== */
+
+/* iOS grows text on rotate unless told not to, which reflows a layout that was
+   fitted in portrait. */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 100vh on mobile Safari is the URL-bar-expanded height, so the page jumps as
+   the bar hides. dvh tracks the real viewport; the vh line stays as the
+   fallback for browsers that do not know dvh. */
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.modal-box {
+  max-height: 85dvh;
+}
+
+/* This is a clicker: the click button gets tapped hundreds of times. Without
+   touch-action, mobile browsers hold every tap for ~300ms waiting to see if it
+   is a double-tap zoom, and rapid tapping selects the label text instead. */
+button {
+  touch-action: manipulation;
+}
+
+.lot-click-button {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The two sliders — the Bookie's stake and the ticket price — are the only
+   drag interactions in the game, and a default thumb is about 16px against a
+   44px touch guideline. The track stays thin; only the thumb grows. */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 44px;
+  background: transparent;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: #0d1f14;
+  border: 1px solid #23522f;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: #f4d35e;
+  border: 2px solid #14210f;
+}
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: #0d1f14;
+  border: 1px solid #23522f;
+}
+input[type='range']::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #f4d35e;
+  border: 2px solid #14210f;
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 8px 10px 32px;
+  }
+
+  /* The header is sticky, so every pixel it takes is a pixel the panel never
+     gets back. Tighter padding, smaller chips, and flush to the top. */
+  .header-stats {
+    top: 0;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  /* The title keeps `margin-right: auto` from the desktop rule, which pushes the
+     chips to the right edge. It must NOT take a full row: the heartbeat dot is a
+     flex item before it, so a full-width title strands the dot alone on a line
+     of its own and costs a row to show one 10px circle. */
+  .header-stats .title {
+    font-size: 0.95rem;
+  }
+  .stat-chip {
+    font-size: 0.78rem;
+    padding: 3px 8px;
+  }
+
+  /* THE structural fix. Seven tabs wrap to three rows at this width and ten
+     (Act VI) wrap to four. One scrolling row costs 44px instead of ~130px,
+     and scroll-snap keeps a tab from being left half off-screen. The
+     scrollbar is hidden because the row is obviously swipeable and a visible
+     one steals another 8px. */
+  .tab-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-bottom: 10px;
+    padding-bottom: 2px;
+  }
+  .tab-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .tab-nav button {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    min-height: 44px;
+  }
+
+  /* 44px minimums on everything a thumb has to hit. */
+  .btn,
+  .bk-side,
+  .bk-place,
+  .cx-offer,
+  .sp-offer {
+    min-height: 44px;
+  }
+
+  /* 90px of permanently sticky button is too much of a small screen; it stays
+     comfortably tappable at 44px of padding-box. */
+  .lot-click-button {
+    padding: 14px 16px;
+  }
+  .hustle-bar {
+    padding: 0.35rem 0 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  /* Three crew cards across a 390px screen leaves ~115px each, which clips the
+     names they exist to show. */
+  .wb-crew-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* The feed is the least urgent thing on screen and the easiest to shorten. */
+  .event-feed .feed-list {
+    max-height: 200px;
+  }
+
+  /* Long team and player names are the one place text can push the layout
+     wider than the screen. */
+  .panel,
+  .card {
+    overflow-wrap: anywhere;
+  }
+}
