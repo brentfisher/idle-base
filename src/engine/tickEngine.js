@@ -3,7 +3,7 @@ const { computeModifiers } = require('./modifiers');
 const { totalIncomePerSecond } = require('./income');
 const { creditWallet } = require('./wallet');
 const { simulateGame } = require('./gameSim');
-const { playerOverall, teamStrength } = require('./strength');
+const { playerOverall, getTeamStrength } = require('./strength');
 const {
   PLAYER_TEAM_ID,
   driftLeagueStrength,
@@ -17,7 +17,9 @@ const { generateBracket, resolveCurrentRound } = require('./playoffs');
 const { generateTradeCandidates } = require('./tradeDeadline');
 const { processCampCompletions } = require('./trainingCamp');
 const { checkRetirements } = require('./retirement');
-const { checkActTransition } = require('./progression');
+const { checkActTransition, getUnlockedFeatures } = require('./progression');
+const { recordTravelSeason } = require('./travelBall');
+const { settleWager, refundOpenWager } = require('./bookie');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
 const {
   feedMessages,
@@ -42,12 +44,6 @@ function playoffFieldSize(declared, availableTeams) {
   const n = Math.min(declared || 0, availableTeams);
   if (n < 2) return 0;
   return 2 ** Math.floor(Math.log2(n));
-}
-
-function getTeamStrength(working, modifiers, teamId) {
-  if (teamId === PLAYER_TEAM_ID) return teamStrength(working.roster, modifiers);
-  const team = working.league.teams.find((t) => t.id === teamId);
-  return team ? team.baseStrength * modifiers.aiStrengthMult : 30 * modifiers.aiStrengthMult;
 }
 
 function addRevenue(working, revenue) {
@@ -205,7 +201,17 @@ function resolveGameSlot(working, modifiers) {
     );
   }
 
-  return appendFeedEntries({ ...working, season }, entries);
+  // Act IV's Bookie settles against the game that was just played, whichever game that was.
+  // Deliberately not matched on a game index — the offseason resets scheduleIndex to 0, so an
+  // index-matched wager would pay out against a fixture in the following season. See
+  // engine/bookie.js. A no-op in every act with no open wager, which is all of them but one.
+  const hadWager = !!(working.bookie && working.bookie.wager);
+  const played = settleWager(appendFeedEntries({ ...working, season }, entries), result.aWins);
+  if (!hadWager) return played;
+
+  return appendFeedEntries(played, [
+    createFeedEntry(working.clock, 'bookie', feedMessages.bookieSettled(played.bookie.lastResult)),
+  ]);
 }
 
 function resolvePlayoffRound(working, modifiers) {
@@ -271,7 +277,17 @@ function runOffseasonTransition(working, modifiers) {
   // The offseason transition is where the next season's shape is decided, so it is the one place
   // rules are re-resolved: balanceConfig <- act.rules <- era.rules (see engine/modifiers.js).
   const rules = modifiers.rules;
-  const { roster, retired, rookies } = checkRetirements(working.roster, modifiers, rules.retireAtSeasonsRange);
+
+  // Retirement is an Act IV unlock (data/acts.js), so it must not run before Act IV — a
+  // nine-year-old does not announce his retirement, and until this gate existed one did, in
+  // roughly one Act III run in six. The gate skips the whole call rather than the replacement
+  // branch inside it, because that function also ages every player: see engine/retirement.js.
+  const retirementUnlocked = getUnlockedFeatures(
+    working.progression ? working.progression.act : 0
+  ).indexOf('retirement') !== -1;
+  const { roster, retired, rookies } = retirementUnlocked
+    ? checkRetirements(working.roster, modifiers, rules.retireAtSeasonsRange)
+    : { roster: working.roster, retired: [], rookies: [] };
 
   const wonChampionship = !!(working.season.playoffs && working.season.playoffs.champion === PLAYER_TEAM_ID);
   const playerRow = working.season.standings.find((s) => s.teamId === PLAYER_TEAM_ID);
@@ -318,7 +334,7 @@ function runOffseasonTransition(working, modifiers) {
     )
   );
 
-  return appendFeedEntries({
+  const rolled = appendFeedEntries({
     ...working,
     roster,
     league: { teams: leagueTeams },
@@ -339,6 +355,15 @@ function runOffseasonTransition(working, modifiers) {
       lastOffseasonSummary: summary,
     },
   }, entries);
+
+  // Two things an act may need to do with a season that just ended, both of them no-ops
+  // outside the act that owns them, and both keyed on that act's own state rather than on an
+  // act index the tick loop would have to know:
+  //   * Act IV's win-rate exit accumulates the finished season into its record. A season
+  //     counts when it FINISHES, which is what "two full travel seasons" means.
+  //   * An open Bookie wager cannot survive into the next season — the schedule it named is
+  //     gone — so it is refunded rather than voided. See engine/bookie.js.
+  return refundOpenWager(recordTravelSeason(rolled, summary));
 }
 
 // The single place simulation happens. Called identically by the live 1s timer and by
@@ -406,4 +431,7 @@ function advance(state, deltaSeconds) {
 
 // findNextEventClock is exported for display: the header's countdown bar reads the
 // same value the loop steps to, rather than recomputing the schedule from state.
+// getTeamStrength now lives in engine/strength.js — Act IV's Bookie prices a fixture before
+// the tick loop plays it, and importing it from here would make the two modules circular.
+// Re-exported so existing callers keep working.
 module.exports = { advance, getTeamStrength, findNextEventClock };

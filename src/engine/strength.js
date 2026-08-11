@@ -1,3 +1,5 @@
+const { PLAYER_TEAM_ID } = require('./schedule');
+
 function playerOverall(player) {
   const s = player.stats;
   if (player.position === 'P') {
@@ -18,4 +20,17 @@ function teamStrength(roster, modifiers) {
   return avg * mult;
 }
 
-module.exports = { playerOverall, teamStrength };
+// The strength either side of a fixture brings, whichever side that is. Lives here rather
+// than in engine/tickEngine.js (which owned it, and still re-exports it) because Act IV's
+// Bookie has to price a game the tick loop has not played yet: importing it from tickEngine
+// would make engine/bookie.js and engine/tickEngine.js require each other.
+//
+// The 30 fallback is for a teamId that is in a schedule but not in the league — a shape that
+// should not occur, and which must not throw in the middle of a season if it ever does.
+function getTeamStrength(state, modifiers, teamId) {
+  if (teamId === PLAYER_TEAM_ID) return teamStrength(state.roster, modifiers);
+  const team = state.league ? state.league.teams.find((t) => t.id === teamId) : null;
+  return team ? team.baseStrength * modifiers.aiStrengthMult : 30 * modifiers.aiStrengthMult;
+}
+
+module.exports = { playerOverall, teamStrength, getTeamStrength };

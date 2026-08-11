@@ -77,6 +77,14 @@ const ACTS = [
       // with it is a 2.5x speedup, where at [18, 28] the act is over before the economy can
       // matter and at [26, 36] buying everything still leaves a grind. The act should be
       // winnable by playing and *fast* by building.
+      //
+      // RE-MEASURED when Act IV gated retirement to the act that unlocks it. Until then
+      // checkRetirements() ran here too, replacing 0.5-quality little leaguers with
+      // full-strength adult rookies every offseason — so a player who lost simply waited and
+      // was handed a better team. Removing that free improvement lengthened the act by about a
+      // fifth without changing which band is right: 30 runs each, now 5.6 seasons / 14.1 min
+      // at 47% ignoring the shop, and 2.5 seasons / 6.3 min at 59% buying it. Every run
+      // finished. The shop is still the lever; it is now a 2.2x speedup rather than 2.5x.
       aiTeamStrengthRange: [22, 32],
       // The manual click becomes the act's cash faucet. Ticketing is gated on a stadium that
       // does not exist until Act V, so without this the only cash in Act III is the 500 the
@@ -99,9 +107,64 @@ const ACTS = [
     description:
       "Weekend tournaments three towns over. Somebody's dad is keeping stats. Somebody's uncle is taking bets.",
     entry: 'The Little League title.',
-    exit: { id: 'travelBallWinRateReached', description: 'Reach a 60% career win rate across two full travel seasons.' },
-    rules: { leagueTeamCount: 8, gamesPerSeason: 15, secondsPerGame: 40, playoffTeams: 0, tradeWindows: [] },
-    modifierBonuses: {},
+    // A rolling window over the last two completed seasons, not a running career average. The
+    // PRD's sentence reads either way; only one of them is playable. See engine/travelBall.js.
+    exit: {
+      id: 'travelBallWinRateReached',
+      description: 'Win 60% of your games across two full travel seasons.',
+    },
+    rules: {
+      leagueTeamCount: 8,
+      gamesPerSeason: 15,
+      secondsPerGame: 40,
+      playoffTeams: 0,
+      // Still no deadline. See the `trade` unlock, which belongs to Act VI.
+      tradeWindows: [],
+      // Tuned by simulation against the act's own exit, which is the only way to tune a band
+      // whose act ends on a WIN RATE rather than on a title — set it wrong and the act is not
+      // slow, it is unfinishable. 30 runs per cell, each from a real Act III completion (the
+      // little leaguers the player actually promoted, at whatever reputation their Act III
+      // shopping left them: entry strength averages ~34.5), played to the exit. Seasons to
+      // exit, and the simulated minutes they take:
+      //                 buys nothing      stat upgrades only      + the sponsor board
+      //   [30, 48]      9.9 / 98.7 min    2.1 / 21.0 min          2.0 / 20.0 min
+      //   [36, 54]     11.6 / 116.3 min   2.4 / 23.7 min          2.1 / 20.7 min
+      //   [42, 60]     13.0 / 130.3 min   3.2 / 32.0 min          2.2 / 22.0 min
+      // No run at any band failed to finish.
+      //
+      // [42, 60] is chosen on the same rule Act III's band was: it is where the shop is the
+      // difference. At [30, 48] the act is over before the economy can matter — sponsors buy
+      // nothing the stat-upgrade sink was not already going to buy — and the player wins their
+      // first travel season, which is the wrong story for an act about being nobody in a
+      // bigger league. At [42, 60] the first season is genuinely contested (8-7, 6-9, 5-10 in
+      // sampled runs), the sponsor board is a 31% speedup, and the disengaged path lands at 32
+      // minutes, in the middle of the PRD's 25-35 minute budget.
+      //
+      // The "buys nothing" column is a strawman kept as a floor, not a target: it is a player
+      // who never spends the cash Act III's stands are still producing. It is finite at every
+      // band, which is the property that column exists to prove.
+      aiTeamStrengthRange: [42, 60],
+      // Retirement unlocks in THIS act, so this act is where it has to mean something. At
+      // balanceConfig's [8, 14] nobody would age out inside a 2-4 season act and the unlock
+      // would be invisible. Kids aging out of travel ball is also the honest fiction: three
+      // to six summers is exactly how long you get before the next age bracket takes you.
+      retireAtSeasonsRange: [3, 6],
+      // A replacement is a twelve-year-old, not balanceConfig's 20-22 year old rookie. Paired
+      // with the rookieQualityMult below: both halves are needed, or "retirement" reads as a
+      // draft of grown men into a kids' league.
+      rookieAgeRange: [12, 14],
+      // The click stays the cash faucet it became in Act III — the act's sinks are all cash
+      // and ticketing is still two acts away. 12 against Act III's 8 keeps it worth pressing
+      // at travel-ball prices without letting a fast clicker outrun a full sponsor board.
+      clickCurrency: 'cash',
+      clickLabel: 'Work the tournament gate',
+      clickMultiplier: 12,
+    },
+    // Rookies arrive at 0.6 quality rather than 1.0. Without this, the first offseason after
+    // retirement unlocks replaces a 0.5-quality little leaguer with a full-strength adult and
+    // team strength jumps ~2x for free — which is exactly what the unverified Act III behaviour
+    // was doing before retirement was gated (see engine/tickEngine.js).
+    modifierBonuses: { rookieQualityMult: -0.4 },
     unlocks: ['camp', 'retirement', 'bookie', 'sponsorships'],
   },
   {

@@ -3,6 +3,7 @@ const { revenuePerSecond } = require('./economy');
 const { CREW_DUES_PER_SECOND, RESPECT_CAPS_BONUS_PER_POINT } = require('../data/wallBallConfig');
 const { handsPerSecond } = require('./wallBallShop');
 const { concessionsPerSecond } = require('./concessions');
+const { sponsorshipsPerSecond } = require('./sponsorships');
 
 // Act I: each owned collector tier contributes its authored caps/second.
 function collectorsPerSecond(state) {
@@ -47,11 +48,16 @@ function totalIncomePerSecond(state, modifiers) {
   return {
     caps: (collectorsPerSecond(state) + wallBallDuesPerSecond(state) + handsPerSecond(state))
       * respectCapsMultiplier(state),
+    // Still structurally present and zero. The PRD gives Act IV coins; Act III shipped its
+    // concessions in cash and every Act IV sink is cash-priced, so Act IV pays cash too and
+    // the coins rail stays unused. See the currency note in data/actFourConfig.js.
     coins: 0,
-    // Act III's stands are the only cash source before the stadium exists: ticketing is gated
-    // on state.stadium, which Act V creates, so without concessions cash income in Act III is
-    // exactly zero and the stat-upgrade sink has nothing feeding it.
-    cash: ticketingPerSecond(state, modifiers) + concessionsPerSecond(state),
+    // Act III's stands and Act IV's sponsors are the only cash sources before the stadium
+    // exists: ticketing is gated on state.stadium, which Act V creates, so without these two
+    // cash income in Acts III-IV is exactly zero and the stat-upgrade sink has nothing feeding
+    // it. Sponsors are the tier above stands — the stands cap out at 105/sec fully bought,
+    // which is roughly one stat upgrade a minute at travel-ball stat levels.
+    cash: ticketingPerSecond(state, modifiers) + concessionsPerSecond(state) + sponsorshipsPerSecond(state),
   };
 }
 
@@ -62,5 +68,6 @@ module.exports = {
   collectorsPerSecond,
   wallBallDuesPerSecond,
   concessionsPerSecond,
+  sponsorshipsPerSecond,
   respectCapsMultiplier,
 };

@@ -1129,3 +1129,223 @@ table.standings tr.me {
   font-size: 0.75rem;
   opacity: 0.65;
 }
+
+/* Act IV — the sponsor board and the man at the fence. The offer card reuses the shape Act
+   III's shop established (.cx-offer); what is new here is the act-progress bar, which is the
+   only place Act IV's exit is legible, and the Bookie's two-sided line. */
+.sp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.sp-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #2f5a3d;
+  border-radius: 0.5rem;
+  background: #16301f;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.sp-offer:hover:not(:disabled) {
+  border-color: #6ab04c;
+  transform: translateY(-1px);
+}
+.sp-offer:disabled {
+  cursor: default;
+}
+.sp-offer.locked {
+  opacity: 0.5;
+  border-style: dotted;
+}
+.sp-offer.owned {
+  opacity: 0.7;
+  border-style: dashed;
+}
+.sp-offer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.sp-offer-name {
+  font-weight: 600;
+}
+.sp-offer-lock {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.sp-offer-desc {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  line-height: 1.35;
+}
+.sp-offer-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+}
+.sp-offer-effect {
+  color: #8fd67a;
+}
+.sp-offer-cost {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+.sp-progress {
+  border: 1px solid #2f5a3d;
+  border-radius: 0.5rem;
+  background: #13291b;
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 1rem;
+}
+.sp-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.45rem;
+}
+.sp-bar {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: #0d1c12;
+  overflow: hidden;
+}
+.sp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4d8f3a, #8fd67a);
+  transition: width 300ms ease;
+}
+.sp-progress p {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+}
+
+.bk-panel .bk-section-label {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.bk-matchup,
+.bk-open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px solid #2f5a3d;
+  border-radius: 0.5rem;
+  background: #13291b;
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 0.8rem;
+}
+.bk-matchup-name,
+.bk-open-line {
+  font-weight: 600;
+}
+.bk-matchup-odds,
+.bk-open-detail {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+.bk-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+.bk-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #2f5a3d;
+  border-radius: 0.5rem;
+  background: #16301f;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.bk-side.selected {
+  border-color: #f4d35e;
+  background: #1d3a25;
+}
+.bk-side-name {
+  font-weight: 600;
+}
+.bk-side-odds {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.bk-stake {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.8rem;
+}
+.bk-stake input[type='range'] {
+  width: 100%;
+}
+.bk-stake-label {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.25rem;
+}
+.bk-place {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #6ab04c;
+  border-radius: 0.5rem;
+  background: #1d3a25;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.bk-place-sub {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+.bk-unavailable {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  font-style: italic;
+}
+.bk-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border-left: 3px solid #6ab04c;
+  padding: 0.5rem 0.7rem;
+  margin-top: 0.8rem;
+  background: #13291b;
+}
+.bk-result.lost {
+  border-left-color: #b04c4c;
+}
+.bk-result-detail {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.bk-record {
+  margin-top: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
