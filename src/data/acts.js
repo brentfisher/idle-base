@@ -51,8 +51,45 @@ const ACTS = [
     entry: 'Five wall-ball wins and a crew of three.',
     exit: { id: 'littleLeagueTitleWon', description: 'Finish first in a six-game Little League season.' },
     // The existing schedule/standings simulation, switched on in miniature. `playoffTeams: 0`
-    // means no bracket yet — the champion is simply the standings leader.
-    rules: { leagueTeamCount: 4, gamesPerSeason: 6, secondsPerGame: 25, playoffTeams: 0 },
+    // means no bracket yet — the champion is simply the standings leader, which is exactly what
+    // the `littleLeagueTitleWon` exit reads.
+    //
+    // `aiTeamStrengthRange` is not optional flavour: the player's side is a promoted wall-ball
+    // crew plus kids of the same quality (data/actThreeConfig.js), rating ~25 overall. Against
+    // the default [35, 65] band that is a ~2% win rate at eloK 15, and an act whose exit is
+    // "finish first" would be unfinishable.
+    rules: {
+      leagueTeamCount: 4,
+      gamesPerSeason: 6,
+      secondsPerGame: 25,
+      playoffTeams: 0,
+      // No trade deadline in little league. Nine-year-olds do not trade each other, and the
+      // franchise code would otherwise open a window mid-season for a tab that should not
+      // exist yet — see the `trade` unlock, which now belongs to Act VI.
+      tradeWindows: [],
+      // Tuned by simulation, not by feel, and re-tuned once reputation became a strength
+      // bonus and the shop gave the player something to spend on. 30 runs per band, measured
+      // both with and without buying the boosters:
+      //   [18, 28] -> 68% win, ~4.7 min ignoring the shop; 84% and ~3.3 min with boosters
+      //   [22, 32] -> 50% win, ~11.8 min ignoring the shop; 68% and ~4.7 min with boosters
+      //   [26, 36] -> 46% win, ~14.6 min ignoring the shop; 55% and ~9.2 min with boosters
+      // [22, 32] is chosen because it is the band where the shop is the difference: engaging
+      // with it is a 2.5x speedup, where at [18, 28] the act is over before the economy can
+      // matter and at [26, 36] buying everything still leaves a grind. The act should be
+      // winnable by playing and *fast* by building.
+      aiTeamStrengthRange: [22, 32],
+      // The manual click becomes the act's cash faucet. Ticketing is gated on a stadium that
+      // does not exist until Act V, so without this the only cash in Act III is the 500 the
+      // game started with — barely two stat upgrades, and then nothing, ever.
+      //
+      // At clicker.perClick 2 (Sharper Eyes bought) this is 16 cash a click, so the first
+      // booster is ~22 clicks. Clicking stays viable against the stands rather than being
+      // token: it is the floor that guarantees recovery, and Act III is short enough that a
+      // player who would rather click than wait should not be punished for it.
+      clickCurrency: 'cash',
+      clickLabel: 'Work the concession line',
+      clickMultiplier: 8,
+    },
     modifierBonuses: {},
     unlocks: ['field', 'roster', 'league', 'statUpgrades', 'concessions', 'cardPacks'],
   },
@@ -63,9 +100,9 @@ const ACTS = [
       "Weekend tournaments three towns over. Somebody's dad is keeping stats. Somebody's uncle is taking bets.",
     entry: 'The Little League title.',
     exit: { id: 'travelBallWinRateReached', description: 'Reach a 60% career win rate across two full travel seasons.' },
-    rules: { leagueTeamCount: 8, gamesPerSeason: 15, secondsPerGame: 40, playoffTeams: 0 },
+    rules: { leagueTeamCount: 8, gamesPerSeason: 15, secondsPerGame: 40, playoffTeams: 0, tradeWindows: [] },
     modifierBonuses: {},
-    unlocks: ['camp', 'trade', 'retirement', 'bookie', 'sponsorships'],
+    unlocks: ['camp', 'retirement', 'bookie', 'sponsorships'],
   },
   {
     id: 4,
@@ -73,7 +110,7 @@ const ACTS = [
     description: 'A real stadium. A real payroll. The first time baseball is a business and not a game.',
     entry: 'A 60% career win rate over two travel seasons.',
     exit: { id: 'minorsPennantWon', description: 'Fill a 10,000-seat stadium and win the minor-league pennant.' },
-    rules: { leagueTeamCount: 10, gamesPerSeason: 24, secondsPerGame: 50, playoffTeams: 0 },
+    rules: { leagueTeamCount: 10, gamesPerSeason: 24, secondsPerGame: 50, playoffTeams: 0, tradeWindows: [] },
     modifierBonuses: {},
     unlocks: ['ticketing', 'stadium', 'powerups', 'scouting'],
   },
@@ -88,7 +125,9 @@ const ACTS = [
     // is preserved exactly.
     rules: {},
     modifierBonuses: {},
-    unlocks: ['playoffs', 'prestige'],
+    // `trade` lives here and nowhere earlier: a deadline is a big-league institution, and
+    // Acts III-V declare `tradeWindows: []` so no window ever opens before it.
+    unlocks: ['playoffs', 'trade', 'prestige'],
   },
 ];
 

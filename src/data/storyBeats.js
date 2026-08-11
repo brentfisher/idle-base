@@ -36,6 +36,22 @@ const STORY_BEATS = [
     ],
     objective: 'Take on the wall — and the kids lined up in front of it.',
   },
+  {
+    id: 'act-3-intro',
+    kind: 'actIntro',
+    actIndex: 2,
+    title: 'Little League',
+    prose: [
+      'Mr. Dorsey signs the form because somebody has to, and just like that the three kids '
+        + 'who used to shag your foul balls behind the hardware store are on a roster with '
+        + 'your name at the top of it.',
+      'They give you uniforms that do not fit and a coach who works nights at the plant. Six '
+        + 'games. Three other teams, and every one of them has been practising since March.',
+      'The wall taught you to win a thing you bet on. This is different. This one you have to '
+        + 'win with eight other kids, most of whom you did not choose.',
+    ],
+    objective: 'Finish first in the six-game Little League season.',
+  },
 ];
 
 function getStoryBeat(beatId) {

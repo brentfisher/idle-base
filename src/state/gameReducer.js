@@ -8,6 +8,7 @@ const clickerActions = require('./actions/clickerActions');
 const lotActions = require('./actions/lotActions');
 const narrativeActions = require('./actions/narrativeActions');
 const wallBallActions = require('./actions/wallBallActions');
+const concessionsActions = require('./actions/concessionsActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -28,6 +29,11 @@ function gameReducer(state, action) {
 
     case actionTypes.RESOLVE_WALL_BALL_CHALLENGE:
       return wallBallActions.resolveWallBallChallenge(state, action);
+    case actionTypes.BUY_WALL_BALL_UPGRADE:
+      return wallBallActions.buyWallBallUpgrade(state, action);
+
+    case actionTypes.BUY_CONCESSION:
+      return concessionsActions.buyConcession(state, action);
 
     case actionTypes.SET_TICKET_PRICE:
       return economyActions.setTicketPrice(state, action);

@@ -97,8 +97,14 @@ const CHALLENGERS = [
 // MIN_STAKE is what stops a broke player farming Respect off free zero-stake challenges:
 // under 4 caps there is nothing to wager, and the answer is the Hustle button, which is
 // never gated on anything.
-const STAKE_MAX_FRACTION = 0.25;
-const MIN_STAKE = 1;
+// STAKE_MAX_FRACTION was 0.25 and MIN_STAKE 1, which made a loss something you shrugged off
+// and waited out: the collectors refilled you in seconds and nothing had been given up. A
+// bigger slice makes a bad run actually cost a shop purchase, and a real minimum means you
+// have to *build a bankroll* before you can play at all — which is what makes the caps shop
+// worth visiting rather than optional. Both still satisfy the bounded-loss invariant: the cap
+// is a percentage of CURRENT caps, so absolute losses still shrink toward zero as you do.
+const STAKE_MAX_FRACTION = 0.4;
+const MIN_STAKE = 8;
 
 // Seconds between challenges — the line of kids, and the whole of Act II's pacing.
 // Attempts to a full crew are RESPECT_THRESHOLDS[2] / (win rate * approach respect):
@@ -108,7 +114,10 @@ const CHALLENGE_COOLDOWN_SECONDS = 22;
 
 // Crew size is DERIVED from Respect by counting the thresholds passed, never incremented,
 // so a double-dispatch or a replayed action cannot double-recruit.
-const RESPECT_THRESHOLDS = [15, 37, 60];
+// Crew #1 comes early on purpose — it is the act teaching you what Respect is for, and at 15
+// it arrived about seven challenges in, long after the lesson was needed. The gaps then widen,
+// so the last kid is the one you actually work for.
+const RESPECT_THRESHOLDS = [6, 24, 54];
 
 // Crew members are real players (engine/playerFactory.js), just simplified ones: they are
 // nine years old and only one stat is shown. Being real entities is what lets Act III
@@ -124,6 +133,12 @@ const CREW_DEFAULT_SIGNATURE_STAT = 'power';
 // Each crew member kicks in a few caps a second — the `wallBallDues` contributor in
 // engine/income.js. Small on purpose: the crew is the act's exit condition, not its economy.
 const CREW_DUES_PER_SECOND = 0.25;
+
+// Respect multiplies cap collection: being known on the block is worth something before it is
+// worth anything on a field. Applied in engine/income.js to the caps contributors. At 54
+// Respect (a full crew) this is +81%, which is felt without replacing the collectors as the
+// reason caps arrive at all.
+const RESPECT_CAPS_BONUS_PER_POINT = 0.015;
 
 // Respect is spent at the Act III boundary: it becomes state.reputation, which is what the
 // franchise game already runs on. 60 Respect (a full crew) => +30 reputation on a base of 20.
@@ -154,6 +169,7 @@ module.exports = {
   CREW_SIGNATURE_STATS,
   CREW_DEFAULT_SIGNATURE_STAT,
   CREW_DUES_PER_SECOND,
+  RESPECT_CAPS_BONUS_PER_POINT,
   REPUTATION_PER_RESPECT,
   EXIT_WINS_REQUIRED,
   EXIT_CREW_REQUIRED,

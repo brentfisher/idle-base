@@ -6,13 +6,7 @@ const { getUnlockedFeatures } = require('../../engine/progression');
 const { findNextEventClock } = require('../../engine/tickEngine');
 const { formatNumber, formatDuration } = require('../../utils/formatNumber');
 const { getEraConfig } = require('../../data/eras');
-
-// Ordered cheapest-first: the last unlocked entry is the act's own currency.
-const CURRENCIES = [
-  { id: 'caps', label: 'Caps', symbol: '' },
-  { id: 'coins', label: 'Coins', symbol: '' },
-  { id: 'cash', label: 'Cash', symbol: '$' },
-];
+const { CURRENCIES } = require('../../data/currencies');
 
 const PHASE_LABELS = { regular: 'Regular Season', playoffs: 'Playoffs', offseason: 'Offseason' };
 

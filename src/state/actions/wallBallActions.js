@@ -1,4 +1,5 @@
 const { resolveChallenge } = require('../../engine/wallBall');
+const { purchase } = require('../../engine/wallBallShop');
 const { checkActTransition } = require('../../engine/progression');
 
 // Act II's only action. The stake and approach on the action are REQUESTS, not decisions:
@@ -23,4 +24,10 @@ function resolveWallBallChallenge(state, action) {
   return checkActTransition(next);
 }
 
-module.exports = { resolveWallBallChallenge };
+// Act II's shop. No act transition check: nothing buyable can satisfy `crewAssembled`, which
+// needs wins and crew.
+function buyWallBallUpgrade(state, action) {
+  return purchase(state, action.offerId) || state;
+}
+
+module.exports = { resolveWallBallChallenge, buyWallBallUpgrade };

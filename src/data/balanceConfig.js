@@ -3,6 +3,10 @@ module.exports = {
   leagueTeamCount: 12, // player + 11 AI
   gamesPerSeason: 33, // 11 opponents x 3 games
   secondsPerGame: 60, // simulated seconds per regular-season game slot
+  // Strength range new AI teams are rolled in. An act may override it, and Act III must:
+  // little-league kids rate ~25 overall, and against the default band they would win about 2%
+  // of games at eloK 15 — an act whose exit is "finish first" that cannot be finished.
+  aiTeamStrengthRange: [35, 65],
   // Fractions of the season (by games played) during which a trade window is open.
   // Eras may override with multiple windows (e.g. Free Agency era).
   tradeWindows: [{ openFraction: 0.5, closeFraction: 0.61 }],
@@ -15,6 +19,11 @@ module.exports = {
 
   startingCash: 500,
   startingReputation: 20,
+  // What one point of reputation above startingReputation is worth as a team-strength bonus.
+  // Reputation used to feed attendanceFraction() and nothing else, which is gated on a stadium
+  // and so did literally nothing before Act V — including the +30 a full Act II crew banks.
+  // 0.004 makes that banked 30 worth +12% strength, and Act III's boosters worth ~+22% more.
+  reputationStrengthPerPoint: 0.004,
   startingCapacity: 5000,
   startingTicketPrice: 10,
 

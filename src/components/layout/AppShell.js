@@ -17,7 +17,10 @@ const PrestigePanel = require('../prestige/PrestigePanel');
 const Modal = require('../common/Modal');
 const LotPanel = require('../lot/LotPanel');
 const WallBallPanel = require('../wallBall/WallBallPanel');
+const ConcessionsPanel = require('../concessions/ConcessionsPanel');
+const SearchLotButton = require('../lot/SearchLotButton');
 const StoryCard = require('../narrative/StoryCard');
+const ToastHost = require('../common/ToastHost');
 const { getActIntroBeat } = require('../../data/storyBeats');
 
 // Tab id === feature id in an act's `unlocks` array (data/acts.js). This is the single point of
@@ -27,6 +30,7 @@ const { getActIntroBeat } = require('../../data/storyBeats');
 const PANELS = {
   field: FieldView,
   roster: RosterPanel,
+  concessions: ConcessionsPanel,
   ticketing: TicketingPanel,
   league: StandingsPanel,
   playoffs: PlayoffBracket,
@@ -76,11 +80,21 @@ function AppShell() {
   // the Hustle button, which exists in every act and is never gated (PRD 6.4). A broke
   // player who cannot make the minimum wager is always one click away from being able to.
   if (!state.season) {
+    const wallUnlocked = unlocked.indexOf('wallBall') !== -1;
     return (
       <div className="app-shell">
-        {unlocked.indexOf('wallBall') !== -1 && <WallBallPanel />}
+        {/* The wall appears ABOVE the lot, which is the one place a player already scrolled
+            past. Entering Act II therefore looked like nothing had changed. This marker sits
+            where their eyes already are and points up. */}
+        {wallUnlocked && (
+          <div className="new-above" aria-hidden="true">
+            <span>The wall is up there ↑</span>
+          </div>
+        )}
+        {wallUnlocked && <WallBallPanel />}
         <LotPanel />
         {pendingBeat && <StoryCard beat={pendingBeat} />}
+        <ToastHost />
       </div>
     );
   }
@@ -108,11 +122,19 @@ function AppShell() {
         playoffsActive={playoffsActive}
       />
       <ActivePanel />
+      {/* The manual click, in every act. It lived inside LotPanel, which only renders in the
+          pre-season branch above — so creating a season in Act III silently deleted the one
+          action that guarantees any state is recoverable (engine/clicker.js, PRD 6.4). It is
+          rendered here, outside the tab switch, so no tab can ever hide it again. */}
+      <div className="hustle-bar">
+        <SearchLotButton />
+      </div>
       {/* Rendered below the active panel rather than inside a tab: the feed is the only
           always-on signal that the simulation is running, so it must never be hidden. */}
       <EventFeed />
 
       {pendingBeat && <StoryCard beat={pendingBeat} />}
+      <ToastHost />
 
       {showVictory && (
         <Modal
@@ -140,7 +162,10 @@ function AppShell() {
         >
           <p>
             Record: {summary.wins}-{summary.losses}
-            {summary.madePlayoffs ? ' · Made the playoffs' : ' · Missed the playoffs'}
+            {/* In a league with no postseason (Act III), finishing first is the whole title,
+                so "Missed the playoffs" would be reporting a competition that never existed. */}
+            {summary.madePlayoffs ? ' · Made the playoffs' : ''}
+            {summary.finishedFirst ? ' · 🥇 First place!' : ''}
             {summary.wonChampionship ? ' · 🏆 Champions!' : ''}
           </p>
           {summary.retired.length > 0 && (
