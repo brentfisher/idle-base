@@ -276,7 +276,12 @@ function runOffseasonTransition(working, modifiers) {
   const wonChampionship = !!(working.season.playoffs && working.season.playoffs.champion === PLAYER_TEAM_ID);
   const playerRow = working.season.standings.find((s) => s.teamId === PLAYER_TEAM_ID);
 
-  const leagueTeams = driftLeagueStrength(working.league.teams);
+  // Topping the table, which in a league with no postseason (Act III declares `playoffTeams: 0`)
+  // IS the title. Captured here because the standings this reads are reset three lines below —
+  // by the time an exit predicate runs, the evidence is gone. See engine/littleLeague.js.
+  const finishedFirst = sortStandings(working.season.standings)[0].teamId === PLAYER_TEAM_ID;
+
+  const leagueTeams = driftLeagueStrength(working.league.teams, rules.aiTeamStrengthRange);
   const gamesPerSeason = rules.gamesPerSeason;
   const schedule = generateSeasonSchedule(leagueTeams, gamesPerSeason);
   const standings = resetStandings(leagueTeams);
@@ -293,6 +298,7 @@ function runOffseasonTransition(working, modifiers) {
     losses: playerRow ? playerRow.losses : 0,
     madePlayoffs: !!working.season.playoffs,
     wonChampionship,
+    finishedFirst,
     retired,
     rookies: rookies.map((r) => ({ id: r.id, name: r.name, position: r.position })),
   };

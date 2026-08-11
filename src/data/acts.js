@@ -51,8 +51,27 @@ const ACTS = [
     entry: 'Five wall-ball wins and a crew of three.',
     exit: { id: 'littleLeagueTitleWon', description: 'Finish first in a six-game Little League season.' },
     // The existing schedule/standings simulation, switched on in miniature. `playoffTeams: 0`
-    // means no bracket yet — the champion is simply the standings leader.
-    rules: { leagueTeamCount: 4, gamesPerSeason: 6, secondsPerGame: 25, playoffTeams: 0 },
+    // means no bracket yet — the champion is simply the standings leader, which is exactly what
+    // the `littleLeagueTitleWon` exit reads.
+    //
+    // `aiTeamStrengthRange` is not optional flavour: the player's side is a promoted wall-ball
+    // crew plus kids of the same quality (data/actThreeConfig.js), rating ~25 overall. Against
+    // the default [35, 65] band that is a ~2% win rate at eloK 15, and an act whose exit is
+    // "finish first" would be unfinishable.
+    rules: {
+      leagueTeamCount: 4,
+      gamesPerSeason: 6,
+      secondsPerGame: 25,
+      playoffTeams: 0,
+      // Tuned by simulation, not by feel (40 sampled runs per candidate band):
+      //   [20, 30] -> 54% win rate, first place in 33% of seasons, ~10.5 min to clear
+      //   [18, 28] -> 65% win rate, first place in 45% of seasons, ~6.8 min to clear
+      // The second is chosen because Act III gives the player almost no lever: a stat upgrade
+      // moves team strength by ~0.06 (statUpgradeAmount 2, weighted, averaged over 10 starters),
+      // so the extra four minutes are spent watching, not deciding. Winning about two thirds of
+      // games is also the right feeling for the act — the crew you earned should be good.
+      aiTeamStrengthRange: [18, 28],
+    },
     modifierBonuses: {},
     unlocks: ['field', 'roster', 'league', 'statUpgrades', 'concessions', 'cardPacks'],
   },

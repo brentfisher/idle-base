@@ -5,20 +5,32 @@ const { clamp } = require('../utils/statUtils');
 
 const PLAYER_TEAM_ID = 'player';
 
-function createLeagueTeams(aiTeamCount) {
+// `strengthRange` is resolved, not hardcoded: an act declares the scale its league plays at
+// (Act III's little leaguers are nowhere near the default band). Defaulted so the pre-act call
+// sites and any caller without resolved rules to hand keep today's behaviour exactly.
+function createLeagueTeams(aiTeamCount, strengthRange = balanceConfig.aiTeamStrengthRange) {
+  const [low, high] = strengthRange;
   return Array.from({ length: aiTeamCount }, (_, i) => ({
     id: `ai_${i}`,
     name: getAiTeamName(i),
-    baseStrength: randInt(35, 65),
+    baseStrength: randInt(low, high),
   }));
 }
 
 // Small season-to-season drift so a long-running league doesn't feel perfectly static,
 // without a full regeneration (teams only regenerate on prestige/era change).
-function driftLeagueStrength(leagueTeams) {
+//
+// The clamp is the league's own band, widened a little, rather than a fixed [25, 90]: a hard
+// floor of 25 silently ratcheted Act III's [20, 30] little leaguers upward every offseason, so
+// a player who needed a second season to finish first met a stronger league each time they
+// retried. Drift should wander within the scale the act declared, not out of it.
+const DRIFT_SLACK = 5;
+
+function driftLeagueStrength(leagueTeams, strengthRange = balanceConfig.aiTeamStrengthRange) {
+  const [low, high] = strengthRange;
   return leagueTeams.map((team) => ({
     ...team,
-    baseStrength: clamp(Math.round(team.baseStrength + jitter(4)), 25, 90),
+    baseStrength: clamp(Math.round(team.baseStrength + jitter(4)), Math.max(1, low - DRIFT_SLACK), high + DRIFT_SLACK),
   }));
 }
 

@@ -2,6 +2,7 @@ const React = require('react');
 const { useGame } = require('../../state/GameContext');
 const { sortStandings, winPct } = require('../../engine/standings');
 const { PLAYER_TEAM_ID } = require('../../engine/schedule');
+const { resolveRules } = require('../../engine/modifiers');
 const SeasonSchedulePanel = require('./SeasonSchedulePanel');
 
 function teamName(state, teamId) {
@@ -13,13 +14,18 @@ function teamName(state, teamId) {
 function StandingsPanel() {
   const { state } = useGame();
   const sorted = sortStandings(state.season.standings);
+  // Resolved, not the hardcoded 4 this used to print: Act III declares `playoffTeams: 0`, and
+  // telling a little leaguer that the top four make a postseason that does not exist is a lie
+  // about the act's own win condition — finishing first IS the title there.
+  const playoffTeams = resolveRules(state).playoffTeams;
 
   return (
     <div className="panel">
       <h2>League Standings</h2>
       <p className="muted">
         Season {state.season.seasonNumber} · Game {Math.min(state.season.scheduleIndex, state.season.gamesPerSeason)}
-        /{state.season.gamesPerSeason} · Top {4} make the playoffs
+        /{state.season.gamesPerSeason} ·{' '}
+        {playoffTeams >= 2 ? `Top ${playoffTeams} make the playoffs` : 'First place takes the title'}
       </p>
       <div style={{ overflowX: 'auto' }}>
         <table className="standings">

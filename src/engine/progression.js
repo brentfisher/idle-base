@@ -1,6 +1,12 @@
 const { ACTS, FINAL_ACT_INDEX, getActConfig } = require('../data/acts');
 const { STARTER_KIT_ITEMS } = require('../data/actOneConfig');
 const { isCrewAssembled } = require('./wallBall');
+const {
+  LITTLE_LEAGUE_ACT_INDEX,
+  openLittleLeague,
+  repairMissingSeason,
+  hasWonLittleLeagueTitle,
+} = require('./littleLeague');
 const { CHALLENGERS, REPUTATION_PER_RESPECT } = require('../data/wallBallConfig');
 
 // Which features are unlocked is DERIVED from the act index on every read and is never stored.
@@ -32,6 +38,9 @@ const EXIT_PREDICATES = {
   // Act II: five wall-ball wins AND a crew of three. Both halves read what the player can
   // see (the wins counter, the crew that turned up) rather than a stored milestone.
   crewAssembled: (state) => isCrewAssembled(state),
+  // Act III: finished first in a little-league season. Read from the season recap rather than
+  // from standings, which the offseason transition has already reset by the time this runs.
+  littleLeagueTitleWon: (state) => hasWonLittleLeagueTitle(state),
 };
 
 function isExitSatisfied(state, act) {
@@ -64,21 +73,31 @@ const ACT_INITIALIZERS = {
     };
   },
 
-  // Entering Act III spends Act II's Respect: it becomes state.reputation, the currency the
-  // franchise game already runs on. Zeroed as it converts, so the same Respect cannot be
-  // banked twice — and because the odyssey is played once per save and prestige resets to
-  // the final act (engine/prestige.js), this runs exactly once per run.
+  // Entering Act III does two things, in this order.
   //
-  // The crew stay in state.crew as ordinary player entities (engine/playerFactory.js). Act
-  // III owns roster creation and is what promotes them; they need no conversion when it does.
-  2: function bankActTwoRespect(state) {
+  // First it spends Act II's Respect: it becomes state.reputation, the currency the franchise
+  // game already runs on. Zeroed as it converts, so the same Respect cannot be banked twice —
+  // and because the odyssey is played once per save and prestige resets to the final act
+  // (engine/prestige.js), this runs exactly once per run.
+  //
+  // Then it opens the little league, which is what promotes the crew out of state.crew into a
+  // real roster and creates state.season. That second half is the boundary the whole odyssey
+  // was waiting on: until a season exists, AppShell renders no franchise UI at all.
+  //
+  // Guarded on `state.season` being absent so that re-entering the act — a replayed action, a
+  // future initializer rerun — cannot blow away a season in progress and its standings with it.
+  [LITTLE_LEAGUE_ACT_INDEX]: function openLittleLeagueSeason(state) {
     const respect = (state.wallBall && state.wallBall.respect) || 0;
-    if (respect <= 0) return state;
-    return {
-      ...state,
-      reputation: state.reputation + respect * REPUTATION_PER_RESPECT,
-      wallBall: { ...state.wallBall, respect: 0, reputationBanked: respect * REPUTATION_PER_RESPECT },
-    };
+    const banked =
+      respect > 0
+        ? {
+            ...state,
+            reputation: state.reputation + respect * REPUTATION_PER_RESPECT,
+            wallBall: { ...state.wallBall, respect: 0, reputationBanked: respect * REPUTATION_PER_RESPECT },
+          }
+        : state;
+
+    return banked.season ? banked : openLittleLeague(banked);
   },
 
   // Entering the final act zeroes runStats. addRevenue() accumulates totalRevenue and
@@ -117,7 +136,10 @@ function checkActTransition(state) {
   // Tolerate a save written before the progression slice existed rather than throwing.
   if (!state.progression) return state;
 
-  let working = state;
+  // Before checking whether the act can be *left*, make sure it was properly entered. A save
+  // that crossed a boundary before that act had an initializer is missing the content the act
+  // owns, and no amount of playing will produce it. See engine/littleLeague.js.
+  let working = repairMissingSeason(state);
   let steps = 0;
   while (working.progression.act < FINAL_ACT_INDEX && steps < FINAL_ACT_INDEX) {
     steps += 1;

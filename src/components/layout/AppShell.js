@@ -140,7 +140,10 @@ function AppShell() {
         >
           <p>
             Record: {summary.wins}-{summary.losses}
-            {summary.madePlayoffs ? ' · Made the playoffs' : ' · Missed the playoffs'}
+            {/* In a league with no postseason (Act III), finishing first is the whole title,
+                so "Missed the playoffs" would be reporting a competition that never existed. */}
+            {summary.madePlayoffs ? ' · Made the playoffs' : ''}
+            {summary.finishedFirst ? ' · 🥇 First place!' : ''}
             {summary.wonChampionship ? ' · 🏆 Champions!' : ''}
           </p>
           {summary.retired.length > 0 && (

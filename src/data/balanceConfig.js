@@ -3,6 +3,10 @@ module.exports = {
   leagueTeamCount: 12, // player + 11 AI
   gamesPerSeason: 33, // 11 opponents x 3 games
   secondsPerGame: 60, // simulated seconds per regular-season game slot
+  // Strength range new AI teams are rolled in. An act may override it, and Act III must:
+  // little-league kids rate ~25 overall, and against the default band they would win about 2%
+  // of games at eloK 15 — an act whose exit is "finish first" that cannot be finished.
+  aiTeamStrengthRange: [35, 65],
   // Fractions of the season (by games played) during which a trade window is open.
   // Eras may override with multiple windows (e.g. Free Agency era).
   tradeWindows: [{ openFraction: 0.5, closeFraction: 0.61 }],
