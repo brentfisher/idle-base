@@ -19,7 +19,20 @@ const FEED_CATEGORIES = {
   camp: { label: 'Training Camp', icon: '🏋️' },
   powerup: { label: 'Promotion', icon: '✨' },
   bookie: { label: 'The Bookie', icon: '🎲' },
+  sponsor: { label: 'The Sponsor Board', icon: '📋' },
 };
+
+// The cash a win paid, as a clause tacked onto the result rather than a feed entry of its own.
+// A second entry per game would halve the feed's effective depth (FEED_CAP is 50, and an
+// 8-hour catch-up already overruns it many times over), and it would separate the money from
+// the thing that earned it — which is the whole reason the player asked for this.
+//
+// An envelope because that is how this money actually arrives at every level of the game: the
+// coach counting out the concession take in the parking lot, and, twenty years later, a line
+// item somebody's accountant calls a win bonus. Same envelope, more zeroes.
+function purseClause(purse) {
+  return purse > 0 ? ` $${Math.round(purse)} in the envelope.` : '';
+}
 
 function powerupDisplayName(powerupId) {
   const powerup = POWERUPS.find((p) => p.id === powerupId);
@@ -41,10 +54,12 @@ function playoffRoundLabel(roundIndex, totalRounds) {
 }
 
 const feedMessages = {
-  gameResult: function gameResult(opponentName, isHome, won, scoreFor, scoreAgainst) {
+  // `purse` is optional and defaults to nothing: a loss pays none, and every caller written
+  // before the purse existed passes five arguments and still reads correctly.
+  gameResult: function gameResult(opponentName, isHome, won, scoreFor, scoreAgainst, purse) {
     const verb = won ? 'beat' : 'fell to';
     const venue = isHome ? 'at home' : 'on the road';
-    return `${won ? 'W' : 'L'} ${scoreFor}-${scoreAgainst} — ${verb} the ${opponentName} ${venue}.`;
+    return `${won ? 'W' : 'L'} ${scoreFor}-${scoreAgainst} — ${verb} the ${opponentName} ${venue}.${purseClause(purse)}`;
   },
 
   regularSeasonComplete: function regularSeasonComplete(seasonNumber, madePlayoffs) {
@@ -53,9 +68,9 @@ const feedMessages = {
       : `Season ${seasonNumber} regular season is done — you missed the playoffs.`;
   },
 
-  playoffGameResult: function playoffGameResult(roundLabel, opponentName, won, scoreFor, scoreAgainst) {
+  playoffGameResult: function playoffGameResult(roundLabel, opponentName, won, scoreFor, scoreAgainst, purse) {
     return won
-      ? `${roundLabel}: won ${scoreFor}-${scoreAgainst} over the ${opponentName}.`
+      ? `${roundLabel}: won ${scoreFor}-${scoreAgainst} over the ${opponentName}.${purseClause(purse)}`
       : `${roundLabel}: lost ${scoreFor}-${scoreAgainst} to the ${opponentName} — your run is over.`;
   },
 
@@ -94,6 +109,15 @@ const feedMessages = {
     return result.won
       ? `The Bookie pays out $${result.payout} — you had $${result.amount} ${backed} against the ${result.opponentName}.`
       : `The Bookie keeps your $${result.amount}. You had it ${backed} against the ${result.opponentName}.`;
+  },
+
+  // Act IV. A sponsor coming off the board is the game telling the player that their NAME got
+  // somewhere before they did — somebody three towns over has been hearing about this team all
+  // summer. So the line is about being talked about, and the money is left for the panel to
+  // state; a feed entry that led with a rate would read like a press release, and the sponsor
+  // board is emphatically not a press release.
+  sponsorOffered: function sponsorOffered(sponsorName) {
+    return `${sponsorName} has been asking about you. There is an offer sitting on the sponsor board.`;
   },
 
   seasonRollover: function seasonRollover(finishedSeasonNumber, wins, losses) {

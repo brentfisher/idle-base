@@ -1,18 +1,24 @@
 // Act II — Off the Wall. A wall-ball challenge is a STAKED STRENGTH CHECK, not a twitch
 // mini-game: the player stakes caps, picks an approach, and the rally resolves at once.
 //
-// BOUNDED-LOSS INVARIANT (PRD §6.4, design Decision 6, conventions.md "Hard Invariants").
-// Three properties, all of them structural rather than tuning:
-//   1. A stake is capped at STAKE_MAX_FRACTION of CURRENT caps — a percentage of holdings,
-//      never a flat amount — so absolute losses shrink toward zero as the balance does.
-//      clampStake() is the only way a stake is computed and the reducer re-clamps whatever
-//      the UI sent, unconditionally. The stake slider is convenience, never the guarantee.
+// RECOVERABILITY INVARIANT (PRD §6.4, design Decision 6, conventions.md "Hard Invariants").
+//
+// Note what this guarantees and what it deliberately does not. It does NOT promise that losses
+// are small: STAKE_MAX_FRACTION is 1, so a player may stake every cap they hold and lose it,
+// which is the point of the act (see the note in data/wallBallConfig.js). What it promises is
+// that no state is UNRECOVERABLE. Going broke is a setback; being stuck is a bug. Three
+// properties, all structural rather than tuning:
+//   1. A stake is a fraction of CURRENT caps, never a flat amount, so it can never exceed the
+//      balance and can never drive it negative. clampStake() is the only way a stake is
+//      computed and the reducer re-clamps whatever the UI sent, unconditionally. The stake
+//      slider is convenience, never the guarantee.
 //   2. No currency goes below zero: every wallet write here is engine/wallet.js, and Respect
-//      only ever increases.
+//      only ever increases — a losing streak costs caps, never progress toward the crew.
 //   3. The Hustle click (engine/clicker.js) is untouched by anything in this file. It is what
 //      makes a broke player's position recoverable in bounded time, so under MIN_STAKE caps
 //      the challenge is simply unavailable rather than free — a free challenge would be an
-//      unbounded Respect faucet, and the Hustle button is right there.
+//      unbounded Respect faucet, and the Hustle button is right there. This is the property
+//      that carries the whole invariant now that the stake ceiling no longer does.
 //
 // Pure — no React, no DOM. Every number comes from data/wallBallConfig.js. `rng` is a
 // parameter, defaulted, so the invariants above can be driven headlessly with an
@@ -35,6 +41,8 @@ const {
   STAKE_MAX_FRACTION,
   MIN_STAKE,
   CHALLENGE_COOLDOWN_SECONDS,
+  RESPECT_COOLDOWN_REDUCTION_PER_POINT,
+  MIN_COOLDOWN_FRACTION,
   RESPECT_THRESHOLDS,
   RESPECT_CAPS_BONUS_PER_POINT,
   CREW_QUALITY_MULT,
@@ -121,6 +129,29 @@ function maxStake(state) {
 function cooldownRemaining(state) {
   const { nextChallengeAtClock } = wallBallSlice(state);
   return Math.max(0, nextChallengeAtClock - (state.clock || 0));
+}
+
+// How long the next kid takes to step up, given how well known the player is. Respect buys the
+// walkup down toward MIN_COOLDOWN_FRACTION of the base and no further — see the long note over
+// RESPECT_COOLDOWN_REDUCTION_PER_POINT in data/wallBallConfig.js for why the floor is load-
+// bearing and why this scaling is small.
+//
+// Takes a respect VALUE rather than state, because resolveChallenge() has to schedule the next
+// walkup off the respect the player just earned rather than the respect they walked up with —
+// otherwise the win that crosses a threshold is the one win that does not feel any faster.
+function cooldownFractionForRespect(respect) {
+  const points = Math.max(0, typeof respect === 'number' && Number.isFinite(respect) ? respect : 0);
+  return Math.max(MIN_COOLDOWN_FRACTION, 1 - points * RESPECT_COOLDOWN_REDUCTION_PER_POINT);
+}
+
+function cooldownSecondsForRespect(respect) {
+  return CHALLENGE_COOLDOWN_SECONDS * cooldownFractionForRespect(respect);
+}
+
+// The walkup the player is on RIGHT NOW, for display. Read through wallBallSlice so a save with
+// no Act II slice at all answers with the base cooldown instead of throwing.
+function effectiveCooldownSeconds(state) {
+  return cooldownSecondsForRespect(wallBallSlice(state).respect);
 }
 
 // Crew size is COUNTED from Respect, never incremented. Recruitment is therefore idempotent:
@@ -229,7 +260,9 @@ function resolveChallenge(state, options = {}, rng = Math.random) {
       losses: slice.losses + (won ? 0 : 1),
       respect,
       challengerId: nextChallengerId(challenger.id, rng),
-      nextChallengeAtClock: (state.clock || 0) + CHALLENGE_COOLDOWN_SECONDS,
+      // Scheduled off the respect the player is walking away with, not the respect they walked
+      // up with, so a win that earns respect visibly shortens the wait it just created.
+      nextChallengeAtClock: (state.clock || 0) + cooldownSecondsForRespect(respect),
       lastResult: {
         won,
         stake,
@@ -264,6 +297,13 @@ function challengeView(state, approachId) {
     minStake: MIN_STAKE,
     canWager: ceiling >= MIN_STAKE,
     cooldownRemaining: cooldownRemaining(state),
+    // The walkup, surfaced as three numbers rather than one, because a reward the player cannot
+    // see is a reward that may as well not exist: what the wait IS now, what it would be with no
+    // respect at all, and whether the floor has been reached (at which point the panel stops
+    // promising more). The panel formats; it does not compute any of this.
+    cooldownSeconds: cooldownSecondsForRespect(slice.respect),
+    baseCooldownSeconds: CHALLENGE_COOLDOWN_SECONDS,
+    cooldownAtFloor: cooldownFractionForRespect(slice.respect) <= MIN_COOLDOWN_FRACTION,
     wins: slice.wins,
     losses: slice.losses,
     respect: slice.respect,
@@ -298,6 +338,9 @@ module.exports = {
   maxStakeFor,
   maxStake,
   cooldownRemaining,
+  cooldownFractionForRespect,
+  cooldownSecondsForRespect,
+  effectiveCooldownSeconds,
   canChallenge,
   crewSizeForRespect,
   crewProgress,

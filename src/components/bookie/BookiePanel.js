@@ -18,6 +18,121 @@ const UNAVAILABLE_COPY = {
   belowFloor: 'He looks at what you are holding and goes back to his coffee. Come back with more.',
 };
 
+// The prop board's own reasons. Separate from the ones above because the two bets are gated
+// separately — an open moneyline does not close the prop board, and saying "one at a time"
+// there would be a lie.
+const PROP_UNAVAILABLE_COPY = {
+  openProp: 'He has already written one down for you. He is not writing two.',
+  noGame: 'No game, no props. He puts the notebook away.',
+  belowFloor: 'He turns the page back to the real odds without saying anything.',
+};
+
+// The board is DERIVED, never stored (engine/bookie.js propOfferSeed), so it turns over on its
+// own between renders. The selected offer is therefore re-found by id every render rather than
+// remembered: if the board has moved on, the selection falls back to whatever is on it now, and
+// the engine refuses a stale id outright if one somehow gets dispatched.
+function PropBoard({ view, dispatch }) {
+  const props = view.props;
+  const [selectedId, setSelectedId] = React.useState(null);
+  const [requested, setRequested] = React.useState(0);
+
+  const chosen = props.offers.find((o) => o.id === selectedId) || props.offers[0] || null;
+  const amount = Math.max(props.minBet, Math.min(requested || props.minBet, props.maxBet));
+  const ready = !props.unavailableReason && chosen && props.maxBet >= props.minBet;
+
+  return (
+    <div className="bp-board">
+      <span className="bk-section-label">The other page</span>
+      <p className="muted bp-blurb">
+        He turns the notebook around. None of it is about who wins. He will take money on all of
+        it.
+      </p>
+
+      {props.pending && (
+        <div className="bp-open">
+          <span className="bp-open-line">${formatNumber(props.pending.amount)} on: {props.pending.text}</span>
+          <span className="bp-open-detail">
+            {props.pending.payoutMult.toFixed(2)}x · pays $
+            {formatNumber(Math.round(props.pending.amount * props.pending.payoutMult))} if it happens. He
+            settles it after the next game.
+          </span>
+        </div>
+      )}
+
+      {props.offers.length > 0 && (
+        <div className="bp-offers">
+          {props.offers.map((offer) => (
+            <button
+              type="button"
+              key={offer.id}
+              className={`bp-offer${chosen && offer.id === chosen.id ? ' selected' : ''}`}
+              onClick={() => setSelectedId(offer.id)}
+            >
+              <span className="bp-offer-text">{offer.text}</span>
+              <span className="bp-offer-odds">
+                {offer.payoutMult.toFixed(2)}x · he gives it {Math.round(offer.winChance * 100)}%
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {ready && (
+        <>
+          <div className="bp-stake">
+            <label>
+              <span className="bp-stake-label">${formatNumber(amount)} on it</span>
+              <input
+                type="range"
+                min={props.minBet}
+                max={Math.max(props.minBet, props.maxBet)}
+                step={1}
+                value={amount}
+                onChange={(e) => setRequested(Number(e.target.value))}
+              />
+            </label>
+            <span className="muted">Props are pocket money. He will not take more than a twentieth of it.</span>
+          </div>
+
+          <button
+            type="button"
+            className="bp-place"
+            onClick={() => dispatch({ type: actionTypes.PLACE_PROP_BET, offerId: chosen.id, amount })}
+          >
+            <span className="bp-place-label">Write it down</span>
+            <span className="bp-place-sub">
+              Win ${formatNumber(Math.round(amount * chosen.payoutMult) - amount)} · lose ${formatNumber(amount)}
+            </span>
+          </button>
+        </>
+      )}
+
+      {props.unavailableReason && (
+        <p className="bp-unavailable">{PROP_UNAVAILABLE_COPY[props.unavailableReason]}</p>
+      )}
+
+      {props.lastResult && (
+        <div className={`bp-result${props.lastResult.won ? ' won' : ' lost'}`}>
+          <span className="bp-result-line">
+            {props.lastResult.won ? 'It happened.' : 'It did not happen.'} {props.lastResult.text}
+          </span>
+          <span className="bp-result-detail">
+            {props.lastResult.delta >= 0 ? '+' : '−'}${formatNumber(Math.abs(props.lastResult.delta))} ·{' '}
+            {props.lastResult.payoutMult.toFixed(2)}x
+          </span>
+        </div>
+      )}
+
+      {(props.record.wins > 0 || props.record.losses > 0) && (
+        <p className="muted bp-record">
+          {props.record.wins}-{props.record.losses} on props, {props.record.net >= 0 ? 'up' : 'down'} $
+          {formatNumber(Math.abs(Math.round(props.record.net)))}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function OpenWager({ wager }) {
   return (
     <div className="bk-open">
@@ -127,6 +242,11 @@ function BookiePanel() {
           </span>
         </div>
       )}
+
+      {/* Outside the moneyline's `ready` gate on purpose. `ready` is false whenever a
+          moneyline is open, and a prop is a different bet on a different page — gating one on
+          the other would hide the whole board the moment the player backs their own team. */}
+      <PropBoard view={view} dispatch={dispatch} />
 
       <p className="muted bk-record">
         {view.record.wins}-{view.record.losses} with him, {view.record.net >= 0 ? 'up' : 'down'} $

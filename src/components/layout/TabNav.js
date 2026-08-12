@@ -10,6 +10,9 @@ const TABS = [
   { id: 'sponsorships', label: 'Sponsors' },
   { id: 'bookie', label: 'The Bookie' },
   { id: 'ticketing', label: 'Ticketing' },
+  // Short on purpose: this arrives in Act V, when the tab bar is at its widest and already
+  // wraps to three rows on a 390px screen.
+  { id: 'capsShop', label: 'Caps' },
   { id: 'league', label: 'League' },
   { id: 'playoffs', label: 'Playoffs' },
   { id: 'camp', label: 'Training Camp' },

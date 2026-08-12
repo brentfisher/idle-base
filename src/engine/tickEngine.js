@@ -20,7 +20,10 @@ const { checkRetirements } = require('./retirement');
 const { checkActTransition, getUnlockedFeatures } = require('./progression');
 const { recordTravelSeason } = require('./travelBall');
 const { settleWager, refundOpenWager } = require('./bookie');
+const { newlyAvailableSponsors, markSponsorsAnnounced } = require('./sponsorships');
+const { winPurseForAct, playoffPurseForAct } = require('../data/winPurseConfig');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
+const { effectiveSecondsPerGame, effectiveSecondsPerPlayoffRound } = require('./pacing');
 const {
   feedMessages,
   powerupDisplayName,
@@ -44,6 +47,19 @@ function playoffFieldSize(declared, availableTeams) {
   const n = Math.min(declared || 0, availableTeams);
   if (n < 2) return 0;
   return 2 ** Math.floor(Math.log2(n));
+}
+
+// Winning a game pays. The amount is act-scaled and every number behind it, including the
+// arithmetic that says it can never become the primary income stream, lives in
+// data/winPurseConfig.js — this file only decides WHEN a purse is owed, which is the same
+// division of labour resolveRules() has with data/acts.js.
+//
+// The act index is read defensively: `progression` is absent in a save written before the
+// odyssey existed, and a garbage index resolves to the table's fallback rather than throwing.
+// runOffseasonTransition() below reads it the same way, for the same reason.
+function actIndexOf(working) {
+  const act = working.progression && working.progression.act;
+  return typeof act === 'number' && Number.isFinite(act) ? act : 0;
 }
 
 function addRevenue(working, revenue) {
@@ -120,6 +136,7 @@ function resolveGameSlot(working, modifiers) {
   const playerStrength = getTeamStrength(working, modifiers, PLAYER_TEAM_ID);
   const oppStrength = getTeamStrength(working, modifiers, slot.opponentTeamId);
   const result = simulateGame(playerStrength, oppStrength);
+  const purse = result.aWins ? winPurseForAct(actIndexOf(working)) : 0;
 
   let standings = applyGameResult(working.season.standings, PLAYER_TEAM_ID, result.aWins, result.scoreA, result.scoreB);
   standings = applyGameResult(standings, slot.opponentTeamId, !result.aWins, result.scoreB, result.scoreA);
@@ -159,7 +176,11 @@ function resolveGameSlot(working, modifiers) {
     standings,
     scheduleIndex,
     tradeWindows,
-    nextGameAtClock: working.clock + working.season.secondsPerGame,
+    // The season's own `secondsPerGame` is what this act built the season with; the pace
+    // multiplier is applied on top of it at read time (engine/pacing.js) rather than baked into
+    // the season, so a caps-shop purchase shortens the very next gap without reshaping a season
+    // in flight. At 1x — every act before the shop unlocks — this is the old expression exactly.
+    nextGameAtClock: working.clock + effectiveSecondsPerGame(working.season.secondsPerGame, modifiers),
   };
 
   const entries = [
@@ -171,7 +192,8 @@ function resolveGameSlot(working, modifiers) {
         slot.isHome,
         result.aWins,
         result.scoreA,
-        result.scoreB
+        result.scoreB,
+        purse
       )
     ),
   ];
@@ -187,7 +209,8 @@ function resolveGameSlot(working, modifiers) {
       season.phase = 'playoffs';
       season.playoffs = {
         ...generateBracket(top),
-        nextRoundAtClock: working.clock + modifiers.rules.secondsPerPlayoffRound,
+        nextRoundAtClock:
+          working.clock + effectiveSecondsPerPlayoffRound(modifiers.rules.secondsPerPlayoffRound, modifiers),
       };
     } else {
       season.phase = 'offseason';
@@ -201,12 +224,23 @@ function resolveGameSlot(working, modifiers) {
     );
   }
 
+  // The purse is credited HERE, inside the per-fixture resolution, rather than anywhere that
+  // can see a season or a tick — and that is what makes it integrate across an offline
+  // catch-up for free. advance() may resolve two hundred fixtures inside a single iteration,
+  // and every one of them passes through this line exactly once, so the eight-hour path and
+  // the one-second path cannot disagree about what a win paid.
+  //
+  // addRevenue() rather than a bare creditWallet(), because purse money is revenue like any
+  // other: prestige.runStats.totalRevenue feeds calculateLegacyPoints(), and a dollar the team
+  // earned on the field should count there the same as a dollar it earned selling lemonade.
+  const afterGame = purse > 0 ? addRevenue({ ...working, season }, purse) : { ...working, season };
+
   // Act IV's Bookie settles against the game that was just played, whichever game that was.
   // Deliberately not matched on a game index — the offseason resets scheduleIndex to 0, so an
   // index-matched wager would pay out against a fixture in the following season. See
   // engine/bookie.js. A no-op in every act with no open wager, which is all of them but one.
   const hadWager = !!(working.bookie && working.bookie.wager);
-  const played = settleWager(appendFeedEntries({ ...working, season }, entries), result.aWins);
+  const played = settleWager(appendFeedEntries(afterGame, entries), result.aWins);
   if (!hadWager) return played;
 
   return appendFeedEntries(played, [
@@ -226,6 +260,12 @@ function resolvePlayoffRound(working, modifiers) {
   const playerMatch = resolved.rounds[playedRoundIndex].find(
     (m) => m.teamA === PLAYER_TEAM_ID || m.teamB === PLAYER_TEAM_ID
   );
+  // A playoff win pays too, and pays more — see PLAYOFF_PURSE_MULTIPLIER in
+  // data/winPurseConfig.js. Leaving the postseason unpaid would mean the best games of the run
+  // were the only ones worth nothing, and a player who noticed would be right to be annoyed.
+  const wonPlayoffGame = !!playerMatch && playerMatch.winner === PLAYER_TEAM_ID;
+  const purse = wonPlayoffGame ? playoffPurseForAct(actIndexOf(working)) : 0;
+
   const entries = [];
   if (playerMatch) {
     const playerIsA = playerMatch.teamA === PLAYER_TEAM_ID;
@@ -238,7 +278,8 @@ function resolvePlayoffRound(working, modifiers) {
           teamDisplayName(working, playerIsA ? playerMatch.teamB : playerMatch.teamA),
           playerMatch.winner === PLAYER_TEAM_ID,
           playerIsA ? playerMatch.scoreA : playerMatch.scoreB,
-          playerIsA ? playerMatch.scoreB : playerMatch.scoreA
+          playerIsA ? playerMatch.scoreB : playerMatch.scoreA,
+          purse
         )
       )
     );
@@ -267,10 +308,12 @@ function resolvePlayoffRound(working, modifiers) {
       );
     }
   } else {
-    season.playoffs.nextRoundAtClock = working.clock + modifiers.rules.secondsPerPlayoffRound;
+    season.playoffs.nextRoundAtClock =
+      working.clock + effectiveSecondsPerPlayoffRound(modifiers.rules.secondsPerPlayoffRound, modifiers);
   }
 
-  return appendFeedEntries({ ...working, season, prestige, hasWonLeagueThisRun }, entries);
+  const resolvedState = { ...working, season, prestige, hasWonLeagueThisRun };
+  return appendFeedEntries(purse > 0 ? addRevenue(resolvedState, purse) : resolvedState, entries);
 }
 
 function runOffseasonTransition(working, modifiers) {
@@ -347,7 +390,8 @@ function runOffseasonTransition(working, modifiers) {
       // Resolved, not balanceConfig: hardcoding these reverted per-act/era pacing to 60s at the
       // first offseason transition, silently undoing the pacing applied when the act was entered.
       secondsPerGame: rules.secondsPerGame,
-      nextGameAtClock: working.clock + rules.secondsPerGame,
+      // Stored unmodified, sped up at read time — same split as the in-season line above.
+      nextGameAtClock: working.clock + effectiveSecondsPerGame(rules.secondsPerGame, modifiers),
       standings,
       tradeWindows,
       playoffs: null,
@@ -364,6 +408,29 @@ function runOffseasonTransition(working, modifiers) {
   //   * An open Bookie wager cannot survive into the next season — the schedule it named is
   //     gone — so it is refunded rather than voided. See engine/bookie.js.
   return refundOpenWager(recordTravelSeason(rolled, summary));
+}
+
+// Act IV's sponsor board changes when reputation crosses a threshold, and reputation moves in
+// a reducer rather than in this loop — so there is no event to hang the narration off and it is
+// checked every iteration instead. Cheap: three ids against a list, and both calls return the
+// same object when nothing has changed, so a quiet second allocates nothing.
+//
+// Deliberately AFTER checkActTransition(), so the iteration that carries a player into Act IV
+// is also the one that tells them Dorsey's is waiting — a tick later would be correct too, but
+// during an offline catch-up "a tick later" can be the end of the catch-up.
+//
+// No feed storm is possible, and not because of FEED_CAP. There are three sponsors in the whole
+// game and each can be announced at most once ever (engine/sponsorships.js keeps the ledger),
+// so the absolute ceiling on this line across an entire run is three entries.
+function announceSponsorOffers(working) {
+  const newOffers = newlyAvailableSponsors(working);
+  if (newOffers.length === 0) return working;
+
+  const announced = markSponsorsAnnounced(working, newOffers.map((s) => s.id));
+  return appendFeedEntries(
+    announced,
+    newOffers.map((s) => createFeedEntry(working.clock, 'sponsor', feedMessages.sponsorOffered(s.name)))
+  );
 }
 
 // The single place simulation happens. Called identically by the live 1s timer and by
@@ -424,6 +491,7 @@ function advance(state, deltaSeconds) {
     // Inside the loop, so act transitions fire during offline catch-up too — a player who
     // closes the tab mid-act returns having actually crossed the boundary.
     working = checkActTransition(working);
+    working = announceSponsorOffers(working);
   }
 
   return working;

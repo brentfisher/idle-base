@@ -55,8 +55,13 @@ function totalIncomePerSecond(state, modifiers) {
     // Act III's stands and Act IV's sponsors are the only cash sources before the stadium
     // exists: ticketing is gated on state.stadium, which Act V creates, so without these two
     // cash income in Acts III-IV is exactly zero and the stat-upgrade sink has nothing feeding
-    // it. Sponsors are the tier above stands — the stands cap out at 105/sec fully bought,
-    // which is roughly one stat upgrade a minute at travel-ball stat levels.
+    // it. Sponsors are still the tier above stands, but the gap has narrowed on purpose: the
+    // stand line caps at 105/sec in copies and the concessions shop's STAND_UPGRADES multiply
+    // that by up to 1.75, so concessionsPerSecond() now tops out at ~184/sec against the
+    // sponsor board's 295 base (~410 once reputation has scaled it). Roughly one stat upgrade
+    // every twenty seconds at travel-ball stat levels, where it used to be one a minute.
+    // The 1.75 ceiling is sized in data/concessionsConfig.js precisely so that this line stays
+    // the smaller of the two and signing sponsors remains the thing that changes Act IV.
     cash: ticketingPerSecond(state, modifiers) + concessionsPerSecond(state) + sponsorshipsPerSecond(state),
   };
 }

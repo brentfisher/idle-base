@@ -18,4 +18,29 @@ const STARTER_POSITIONS = POSITIONS.map((p) => p.id);
 const FIELDING_POSITIONS = POSITIONS.filter((p) => p.fielder !== false).map((p) => p.id);
 const BENCH_SLOTS = 5;
 
-module.exports = { POSITIONS, STARTER_POSITIONS, FIELDING_POSITIONS, BENCH_SLOTS };
+const POSITIONS_BY_ID = POSITIONS.reduce((map, p) => {
+  map[p.id] = p;
+  return map;
+}, {});
+
+// The training-camp panel names the spot a stand-in is covering in prose ("covering Pitcher"),
+// and a bare "P" reads as a typo in the middle of a sentence. Unknown ids fall back to the id
+// itself rather than throwing: a save could in principle carry a position this table has never
+// heard of, and a slightly terse label is a better outcome than a blank roster screen.
+function getPosition(id) {
+  return POSITIONS_BY_ID[id] || null;
+}
+
+function positionLabel(id) {
+  const position = getPosition(id);
+  return position ? position.label : id;
+}
+
+module.exports = {
+  POSITIONS,
+  STARTER_POSITIONS,
+  FIELDING_POSITIONS,
+  BENCH_SLOTS,
+  getPosition,
+  positionLabel,
+};

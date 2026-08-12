@@ -4,6 +4,8 @@ const { computeModifiers } = require('../../engine/modifiers');
 const { totalIncomePerSecond } = require('../../engine/income');
 const { getUnlockedFeatures } = require('../../engine/progression');
 const { findNextEventClock } = require('../../engine/tickEngine');
+const { winPct } = require('../../engine/standings');
+const { PLAYER_TEAM_ID } = require('../../engine/schedule');
 const { formatNumber, formatDuration } = require('../../utils/formatNumber');
 const { getEraConfig } = require('../../data/eras');
 const { CURRENCIES } = require('../../data/currencies');
@@ -26,6 +28,23 @@ function formatFine(currency, value) {
 function readWallet(state) {
   if (state.wallet) return state.wallet;
   return { caps: 0, coins: 0, cash: state.cash };
+}
+
+// The player's row out of the season standings, or null. There are three separate ways for
+// this to be absent and they all have to collapse to the same nothing: state.season is null
+// for the whole of Acts I–II, a season built by an older build may carry no standings array
+// at all (saves are never migrated, so a two-week-old save is a shape this code has to
+// survive), and the player row itself only exists once resetStandings() has run.
+//
+// Absent is deliberately NOT rendered as 0-0. A season that has begun and been played to a
+// 0-0 record is a real, informative state — you have played no games yet — and printing the
+// same thing when there is simply no standings table would quietly tell the player a lie
+// about a league they may not even have unlocked.
+function readRecord(state) {
+  if (!state.season || !Array.isArray(state.season.standings)) return null;
+  const row = state.season.standings.find((r) => r.teamId === PLAYER_TEAM_ID);
+  if (!row) return null;
+  return { wins: row.wins || 0, losses: row.losses || 0 };
 }
 
 function HeaderStats() {
@@ -85,8 +104,20 @@ function HeaderStats() {
     countdownRef.current = { target: null, span: 1 };
   }
   // The stadium and the season are absent, not zero, until their act creates them.
-  const phaseLabel = state.season
-    ? { regular: 'Regular Season', playoffs: 'Playoffs', offseason: 'Offseason' }[state.season.phase]
+  //
+  // The record is folded INTO the season chip rather than added beside it. The header is
+  // sticky and already spends most of a 390px phone on chips (see the mobile block in
+  // global.css, which had to shrink this row once already); an eighth chip would have cost a
+  // whole row back. Folding costs nothing and in fact wins width back, because "S3 · 4-2" is
+  // both shorter and more informative than "Season 3 · Regular Season" — the phase was the
+  // least useful thing in the chip, since the regular season is where a player spends nearly
+  // the entire game and "Regular Season" therefore reads as a constant. So the phase is now
+  // shown only when it is NOT the regular season, i.e. only when it is news. The long form
+  // survives intact in the tooltip, along with the win percentage, for anyone who hovers.
+  const record = readRecord(state);
+  const seasonTitle = state.season
+    ? `Season ${state.season.seasonNumber} · ${PHASE_LABELS[state.season.phase]}` +
+      (record ? ` · ${record.wins}-${record.losses} (${winPct(record).toFixed(3)})` : '')
     : null;
 
   return (
@@ -138,12 +169,26 @@ function HeaderStats() {
         )}
       </span>
       {state.season && (
-        <span className="stat-chip">
-          <span className="label">Season</span>
-          {state.season.seasonNumber} · {PHASE_LABELS[state.season.phase]}
+        <span className="stat-chip season-chip" title={seasonTitle}>
+          <span className="label">S{state.season.seasonNumber}</span>
+          {record && (
+            <span className="season-record">
+              {record.wins}-{record.losses}
+            </span>
+          )}
+          {state.season.phase !== 'regular' && (
+            <span className="season-phase">{PHASE_LABELS[state.season.phase]}</span>
+          )}
         </span>
       )}
-      <span className="stat-chip">
+      {/* Coloured from the era config rather than a per-era class, because getEraConfig()
+          synthesises eras past the authored five and there is no bounded set of class names
+          to write. */}
+      <span
+        className="stat-chip era-chip"
+        style={{ background: era.pill.bg, color: era.pill.ink }}
+        title={era.description}
+      >
         <span className="label">Era</span>
         {era.name}
       </span>

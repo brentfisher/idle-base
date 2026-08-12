@@ -51,4 +51,52 @@ const CAMP_PROGRAMS = [
   },
 ];
 
-module.exports = { CAMP_PROGRAMS };
+// Every string the training-camp screen says about the bench swap. It lives here rather than in
+// the panel for the same reason the programs do: the rule the engine enforces and the sentence
+// the player reads before tapping Send have to be edited together, and a player who is told the
+// wrong thing about a swap discovers it as a mysteriously worse team three games later.
+//
+// The numbers in these sentences are the POST-swap ones on purpose. A bench outfielder covering
+// the mound is rated by engine/strength.js with pitching weighted at 50%, so a left fielder who
+// is a perfectly respectable 58 in left is worth about 20 on the mound. Printing their left-field
+// rating would read as a fair trade and is precisely the silent weakening this feature exists to
+// stop, so `standInRating` below is always the rating at the position being covered.
+const CAMP_SWAP_COPY = {
+  intro:
+    'Sending a starter to camp takes them off the field. Your best available bench player covers the spot ' +
+    'while they are away, and hands it straight back when camp ends.',
+
+  benchPlayerIsFree: 'On the bench already — nobody has to cover, and team rating is unchanged.',
+
+  noBench:
+    'No bench player is available to cover, so this starter cannot be sent to camp. Send a bench player ' +
+    'instead — your team never plays a man down.',
+
+  // `delta` is already signed and rounded by the caller.
+  standIn: function standIn(name, fromPosition, coveringLabel, standInRating) {
+    return `${name} (${fromPosition}) covers ${coveringLabel} at OVR ${standInRating} while they are away.`;
+  },
+
+  teamImpact: function teamImpact(delta) {
+    if (delta === 0) return 'Team rating is unchanged for the duration.';
+    if (delta < 0) return `Team rating drops ${Math.abs(delta)} for the whole camp — several games' worth.`;
+    return `Team rating actually rises ${delta} for the duration.`;
+  },
+
+  // Shown on the roster cards, where the two halves of the swap are sitting in the wrong groups
+  // (the camper under Bench, the stand-in under Starters) and would otherwise look like a bug.
+  awayCoveredBy: function awayCoveredBy(name) {
+    return `Off the field — ${name} is covering`;
+  },
+
+  coveringFor: function coveringFor(name, positionId) {
+    return `Standing in at ${positionId} for ${name}`;
+  },
+
+  // The camp screen's version, while the camp is actually running.
+  currentlyCovering: function currentlyCovering(standInName, coveringLabel) {
+    return `${standInName} is covering ${coveringLabel} and goes back to the bench the moment camp ends.`;
+  },
+};
+
+module.exports = { CAMP_PROGRAMS, CAMP_SWAP_COPY };

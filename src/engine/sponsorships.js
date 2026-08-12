@@ -22,7 +22,7 @@ const {
   getReputationDeal,
 } = require('../data/actFourConfig');
 const { canAfford, debitWallet } = require('./wallet');
-const { travelBallSlice } = require('./travelBall');
+const { travelBallSlice, TRAVEL_BALL_ACT_INDEX } = require('./travelBall');
 
 const CURRENCY = 'cash';
 
@@ -75,6 +75,92 @@ function isLocked(state, kind, config) {
   return kind === KIND_SPONSOR && reputationOf(state) < config.minReputation;
 }
 
+// ---------------------------------------------------------------------------
+// Announcing a sponsor the moment it comes off the lock
+// ---------------------------------------------------------------------------
+// A sponsor unlocks when reputation crosses its `minReputation`, which happens inside a
+// purchase — a reducer, not a tick — and until now the board simply changed while nobody was
+// looking. The player found out by opening the tab, which means the loop the act is built on
+// (buy reputation, unlock a bigger sponsor, buy that) was invisible unless you already knew it
+// was there. engine/tickEngine.js narrates the transition; this half decides what happened.
+//
+// A LEDGER, NOT A DIFF. The obvious implementation compares this tick's board against last
+// tick's, and it is wrong here for the same reason it is wrong everywhere else in this engine:
+// advance() runs many iterations in one 8-hour catch-up and exactly one iteration when nothing
+// is pending, so a tick-to-tick diff both misses transitions and repeats them. Instead the ids
+// already announced are stored, and "new" is whatever is unlocked and not in that list — the
+// same idiom as progression.storyBeatsSeen and prestige.victoryAcknowledgedCount. Announcing
+// is then idempotent by construction: an id can only leave the unannounced set, never re-enter
+// it, so no number of iterations can produce a second entry for the same sponsor.
+//
+// Lives in its own top-level slice rather than in `state.travelBall`, because travelBallSlice()
+// above returns a FIXED shape — an extra key written into that slice is silently dropped the
+// next time purchase() rebuilds it from the accessor.
+function sponsorBoardSlice(state) {
+  const slice = (state && state.sponsorBoard) || {};
+  return {
+    announcedOfferIds: slice.announcedOfferIds || [],
+  };
+}
+
+function actIndexOf(state) {
+  const act = state && state.progression && state.progression.act;
+  return typeof act === 'number' && Number.isFinite(act) ? act : 0;
+}
+
+// Pure. The sponsors that have become available since the last announcement, in board order.
+//
+// Gated on the act because listOffers() is act-blind by design: Dorsey's needs 0 reputation and
+// the player starts with 20, so from Act I onward he is technically "available" — announcing
+// him to a nine-year-old digging bottle caps out of a vacant lot would be the first the player
+// ever heard of sponsorship, two acts before the tab exists. The gate reads the act index
+// rather than engine/progression.js's feature list to avoid making this module depend on the
+// progression engine, which already depends transitively on this one's neighbours.
+//
+// Owned sponsors are excluded rather than announced-and-skipped. Only a save written before
+// this feature existed can hold a sponsor that was never announced, and telling that player
+// about a deal they signed weeks ago is worse than telling them nothing. Reputation-deal
+// offers are never locked (see isLocked), so they have no transition to announce and are not
+// considered here at all — which also keeps entering Act IV to a single feed entry rather than
+// four.
+function newlyAvailableSponsors(state) {
+  if (actIndexOf(state) < TRAVEL_BALL_ACT_INDEX) return [];
+  const announced = sponsorBoardSlice(state).announcedOfferIds;
+  return SPONSORS.filter(
+    (sponsor) =>
+      !announced.includes(sponsor.id) &&
+      !isLocked(state, KIND_SPONSOR, sponsor) &&
+      !isOwned(state, KIND_SPONSOR, sponsor)
+  );
+}
+
+// Writes ids into the ledger. Returns the same object when there is nothing to add, so the
+// tick loop can call it unconditionally every second without churning state or the autosave.
+function markSponsorsAnnounced(state, sponsorIdList) {
+  if (!sponsorIdList || sponsorIdList.length === 0) return state;
+  const announced = sponsorBoardSlice(state).announcedOfferIds;
+  const added = sponsorIdList.filter((id) => !announced.includes(id));
+  if (added.length === 0) return state;
+  return { ...state, sponsorBoard: { ...sponsorBoardSlice(state), announcedOfferIds: [...announced, ...added] } };
+}
+
+// The most recently announced sponsor still sitting unsigned — what the panel badges as new.
+//
+// Derived from the ledger rather than from a "seen" flag the panel would have to write on
+// every render: a badge that clears on merely LOOKING needs an action, a reducer and a write
+// this module does not own, and it would clear itself for a player who opened the tab to check
+// something else. Reading the ledger instead means the badge costs nothing, survives a reload,
+// and clears on the only event that actually means the player dealt with it — signing. It then
+// falls back to the next-newest unsigned deal, because that is now the news.
+function newestUnsignedSponsorId(state) {
+  const announced = sponsorBoardSlice(state).announcedOfferIds;
+  for (let i = announced.length - 1; i >= 0; i -= 1) {
+    const sponsor = getSponsor(announced[i]);
+    if (sponsor && !isOwned(state, KIND_SPONSOR, sponsor)) return sponsor.id;
+  }
+  return null;
+}
+
 function findOffer(offerId) {
   const sponsor = getSponsor(offerId);
   if (sponsor) return { kind: KIND_SPONSOR, config: sponsor };
@@ -94,6 +180,10 @@ function listOffers(state) {
     ...REPUTATION_DEALS.map((config) => ({ kind: KIND_REPUTATION, config })),
   ];
 
+  // Computed once for the whole list rather than per card: it is a scan of the ledger, and the
+  // panel renders six cards from one call.
+  const newestId = newestUnsignedSponsorId(state);
+
   return all.map(({ kind, config }) => ({
     id: config.id,
     kind,
@@ -106,6 +196,7 @@ function listOffers(state) {
     locked: isLocked(state, kind, config),
     minReputation: kind === KIND_SPONSOR ? config.minReputation : 0,
     affordable: canAfford(state.wallet, CURRENCY, config.cost),
+    isNew: kind === KIND_SPONSOR && config.id === newestId,
   }));
 }
 
@@ -146,4 +237,8 @@ module.exports = {
   listOffers,
   findOffer,
   purchase,
+  sponsorBoardSlice,
+  newlyAvailableSponsors,
+  markSponsorsAnnounced,
+  newestUnsignedSponsorId,
 };

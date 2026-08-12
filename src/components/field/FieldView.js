@@ -5,6 +5,7 @@ const PlayerIcon = require('./PlayerIcon');
 const { teamStrength } = require('../../engine/strength');
 const { computeModifiers } = require('../../engine/modifiers');
 const { buildReplay, BASES, MOUND, INNINGS } = require('../../engine/gameReplay');
+const { replayDurationMs } = require('../../engine/pacing');
 const BoxScore = require('./BoxScore');
 
 // The most recently played slot, or null. Used only to notice that a NEW one appeared.
@@ -102,8 +103,15 @@ function FieldView() {
   const bench = state.roster.filter((p) => !p.isStarter);
 
   // Fit the replay inside the gap between games, so one never runs into the next.
+  //
+  // The arithmetic moved to engine/pacing.js when the caps shop started selling `gameSpeedMult`.
+  // The gap between games is now `secondsPerGame / gameSpeedMult`, and this budget has to shrink
+  // with it — computed here from the unmodified slot it would otherwise use, a sped-up schedule
+  // would start the next game while the previous one was still being narrated, and the replay
+  // would fall permanently further behind the box score. Same headroom and same floor as before,
+  // so an unmodified game plays identically.
   const secondsPerGame = state.season ? state.season.secondsPerGame : 25;
-  const { replay, beat, finished, beatIndex } = useGameReplay(state, Math.max(6000, (secondsPerGame - 6) * 1000));
+  const { replay, beat, finished, beatIndex } = useGameReplay(state, replayDurationMs(secondsPerGame, modifiers));
 
   const nextGameIn = state.season && state.season.phase === 'regular'
     ? Math.max(0, Math.ceil(state.season.nextGameAtClock - state.clock))
