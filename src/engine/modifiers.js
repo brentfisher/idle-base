@@ -2,27 +2,11 @@ const balanceConfig = require('../data/balanceConfig');
 const { getEraConfig } = require('../data/eras');
 const { PERKS } = require('../data/perksConfig');
 const { clamp } = require('../utils/statUtils');
-
-const BONUS_KEYS = [
-  'revenueMult',
-  'attendanceMult',
-  'strengthMult',
-  'campSpeedMult',
-  'rookieQualityMult',
-  'upgradeCostMult',
-  'aiStrengthMult',
-];
-
-// [floor, ceiling] applied to the final (1 + bonusSum) multiplier for each key.
-const CLAMPS = {
-  revenueMult: [0.2, 5],
-  attendanceMult: [0.2, 3],
-  strengthMult: [0.3, 3],
-  campSpeedMult: [0.3, 5],
-  rookieQualityMult: [0.5, 3],
-  upgradeCostMult: [0.3, 2],
-  aiStrengthMult: [0.5, 4],
-};
+// The key vocabulary and its clamps moved to data/ when engine/capsShop.js needed to validate
+// a bonus key before selling it — see the note there. Re-exported below so every existing
+// importer of BONUS_KEYS is unaffected.
+const { BONUS_KEYS, CLAMPS } = require('../data/modifierKeysConfig');
+const { capsShopBonuses } = require('./capsShop');
 
 const PERKS_BY_ID = PERKS.reduce((map, perk) => {
   map[perk.id] = perk;
@@ -140,6 +124,14 @@ function computeModifiers(state) {
   });
 
   Object.entries(era.modifierBonuses || {}).forEach(([key, value]) => {
+    if (key in bonuses) bonuses[key] += value;
+  });
+
+  // The caps shop sits between the config layers and the player's own choices: like perks it
+  // is bought and permanent, unlike perks it is bought within a run rather than across one.
+  // Additive with everything else, and its keys are validated against BONUS_KEYS at the point
+  // of sale (engine/capsShop.js), so an unknown key can never reach here.
+  Object.entries(capsShopBonuses(state)).forEach(([key, value]) => {
     if (key in bonuses) bonuses[key] += value;
   });
 

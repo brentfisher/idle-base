@@ -1,7 +1,15 @@
-const { FIRST_NAMES, LAST_NAMES } = require('../data/playerNames');
+const { FIRST_NAMES, LAST_NAMES, LEGEND_NAMES, LEGEND_NAME_CHANCE } = require('../data/playerNames');
 const { STARTER_POSITIONS, BENCH_SLOTS } = require('../data/positions');
 const { clamp } = require('../utils/statUtils');
 const { generateId, randInt, pick, jitter } = require('../utils/randomUtils');
+
+// A generated name, or occasionally one of the legends (data/playerNames.js). Guarded on the
+// list being non-empty so emptying LEGEND_NAMES turns the feature off cleanly rather than
+// producing `undefined` as somebody's name.
+function randomPlayerName() {
+  if (LEGEND_NAMES.length > 0 && Math.random() < LEGEND_NAME_CHANCE) return pick(LEGEND_NAMES);
+  return `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+}
 
 function randomStatsForPosition(position, qualityMult) {
   const talent = randInt(35, 65) * qualityMult;
@@ -37,7 +45,7 @@ function createPlayer(position, options = {}) {
 
   return {
     id: generateId('player'),
-    name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
+    name: randomPlayerName(),
     position,
     isStarter,
     stats: randomStatsForPosition(position, qualityMult),

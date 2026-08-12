@@ -12,7 +12,16 @@ const { formatNumber } = require('../../utils/formatNumber');
 // engine/concessions.js.
 function OfferCard({ offer, onBuy }) {
   const disabled = offer.owned || offer.locked || !offer.affordable;
-  const classes = ['sp-offer', offer.owned ? 'owned' : '', offer.locked ? 'locked' : '']
+  // `isNew` is decided by engine/sponsorships.js from the same ledger the broadcast feed is
+  // announced from, so the badge and the feed entry can never disagree about what is new. The
+  // component asks no questions about reputation thresholds, exactly as it asks none about
+  // cost, ownership or affordability.
+  const classes = [
+    'sp-offer',
+    offer.owned ? 'owned' : '',
+    offer.locked ? 'locked' : '',
+    offer.isNew && !offer.locked ? 'fresh' : '',
+  ]
     .join(' ')
     .trim();
 
@@ -21,6 +30,7 @@ function OfferCard({ offer, onBuy }) {
       <span className="sp-offer-head">
         <span className="sp-offer-name">{offer.name}</span>
         {offer.locked && <span className="sp-offer-lock">{offer.minReputation} rep</span>}
+        {offer.isNew && !offer.locked && <span className="sp-offer-new">New</span>}
       </span>
       <span className="sp-offer-desc">{offer.description}</span>
       <span className="sp-offer-foot">

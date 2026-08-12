@@ -20,6 +20,7 @@ const WallBallPanel = require('../wallBall/WallBallPanel');
 const ConcessionsPanel = require('../concessions/ConcessionsPanel');
 const SponsorshipsPanel = require('../sponsorships/SponsorshipsPanel');
 const BookiePanel = require('../bookie/BookiePanel');
+const CapsShopPanel = require('../capsShop/CapsShopPanel');
 const SearchLotButton = require('../lot/SearchLotButton');
 const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
@@ -36,6 +37,10 @@ const PANELS = {
   sponsorships: SponsorshipsPanel,
   bookie: BookiePanel,
   ticketing: TicketingPanel,
+  // Sits beside the other shops rather than at the end of the bar: by Act V the tab count is
+  // already high on a phone, and a caps sink read as a late-game curiosity if it appeared after
+  // the league and the playoffs. It is a shop, so it belongs with the shops.
+  capsShop: CapsShopPanel,
   league: StandingsPanel,
   playoffs: PlayoffBracket,
   camp: TrainingCampPanel,
@@ -80,13 +85,13 @@ function AppShell() {
   // is also what stops the tab gate above from rendering an empty shell during Acts I-II, when
   // no franchise feature is unlocked yet. Every hook must stay above it.
   //
-  // Act II adds the wall BESIDE the lot rather than replacing it: LotPanel is what carries
-  // the Hustle button, which exists in every act and is never gated (PRD 6.4). A broke
-  // player who cannot make the minimum wager is always one click away from being able to.
+  // Act II adds the wall BESIDE the lot rather than replacing it. The Hustle button exists in
+  // every act and is never gated (PRD 6.4): a broke player who cannot make the minimum wager
+  // is always one click away from being able to.
   if (!state.season) {
     const wallUnlocked = unlocked.indexOf('wallBall') !== -1;
     return (
-      <div className="app-shell">
+      <div className="app-shell app-shell-preseason">
         {/* The wall appears ABOVE the lot, which is the one place a player already scrolled
             past. Entering Act II therefore looked like nothing had changed. This marker sits
             where their eyes already are and points up. */}
@@ -97,6 +102,19 @@ function AppShell() {
         )}
         {wallUnlocked && <WallBallPanel />}
         <LotPanel />
+        {/* The same sticky bar the post-season branch renders below, for the same reason, and
+            deliberately the same markup rather than a parallel one. The click used to live
+            inside LotPanel here, so in Act I it scrolled off the bottom of a growing shop and
+            in Act II it sat below a wall panel that had pushed it most of a page down — while
+            Act III's copy, rendered here, stayed pinned. Two branches, two behaviours, one
+            button: the player noticed.
+
+            .app-shell-preseason (styles/global.css) is what makes `bottom: 0` mean the bottom
+            of the SCREEN and not merely the bottom of a short page — Act I's content does not
+            fill a viewport, and sticky alone does nothing until something overflows. */}
+        <div className="hustle-bar">
+          <SearchLotButton />
+        </div>
         {pendingBeat && <StoryCard beat={pendingBeat} />}
         <ToastHost />
       </div>

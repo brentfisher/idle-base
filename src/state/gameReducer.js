@@ -1,6 +1,7 @@
 const actionTypes = require('./actionTypes');
 const economyActions = require('./actions/economyActions');
 const rosterActions = require('./actions/rosterActions');
+const walkupActions = require('./actions/walkupActions');
 const seasonActions = require('./actions/seasonActions');
 const prestigeActions = require('./actions/prestigeActions');
 const progressionActions = require('./actions/progressionActions');
@@ -9,7 +10,9 @@ const lotActions = require('./actions/lotActions');
 const narrativeActions = require('./actions/narrativeActions');
 const wallBallActions = require('./actions/wallBallActions');
 const concessionsActions = require('./actions/concessionsActions');
+const capsShopActions = require('./actions/capsShopActions');
 const travelBallActions = require('./actions/travelBallActions');
+const identityActions = require('./actions/identityActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -36,10 +39,15 @@ function gameReducer(state, action) {
     case actionTypes.BUY_CONCESSION:
       return concessionsActions.buyConcession(state, action);
 
+    case actionTypes.BUY_CAPS_UPGRADE:
+      return capsShopActions.buyCapsUpgrade(state, action);
+
     case actionTypes.BUY_SPONSORSHIP:
       return travelBallActions.buySponsorship(state, action);
     case actionTypes.PLACE_BOOKIE_WAGER:
       return travelBallActions.placeBookieWager(state, action);
+    case actionTypes.PLACE_PROP_BET:
+      return travelBallActions.placeProp(state, action);
 
     case actionTypes.SET_TICKET_PRICE:
       return economyActions.setTicketPrice(state, action);
@@ -50,6 +58,8 @@ function gameReducer(state, action) {
 
     case actionTypes.BUY_STAT_UPGRADE:
       return rosterActions.buyStatUpgrade(state, action);
+    case actionTypes.SET_WALKUP_SONG:
+      return walkupActions.setWalkupSongAction(state, action);
     case actionTypes.START_CAMP:
       return rosterActions.startCampAction(state, action);
     case actionTypes.EXECUTE_TRADE:
@@ -64,6 +74,8 @@ function gameReducer(state, action) {
 
     case actionTypes.MARK_TAB_SEEN:
       return progressionActions.markTabSeen(state, action);
+    case actionTypes.SET_TEAM_NAME:
+      return identityActions.setTeamName(state, action);
 
     case actionTypes.HARD_RESET:
       return createInitialState();

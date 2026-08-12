@@ -62,6 +62,17 @@ function WallBallPanel() {
         </p>
       )}
 
+      {/* The second thing respect buys, said out loud. It is a reward that happens *between*
+          rallies, so without a line of copy the player experiences it as nothing at all —
+          they never see the 22s they are no longer waiting. Both numbers, so the comparison
+          is on screen rather than in their memory. */}
+      {view.cooldownSeconds < view.baseCooldownSeconds && (
+        <p className="wb-note">
+          The line moves for you now: {Math.round(view.cooldownSeconds)}s between kids instead of{' '}
+          {view.baseCooldownSeconds}s{view.cooldownAtFloor ? " — and that is as fast as they'll come." : '.'}
+        </p>
+      )}
+
       {view.canAdvance && (
         <p className="wb-advance">
           You have the crew and the record. Win one more and you are done with this wall — Little

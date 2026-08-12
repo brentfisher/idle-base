@@ -20,7 +20,12 @@ function createInitialState() {
     wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash },
     // Act I state: the manual click, its owned automation, and what has been bought
     // out of the lot. `income.collectors` is what engine/income.js sums into caps.
-    clicker: { totalClicks: 0, perClick: 1 },
+    // `nextClickAtClock` is the click cooldown, in the same clock units as
+    // wallBall.nextChallengeAtClock. Zero means "ready now", which is also what an old save
+    // that predates the field reads as — so the cooldown can never lock out a returning
+    // player. Acts that declare no cooldown (data/acts.js `clickCooldownSeconds`) never
+    // advance it. See engine/clicker.js.
+    clicker: { totalClicks: 0, perClick: 1, nextClickAtClock: 0 },
     income: { collectors: [], sponsorships: [] },
     lot: { clickUpgrades: [], starterKit: [] },
     // Act II state. Present-and-empty from t=0 rather than null: `crew` is iterated by the
@@ -41,7 +46,26 @@ function createInitialState() {
     wallBallShop: { grit: [], hands: [] },
     // Act III state: what has been bought out of the concessions shop. Present-and-empty from
     // t=0 rather than null because engine/income.js sums the stands on every tick.
-    concessions: { stands: [], boosters: [], capsUpgrades: [] },
+    // All five arrays are declared even though engine/concessions.js defaults every one of them
+    // for old saves. purchase() spreads the normalized slice, so a key that is absent HERE but
+    // present in the accessor still round-trips correctly — but a reader diffing this against
+    // the accessor should not have to work that out.
+    concessions: { stands: [], boosters: [], capsUpgrades: [], standUpgrades: [], cashClickUpgrades: [] },
+    // What the player calls their own team. `null` is not a missing value to repair — it is
+    // "never named", and every reader resolves it through a defaulting accessor that returns
+    // the old hardcoded 'Your Team'. So a save written before naming existed reads exactly
+    // as it did before, and nothing has to migrate.
+    teamName: null,
+    // Act IV+ walk-up songs (engine/walkupSongs.js): the records the TEAM owns. Which kid walks
+    // up to which record is stored on the player, not here — see the ownership note in that file.
+    // Present-and-empty rather than null to match the other shops, but nothing depends on that:
+    // walkupSlice() defaults the array, so a save written before this shipped reads as an empty
+    // crate, every player's `walkupSongId` is absent and reads as no song, and every rating in
+    // the game comes out bit-for-bit what it did before.
+    walkup: { owned: [] },
+    // Act V+ caps sink (engine/capsShop.js). Present-and-empty rather than null for the same
+    // reason concessions is: its contents are summed into the modifier bundle every tick.
+    capsShop: { upgrades: [] },
     // Act IV state, and both are CONTENT rather than tick-loop collections, so both are null
     // until engine/travelBall.js's initializer creates them: `travelBall` is the record the
     // act's win-rate exit accumulates into, and `bookie` is a table that does not exist until

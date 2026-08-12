@@ -768,6 +768,14 @@ table.standings tr.me {
   flex: 1;
 }
 
+/* The stake ceiling is the player's whole balance, so the slider's top end is a decision worth
+   colouring rather than a limit worth stating. Gold — the game's "this matters" colour — only
+   once every cap is actually on the line. */
+.wb-stake-cap.all-in {
+  color: #f4d35e;
+  font-weight: 700;
+}
+
 .wb-stake-preset {
   background: transparent;
   border: 1px solid #23522f;
@@ -1515,5 +1523,1038 @@ input[type='range']::-moz-range-thumb {
   .panel,
   .card {
     overflow-wrap: anywhere;
+  }
+}
+
+/* ===========================================================================
+   Feature sections. Each block below belongs to one feature area; adding a
+   rule means adding it inside the matching section rather than at the end of
+   the file, which is inside the mobile media query above and would silently
+   scope a desktop rule to 640px.
+   =========================================================================== */
+
+/* --- The click button: stickiness and the cooldown state --- */
+
+/* The pre-season acts (I-II) render the same .hustle-bar the franchise shell does, so the
+   click is pinned to the bottom of the screen in every act instead of only from Act III.
+   Sticky alone is not enough here: Act I is a counter, a button and a shop that starts empty,
+   which does not fill a viewport, and `bottom: 0` on a page that never scrolls leaves the bar
+   sitting wherever the flow put it — halfway up the screen, under the shop. Making the shell
+   a full-height column and giving the bar `margin-top: auto` pins it to the bottom while the
+   page is short; sticky takes over the moment the shop grows past a screenful. Both cases,
+   one bar. */
+.app-shell-preseason {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  /* .app-shell's 48px would sit BELOW the pinned bar as a dead strip of background, which is
+     the exact "not stuck to the bottom" symptom this is fixing. The bar carries its own
+     bottom padding — 0.75rem, or 0.5rem under the 640px query. */
+  padding-bottom: 0;
+}
+.app-shell-preseason .hustle-bar {
+  margin-top: auto;
+}
+/* Clearance so the last shop row is not tight against the bar's opaque edge when the page is
+   scrolled to the bottom. The panel's own `gap` gets it nothing here — gap is between
+   children, and the bar is a sibling of the panel. */
+.app-shell-preseason .lot-panel {
+  padding-bottom: 12px;
+}
+
+/* Containing block for the cooldown fill, which is absolutely positioned so it can never
+   participate in the button's flex column and change its height. `overflow: hidden` is what
+   keeps the fill inside the 14px border radius.
+   Deliberately no padding / min-height / max-width here: this block sits after the
+   `max-width: 640px` query, so restating any of those would override the mobile sizing at
+   every viewport. */
+.lot-click-button {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Scaled rather than resized, so the browser animates a transform instead of relaying out the
+   button's box on every tick. Origin left, so it fills the way a progress bar reads. */
+.lot-click-fill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform-origin: left center;
+  background: rgba(244, 211, 94, 0.16);
+  /* The clock ticks once a second, so the fill arrives in whole steps. A short ease takes the
+     hard edge off each step without pretending to a smoothness the state does not have. */
+  transition: transform 0.18s ease-out;
+  pointer-events: none;
+}
+
+/* A refill that is always full is not information. Acts I and II have no cooldown at all, so
+   the engine answers a constant progress of 1 and the fill would otherwise wash the whole
+   button yellow forever — in the act where the button is the entire game. Hidden rather than
+   unmounted, so it is already in place at scaleX(0) the instant the first press cools it.
+   Only `transform` transitions, so this switch is instant and never fades. */
+.lot-click-button:not(.cooling) .lot-click-fill {
+  opacity: 0;
+}
+
+/* Positioned, therefore painted above the fill, which precedes them in the DOM. */
+.lot-click-label,
+.lot-click-value {
+  position: relative;
+  z-index: 1;
+}
+
+/* The global `button:disabled { opacity: 0.5 }` is meant for offers the player cannot afford.
+   Applied here it dims the countdown and the fill — the two things that exist to explain WHY
+   the button is not responding — so the button reads as broken rather than as recharging.
+   Full opacity, and the cooling state says what it is with colour instead. */
+.lot-click-button:disabled {
+  opacity: 1;
+}
+/* THE BORDER DELIBERATELY DOES NOT CHANGE. Dimming it too was the first version and it is
+   wrong: a button that loses its bright edge reads as one that has been switched off, which is
+   the exact misreading — "the button broke" — that the countdown and the fill exist to prevent.
+   Recharging is signalled by things that visibly move or count down, never by things that fade.
+   So the yellow frame stays put and only what is INSIDE it changes: a darker ground, a muted
+   label, a fill crossing it, and a number going down. */
+.lot-click-button.cooling {
+  background: #143620;
+}
+.lot-click-button.cooling .lot-click-label {
+  color: #9fc6a9;
+}
+/* The press animation must not fire while the button is refusing presses — a button that
+   still squashes under the thumb reads as a button that took the tap. */
+.lot-click-button.cooling:active {
+  transform: none;
+}
+
+/* Same call the header's .countdown-fill already makes: the fill's job is to say how much of
+   the wait is left, and it says that just as well arriving in whole steps. */
+@media (prefers-reduced-motion: reduce) {
+  .lot-click-fill {
+    transition: none;
+  }
+}
+
+/* --- Concessions: the per-click and base-earnings shop --- */
+
+/* The shop grew from three groups to five (stands, stand multipliers, the two halves of the
+   per-click ladder, reputation), which is eighteen cards. The card itself is unchanged — see
+   .cx-offer in the Act III block above — and everything here exists to keep the SEAMS between
+   groups readable, because with this many cards the heading is doing more work than the card. */
+.cx-section {
+  margin-bottom: 1.1rem;
+}
+.cx-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Title and currency badge on one baseline. The badge is per group rather than per card: with
+   two groups doing the identical thing at different prices, "caps" vs "cash" beside the
+   heading is the fastest way to answer the only question the player has. */
+.cx-section-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.15rem;
+}
+.cx-currency-badge {
+  flex: 0 0 auto;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 0.7rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+/* Bottle-cap brass against concession green, so the two groups are told apart by colour
+   before either word is read. */
+.cx-currency-badge.caps {
+  color: #e0b252;
+}
+.cx-currency-badge.cash {
+  color: #8fd67a;
+}
+
+.cx-section-blurb {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+/* Shown only while something is actually multiplying the stand rate (the panel omits it at
+   x1.00), so it reads as a live bonus rather than as permanent furniture. */
+.cx-mult {
+  color: #8fd67a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Phones. The shared 640px query near the top of this file already floors .cx-offer at 44px;
+   these rules must never undercut that, so they trim the gaps BETWEEN things and the leading
+   inside the description rather than the tap target itself. Written as a query of its own
+   because that shared block belongs to no single feature and this does. */
+@media (max-width: 640px) {
+  /* Eighteen cards at 390px is a long column whatever happens; what makes it navigable is
+     that the headings stay findable while scrolling past a group the player has finished. */
+  .cx-section {
+    margin-bottom: 0.85rem;
+  }
+  .cx-section-head {
+    gap: 0.35rem;
+  }
+  .cx-section-blurb {
+    font-size: 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+  .cx-grid {
+    gap: 0.45rem;
+  }
+  .cx-offer {
+    padding: 0.55rem 0.65rem;
+  }
+  /* The description is the first thing worth shortening: name, effect and cost are all still
+     full size, and those are what a purchase decision is actually made on. */
+  .cx-offer-desc {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+}
+
+/* --- Roster: upgrade meters and the training-camp bench swap --- */
+
+/* NOTE: this section sits BELOW the @media (max-width: 640px) block above, so anything set here
+   on a shared selector (.btn, .card) would override the mobile rules at every width. Every
+   selector below is therefore a new class of its own, and the phone-specific sizing is folded
+   into the base rules rather than added as a second media query. */
+
+/* Player cards need more width than the generic 220px column. Each stat row now carries a fixed
+   46px label, a 52px "74 / 100" readout and an 88px buy control — 204px before the bar itself —
+   so at 220px the meter is squeezed to ~18px and stops being a meter at all. At 300px the bar
+   gets ~100px on both a 1080px desktop (three across) and a 390px phone (one across).
+   `min(300px, 100%)` rather than a bare 300px so a viewport narrower than the target still
+   shrinks the column instead of forcing the page to scroll sideways. */
+.roster-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+}
+
+/* The value column now reads "74 / 100" rather than "74", so it needs room. Fixed width, not
+   auto: the numbers must line up down the card, and the column must not resize as a stat grows
+   from 9 to 100 and shunts the bars sideways.
+
+   Scoped to .stat-upgrade-row rather than set on .stat-bar-value outright: this section sits
+   below the 640px media query, so an unscoped override of a shared base rule would win at every
+   width for any future caller of StatBar that does not want the cap readout. */
+.stat-upgrade-row .stat-bar-value {
+  width: 52px;
+  white-space: nowrap;
+}
+
+.stat-bar-cap {
+  color: #7ea88a;
+}
+
+/* A capped stat is a different object, not a slightly fuller bar: the track goes solid gold and
+   the label brightens, so a maxed row is identifiable from across the card without reading it. */
+.stat-bar-row.is-capped .stat-bar-fill {
+  background: #f4d35e;
+}
+
+.stat-bar-row.is-capped .stat-label,
+.stat-bar-row.is-capped .stat-bar-value {
+  color: #f4d35e;
+}
+
+.stat-bar-row.is-capped .stat-bar-cap {
+  color: #c9a93f;
+}
+
+/* One upgrade from the ceiling. At 98/100 the unfilled remainder is 2% of an 8px-tall track —
+   invisible on a phone — so the notch is drawn as an absolute marker at the fill edge instead of
+   relying on the gap being perceptible. */
+.stat-bar-row.is-one-away .stat-bar-track {
+  position: relative;
+}
+
+.stat-bar-lastnotch {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  margin-left: -3px;
+  background: #eef3ec;
+  box-shadow: 0 0 4px rgba(238, 243, 236, 0.9);
+}
+
+/* The bar and its buy control. Replaces the inline flex that used to live in PlayerCard so the
+   MAX chip and the price button can share one fixed column and the rows stop jumping when a
+   stat tops out. */
+.stat-upgrade-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 44px tall for a thumb, and wide enough to hold "+2 — $1.2k" without wrapping. min-width keeps
+   the MAX chip the same size as the button it replaces. */
+.upgrade-chip {
+  min-width: 88px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  box-sizing: border-box;
+}
+
+/* Not a disabled button — a spent one. Gold on a filled plate, so "there is nothing left to buy
+   here" is a statement rather than something the player has to infer from a greyed control. */
+.upgrade-chip.is-max {
+  background: rgba(244, 211, 94, 0.16);
+  border: 1px solid #f4d35e;
+  color: #f4d35e;
+  letter-spacing: 0.08em;
+  cursor: default;
+}
+
+/* The purchase that reaches the cap, flagged so "one more and he's done" is visible on the
+   control as well as on the bar. */
+.upgrade-chip.is-last-step {
+  border: 1px solid #f4d35e;
+}
+
+/* The whole player is finished. Deliberately louder than the per-stat MAX: it answers the
+   question the player is actually asking, which is whether they can stop looking at this card. */
+.player-card.is-fully-upgraded {
+  border-color: #f4d35e;
+}
+
+.player-maxed-banner {
+  margin-top: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(244, 211, 94, 0.16);
+  color: #f4d35e;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* Training-camp bench swap. On the roster screen the camper sits in the Bench group and their
+   stand-in sits in Starters; these notes are what stop that looking like a bug. */
+.camp-swap-note {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: #9fc6a9;
+  border-left: 2px solid #23522f;
+  padding-left: 6px;
+}
+
+/* Shown before the Send buttons, so the cost of the swap is never a surprise. */
+.camp-swap-preview {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  border: 1px solid #23522f;
+  background: #0a170f;
+  color: #cfe3d4;
+}
+
+.camp-swap-preview.is-cost {
+  border-color: #f4d35e;
+  color: #f4d35e;
+}
+
+.camp-swap-preview.is-blocked {
+  border-color: #e07a5f;
+  color: #e07a5f;
+}
+
+.camp-swap-impact {
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+/* Matches the 44px thumb minimum the mobile block gives .btn; stated here too because a Send
+   button that is only tappable below 640px is a bug waiting on a tablet. */
+.camp-send-btn {
+  min-height: 44px;
+  width: 100%;
+}
+
+/* --- Header: the record chip and the per-era pill --- */
+
+/* The record is not a new chip. The header is sticky and the mobile block above already had
+   to shrink this row once to stop it eating a phone screen, so the record was folded into the
+   season chip instead: "S3 · 4-2" is narrower than the "Season 3 · Regular Season" it replaces,
+   which means the header gets *smaller* on a 390px viewport rather than risking a new row.
+   Nothing here needs a mobile override for that reason — the existing .stat-chip rule inside
+   the 640px query already shrinks the type and padding, and this chip is one of those. */
+.season-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+/* The generic .stat-chip .label margin would double up with the flex gap. */
+.season-chip .label {
+  margin-right: 0;
+}
+
+/* The record is the reason the chip exists now, so it is the part that reads first. */
+.season-chip .season-record {
+  font-weight: 700;
+}
+
+/* Only rendered outside the regular season, where the phase is actual news. Muted and
+   dot-separated so it reads as a qualifier on the record rather than a second value. */
+.season-chip .season-phase {
+  color: #9fc6a9;
+}
+
+.season-chip .season-phase::before {
+  content: '· ';
+}
+
+/* Background and text colour come from the era config as an inline style (eras past the
+   authored five are synthesised, so there is no finite set of classes to name). What stays
+   here is everything that is true of every era pill: no border, since a #23522f hairline
+   sitting on a gold or brick fill just looks like a mistake; slightly heavier type, because
+   the pill is now the loudest thing in the header and thin text on a mid-tone fill is the
+   first thing to get lost in sunlight; and a transition so a prestige reads as the colour
+   *changing* rather than as a chip that was always that colour. */
+.era-chip {
+  border-color: transparent;
+  font-weight: 600;
+  transition: background-color 400ms ease, color 400ms ease;
+}
+
+/* The default label colour (#9fc6a9, tuned for the near-black chip) is close to invisible on
+   a mid-tone fill. Inheriting the era's own ink keeps it legible against every one of them,
+   and the opacity preserves the label/value hierarchy the other chips get from the colour. */
+.era-chip .label {
+  color: inherit;
+  opacity: 0.72;
+}
+
+/* --- League history and the team-name editor --- */
+
+/* The name line sits directly under the League heading. `flex-wrap` rather than a fixed
+   two-column split, because a 24-character team name plus a Rename button does not fit on one
+   390px line and the button dropping under the name is the graceful version of that. */
+.team-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.team-identity-name {
+  font-weight: 700;
+  color: #f4d35e;
+  /* Long single-token names (nobody types spaces into "Riversidethunderbolts") would otherwise
+     push the panel wider than the viewport, which is the one thing a phone must never do. */
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.team-identity.editing {
+  /* Stacked while editing: input, preview, then the buttons — the reading order of the
+     decision the player is making. */
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.team-identity-input {
+  width: 100%;
+  /* Never below 16px: iOS Safari zooms the viewport on focus for anything smaller, and that
+     zoom is itself a source of horizontal scroll on a 390px screen. */
+  font-size: 16px;
+  min-height: 44px;
+  padding: 8px 10px;
+  background: #0d1f14;
+  border: 1px solid #23522f;
+  border-radius: 6px;
+  color: #eef3ec;
+  font-family: inherit;
+}
+
+.team-identity-input:focus {
+  outline: none;
+  border-color: #f4d35e;
+}
+
+.team-identity-preview {
+  /* Reserves its own line so the buttons do not jump up and down as the preview text changes
+     length under the player's thumb. */
+  min-height: 1.2em;
+  overflow-wrap: anywhere;
+}
+
+.team-identity-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Last season's result. A label chip plus the line itself, so it reads as history rather than
+   as another live stat the player has to act on. */
+.last-season {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: #cfe4d4;
+}
+
+.last-season-label {
+  background: #0d1f14;
+  border: 1px solid #23522f;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9fc6a9;
+  white-space: nowrap;
+}
+
+.last-season-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* This section sits AFTER the file's global mobile query, so the rules above already apply at
+   every width. Anything genuinely phone-only goes here. */
+@media (max-width: 640px) {
+  /* The Save/Cancel pair gets the full width each at 390px rather than two small targets
+     crowded against the left edge. */
+  .team-identity-actions .btn {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .team-identity-edit {
+    min-height: 44px;
+  }
+}
+
+/* --- The broadcast feed and the sponsor board --- */
+
+/* The newest sponsor still unsigned, matched to the feed entry that announced it. Border and
+   badge only — no background change, because .owned and .locked already spend opacity and a
+   third opacity state would make the grid unreadable. */
+.sp-offer.fresh {
+  border-color: #d9a441;
+}
+.sp-offer-new {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f0c469;
+  border: 1px solid #d9a441;
+  border-radius: 0.6rem;
+  padding: 0 0.4rem;
+  /* The head row is space-between with a name that can wrap to two lines; without this the
+     badge squashes down to its border on a narrow phone. */
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* --- Toasts --- */
+
+/* The batch/game-result tone. Blue-grey rather than the win/loss green and red, because a
+   "3 games while you were gone: 2-1" summary is neither, and colouring it either way would
+   read as a verdict on a mixed result. */
+.toast-game {
+  border-color: #4c7fa4;
+  color: #cfe3f0;
+}
+
+/* --- Prop bets --- */
+
+/* The second page of the notebook. Ruled off from the moneyline above it with a top border
+   rather than a card, because it is the same table — he just turned the page. */
+.bp-board {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed #2f5a3d;
+}
+.bp-blurb {
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0.7rem;
+}
+.bp-open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px solid #7a6a2f;
+  border-radius: 0.5rem;
+  background: #221f10;
+  padding: 0.55rem 0.7rem;
+  margin-bottom: 0.8rem;
+}
+.bp-open-line {
+  font-weight: 600;
+}
+.bp-open-detail {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+/* One per row, not a grid. A prop is a sentence, and two sentences side by side at 390px wrap
+   to four lines each and stop being readable as lines you would bet on. */
+.bp-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+.bp-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #2f5a3d;
+  border-radius: 0.5rem;
+  background: #16241a;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.bp-offer.selected {
+  border-color: #f4d35e;
+  background: #1d3a25;
+}
+.bp-offer-text {
+  line-height: 1.35;
+}
+.bp-offer-odds {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.bp-stake {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.8rem;
+}
+.bp-stake input[type='range'] {
+  width: 100%;
+}
+.bp-stake-label {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.25rem;
+}
+
+/* Amber rather than the moneyline's green: this is the novelty page, and it should not look
+   like the button you build an act on. */
+.bp-place {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #b09a4c;
+  border-radius: 0.5rem;
+  background: #2a2412;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.bp-place-label {
+  font-weight: 600;
+}
+.bp-place-sub {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.bp-unavailable {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  font-style: italic;
+}
+.bp-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border-left: 3px solid #6ab04c;
+  padding: 0.5rem 0.7rem;
+  margin-top: 0.8rem;
+  background: #16241a;
+}
+.bp-result.lost {
+  border-left-color: #b04c4c;
+}
+.bp-result-line {
+  line-height: 1.35;
+}
+.bp-result-detail {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.bp-record {
+  margin-top: 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Own media query, INSIDE this section. The file's last block is a 640px query, so a rule
+   appended after it would silently become mobile-only — the 44px tap minimums belong here
+   where they can be read next to the things they apply to. */
+@media (max-width: 640px) {
+  .bp-offer,
+  .bp-place {
+    min-height: 44px;
+  }
+}
+
+/* --- The caps shop --- */
+
+/* Deliberately the same shape as Act III's `.cx-offer` grid rather than a new one: this is the
+   fifth shop the player has seen, and the fifth shop should read as a shop. The one structural
+   difference is `.cs-offer-have`, which Act III's cards have no need for — every rung of a caps
+   ladder is worth the same percentage, so a card that only prints "+15%" gives the player no way
+   to tell whether they are one purchase in or four. */
+.cs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.cs-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  background: #0d1f14;
+  border: 1px solid #23522f;
+  border-radius: 8px;
+  padding: 12px;
+  color: #eef3ec;
+  /* 44px is the touch guideline and these are the tab's only controls. The content already
+     exceeds it, but a card whose description happens to be short must not fall under. */
+  min-height: 44px;
+}
+
+.cs-offer:hover:not(:disabled) {
+  border-color: #f4d35e;
+}
+
+/* Unaffordable and maxed are different states and must not look the same: one is "come back
+   later", the other is "you are finished here". The global `button:disabled { opacity: 0.5 }`
+   covers both, so `owned` restates its own colours at full strength on top of it. */
+.cs-offer.locked {
+  border-style: dashed;
+}
+
+.cs-offer.owned {
+  opacity: 1;
+  border-color: #6ab04c;
+  background: #10281a;
+}
+
+.cs-offer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cs-offer-name {
+  font-weight: 700;
+  color: #f4d35e;
+}
+
+.cs-offer-count {
+  font-size: 0.72rem;
+  color: #9fc6a9;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cs-offer-desc {
+  font-size: 0.8rem;
+  color: #cfe4d4;
+  /* The prose here is the reason to read the card. Long names of things a groundskeeper wants
+     must wrap rather than widen the grid column. */
+  overflow-wrap: anywhere;
+}
+
+.cs-offer-have {
+  font-size: 0.72rem;
+  color: #6ab04c;
+  font-weight: 600;
+}
+
+.cs-offer-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.cs-offer-effect {
+  font-size: 0.78rem;
+  color: #eef3ec;
+}
+
+.cs-offer-cost {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f4d35e;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* One column on a phone. Two 220px cards do not fit a 390px viewport, and `auto-fill` would
+   otherwise leave a single stretched column anyway — this states it rather than relying on
+   the minmax arithmetic to work out the same way. */
+@media (max-width: 640px) {
+  .cs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Walk-up songs --- */
+
+/* NOTE, same as the Roster section further up: this block sits BELOW the earlier
+   `@media (max-width: 640px)` queries, so anything set here on a shared selector (.btn, .card,
+   select) would override those mobile rules at every width. Every selector below is therefore a
+   class of its own, and the phone-specific sizing is folded into this section's own media query
+   at the bottom rather than added to any of the earlier ones. */
+
+/* The crate: a LIST, not the `.cx-offer` / `.cs-offer` card grid the other shops use, and that is
+   the one place this shop deliberately breaks with the house pattern. Those grids sit on tabs of
+   their own with nothing else on them. This one is a guest on the Roster tab, above fifteen
+   player cards, and an eighteen-card grid there would be the shop with the roster underneath it
+   rather than the other way round. A row is about a third the height of a card. */
+.wu-crate {
+  margin: 10px 0 16px;
+  padding: 10px;
+  border: 1px solid #23522f;
+  border-radius: 8px;
+  background: #0d1f14;
+}
+
+.wu-crate-head {
+  margin: 0 0 4px;
+  color: #f4d35e;
+}
+
+.wu-crate-blurb {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+}
+
+/* Full width so the toggle is unmissable and impossible to miss with a thumb — it is the only
+   thing standing between the player and the shop when the crate is closed, which is its default. */
+.wu-crate-toggle {
+  width: 100%;
+  min-height: 44px;
+}
+
+.wu-crate-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Eighteen rows is still a long way to scroll past the roster on a phone. Capped and scrolled
+     inside itself so the crate can never be taller than about half a phone screen, no matter how
+     many records the config grows to. */
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.wu-crate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid #23522f;
+  border-radius: 6px;
+  background: #0f2417;
+}
+
+/* Owned and unowned are different states and must not look the same, the same rule
+   `.cs-offer.owned` follows: one is a price, the other is a fact about your team. */
+.wu-crate-row.owned {
+  border-color: #6ab04c;
+  background: #10281a;
+}
+
+.wu-crate-song {
+  min-width: 0;
+  flex: 1;
+}
+
+.wu-crate-title {
+  font-weight: 700;
+  color: #f4d35e;
+}
+
+.wu-crate-desc {
+  display: block;
+  font-size: 0.76rem;
+  color: #cfe4d4;
+  margin-top: 2px;
+  /* Song titles and band names are the one thing in this file that cannot be reworded to fit. */
+  overflow-wrap: anywhere;
+}
+
+.wu-crate-buy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.wu-crate-effect {
+  font-size: 0.76rem;
+  color: #eef3ec;
+  white-space: nowrap;
+}
+
+.wu-crate-price {
+  min-width: 88px;
+  min-height: 44px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wu-crate-owned {
+  font-size: 0.74rem;
+  color: #6ab04c;
+  font-weight: 600;
+  /* Matches the height of the price button it replaces so the rows do not jump as records are
+     bought — the same reasoning `.upgrade-chip.is-max` is sized on. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  text-align: right;
+}
+
+/* The per-card picker. */
+.wu-row {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(35, 82, 47, 0.7);
+}
+
+.wu-now-playing {
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+.wu-now-title {
+  color: #f4d35e;
+  font-weight: 700;
+}
+
+.wu-now-effect {
+  color: #6ab04c;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* `min-width: 0` on BOTH the flex container and the control. `.roster-grid` sizes its columns at
+   `minmax(min(300px, 100%), 1fr)`, which already refuses to force a sideways scroll — but a grid
+   item's own `min-width: auto` is resolved from its content, and a <select> is one of the few
+   controls whose intrinsic width is its LONGEST OPTION in several engines. "Enter Sandman —
+   Metallica (+12% pitching) with Ruiz" is comfortably wider than a 390px phone, so without these
+   the card, not the grid, is what would push the page sideways. */
+.wu-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.wu-picker-label {
+  font-size: 0.72rem;
+  color: #9fc6a9;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+/* 16px is not a style choice: below it, iOS Safari zooms the whole page when the <select> takes
+   focus, and the player is left scrolled sideways on a roster they were reading fine a moment
+   ago. */
+.wu-select {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 16px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #23522f;
+  background: #0f2417;
+  color: #eef3ec;
+  /* The closed control shows one long label in a column that may be 250px wide. Truncating it is
+     the correct failure: the song title comes first, and the open dropdown is full width. */
+  text-overflow: ellipsis;
+}
+
+.wu-select:focus {
+  outline: none;
+  border-color: #f4d35e;
+}
+
+.wu-empty {
+  font-size: 0.74rem;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  /* The row's two halves stop being side by side: a title, an artist and a sentence of
+     description do not share 390px with a price button and stay readable. Stacked, the price
+     button lands full width under the text, which is also the easiest thing on the row to hit. */
+  .wu-crate-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wu-crate-buy {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .wu-crate-price {
+    flex: 1;
+  }
+
+  /* The label sits above the control rather than beside it. Side by side, an uppercase
+     "WALK-UP" plus a <select> holding a title, an artist and an effect leaves the select about
+     200px wide, and every option truncates to the song title with nothing after it. */
+  .wu-picker {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
   }
 }

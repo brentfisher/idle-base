@@ -97,6 +97,28 @@ const ACTS = [
       clickCurrency: 'cash',
       clickLabel: 'Work the concession line',
       clickMultiplier: 8,
+      // The first act where the click is worth spamming, and therefore the first where it has
+      // to be rate-limited. Untimed at perClick 2, a comfortable four taps a second is 64
+      // cash/sec: all three boosters (350 + 900 + 2200) and all three per-click upgrades
+      // (250 + 900 + 2600) bought inside two minutes, in an act budgeted at six to fourteen.
+      // The concessions stands — the sink this act's economy is actually built around — are
+      // simply skipped, because a tapping thumb outpaces every rate they can pay.
+      //
+      // Two seconds throttles the click to what it is WORTH per press rather than to what a
+      // thumb can manage. 16 cash every 2s is 8 cash/sec, measured against this act's own
+      // yardsticks: the cheapest sink, the 120-cash Lemonade Table, is 8 presses and 14
+      // seconds; the first booster at 350 is 22 presses and 42 seconds. A player who would
+      // rather click than wait still gets there noticeably faster than one who waits — which
+      // is the point of the faucet — but 8 cash/sec now sits below a single Seed Bucket, so
+      // building the stand is the better move and clicking is the floor beneath it. It also
+      // means the press improves by buying per-click upgrades rather than by tapping harder,
+      // which is the shop being the lever again.
+      //
+      // engine/clicker.js reads this key off act.rules directly, the same way clickLabel and
+      // clickMultiplier above are read; it is not a balanceConfig field. Absent means zero, so
+      // Acts I and II are deliberately untimed — Act I's entire game is the click, and Act II's
+      // broke player is clicking back up to a minimum wager with the wall waiting on them.
+      clickCooldownSeconds: 2,
     },
     modifierBonuses: {},
     unlocks: ['field', 'roster', 'league', 'statUpgrades', 'concessions', 'cardPacks'],
@@ -139,7 +161,7 @@ const ACTS = [
       // games is too many for luck to rescue a team that never improves — where Act III's
       // six-game season could be stolen by variance. So a player who buys literally nothing
       // does stall. That is acceptable because it is not a dead end: the click is a cash
-      // faucet in this act (132 a press fully upgraded), the cheapest stat upgrade is ~300,
+      // faucet in this act (see the press ceiling noted below), the cheapest stat upgrade is ~300,
       // and the "stat upgrades only" column above is what a player who spends that gets —
       // 100% finished, every band, no exceptions. Nothing is ever lost, and the way out is
       // always one purchase away. What is gone is finishing the act by waiting.
@@ -174,13 +196,36 @@ const ACTS = [
       clickCurrency: 'cash',
       clickLabel: 'Work the tournament gate',
       clickMultiplier: 12,
+      // Three seconds, on the same rule that set Act III's two: throttle the click to what it
+      // is worth per press, not to what a thumb can manage. 24 cash every 3s at perClick 2 is
+      // 8 cash/sec — exactly what Act III settles at — so crossing the act boundary does not
+      // quietly change how fast the faucet runs. What changes is the press, which grows with
+      // the per-click upgrades. That ceiling has moved twice and is deliberately NOT restated as
+      // a number here: data/concessionsConfig.js owns the per-click ladder and states the
+      // current ceiling (perClick 77, so 924 a press and 308 cash/sec at this act's 12x) in the
+      // one place it can be kept true. An earlier revision of this comment quoted 132, which was
+      // wrong when it was written — it counted the three Act III caps rungs but not Sharper Eyes
+      // or the Act II grit — and the ladder has since grown from three rungs to eight. Pressing gets better
+      // because you invested in it, never because you tapped harder.
+      //
+      // Measured against this act's own yardstick, the ~300 stat upgrade the tuning note above
+      // calls "always one purchase away": 13 presses from a standing start with nothing bought,
+      // which is 36 seconds of waiting, or 3 presses and 6 seconds fully upgraded. The
+      // stalled-player escape hatch that whole paragraph rests on survives intact — it is now a
+      // bounded 36-second wait instead of a ten-second one, in an act budgeted at 25-35
+      // minutes. A rate limit can lengthen that wait; it can never remove the way out.
+      clickCooldownSeconds: 3,
     },
     // Rookies arrive at 0.6 quality rather than 1.0. Without this, the first offseason after
     // retirement unlocks replaces a 0.5-quality little leaguer with a full-strength adult and
     // team strength jumps ~2x for free — which is exactly what the unverified Act III behaviour
     // was doing before retirement was gated (see engine/tickEngine.js).
     modifierBonuses: { rookieQualityMult: -0.4 },
-    unlocks: ['camp', 'retirement', 'bookie', 'sponsorships'],
+    // `walkup` is the first act with a PA system and a man holding the microphone, which is why
+    // the record crate lands here and not in Act III's little league. It gates a mechanic inside
+    // the already-visible Roster panel rather than a tab of its own, and unlocks are cumulative,
+    // so it stays on through Acts V and VI. See data/walkupSongsConfig.js.
+    unlocks: ['camp', 'retirement', 'bookie', 'sponsorships', 'walkup'],
   },
   {
     id: 4,
@@ -188,9 +233,38 @@ const ACTS = [
     description: 'A real stadium. A real payroll. The first time baseball is a business and not a game.',
     entry: 'A 60% career win rate over two travel seasons.',
     exit: { id: 'minorsPennantWon', description: 'Fill a 10,000-seat stadium and win the minor-league pennant.' },
-    rules: { leagueTeamCount: 10, gamesPerSeason: 24, secondsPerGame: 50, playoffTeams: 0, tradeWindows: [] },
+    // The click goes back to paying CAPS here, deliberately, and this is the one act boundary
+    // where it changes currency in the direction of the older one.
+    //
+    // Until the caps shop existed this was an accident: Act V simply declared no override, the
+    // click silently reverted to the default (bottle caps at 1x, labelled "Search the lot" — a
+    // minor-league GM searching a vacant lot), and since caps bought nothing after Act III's
+    // upgrades the endgame click paid in a currency with no sink. Adding a cooldown on top of
+    // that would have made a worthless button also a slow one.
+    //
+    // What changed is that data/capsShopConfig.js gives caps a real sink from this act on, so
+    // the click becomes its faucet. Cash is no longer the thing the click is for: ticketing is
+    // live from Act V and pays orders of magnitude more than any button could, so a cash click
+    // here is a rounding error that still asks to be pressed. Caps are the opposite — they
+    // trickle in at 8-16/sec from collectors, dues and hands, and the shop's first rung is
+    // 2,000. At 3x and a three-second cooldown a fully-upgraded presser roughly doubles their
+    // caps rate, which turns the ladder from a passive wait into something worth tapping for.
+    // That is also the fiction the shop is written in: you never stopped picking them up.
+    rules: {
+      leagueTeamCount: 10,
+      gamesPerSeason: 24,
+      secondsPerGame: 50,
+      playoffTeams: 0,
+      tradeWindows: [],
+      clickCurrency: 'caps',
+      clickLabel: 'Walk the concourse',
+      clickMultiplier: 3,
+      clickCooldownSeconds: 3,
+    },
     modifierBonuses: {},
-    unlocks: ['ticketing', 'stadium', 'powerups', 'scouting'],
+    // `capsShop` is the sink that makes the caps click above worth pressing — see
+    // data/capsShopConfig.js for why it lands here and not in Act IV.
+    unlocks: ['ticketing', 'stadium', 'powerups', 'scouting', 'capsShop'],
   },
   {
     id: 5,
@@ -199,9 +273,21 @@ const ACTS = [
     entry: 'A full stadium and the minor-league pennant.',
     // Terminal act: winning the championship is the win condition, not a transition.
     exit: null,
-    // Empty by design — Act VI defers entirely to the era config so today's prestige behaviour
-    // is preserved exactly.
-    rules: {},
+    // Otherwise empty by design — Act VI defers entirely to the era config so today's prestige
+    // behaviour is preserved exactly. None of the four click keys below is a balanceConfig
+    // field and no era declares one (engine/clicker.js reads them straight off act.rules), so
+    // none of them can collide with that deferral.
+    //
+    // The click keeps the caps identity Act V gave it, one notch better. It is the last act,
+    // the caps shop is still the only thing caps buy, and its ladders run past 45,000 apiece —
+    // an endgame faucet should keep pace with an endgame sink. The cooldown is unchanged from
+    // Act III's rule, so the throttle never silently lifts at the last act.
+    rules: {
+      clickCurrency: 'caps',
+      clickLabel: 'Kids at the rail',
+      clickMultiplier: 4,
+      clickCooldownSeconds: 3,
+    },
     modifierBonuses: {},
     // `trade` lives here and nowhere earlier: a deadline is a big-league institution, and
     // Acts III-V declare `tradeWindows: []` so no window ever opens before it.
