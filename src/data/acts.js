@@ -321,9 +321,15 @@ const FINAL_ACT_INDEX = ACTS.length - 1;
 // framework in which a throw from src/data/ would be caught before a player saw it.
 const PRESTIGE_ACT_INDEX = 5;
 
-// Unlike eras, the odyssey is a finite authored arc — prestige replays Act VI in place rather
-// than extrapolating an Act VII. So this clamps instead of synthesising, and coerces garbage
-// (a corrupt save, an undefined slice) to Act I rather than throwing.
+// Unlike eras, the odyssey is a finite authored arc: there is no act N+1 to synthesise, so an
+// index past the end has to be clamped rather than extrapolated. Act indices arrive from saves
+// and from arithmetic on saves, so this also coerces garbage (a corrupt save, an undefined
+// slice) to Act I rather than throwing.
+//
+// This clamp is about the ARC, not about prestige — it reads FINAL_ACT_INDEX and should keep
+// reading it however many acts exist. The previous version of this comment explained the clamp
+// by saying prestige replays Act VI in place, which fused two unrelated facts and is exactly
+// the conflation PRESTIGE_ACT_INDEX above exists to undo.
 function getActConfig(actIndex) {
   if (typeof actIndex !== 'number' || !Number.isFinite(actIndex) || actIndex < 0) return ACTS[0];
   if (actIndex > FINAL_ACT_INDEX) return ACTS[FINAL_ACT_INDEX];

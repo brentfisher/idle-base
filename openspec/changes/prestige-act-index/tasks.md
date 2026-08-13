@@ -45,6 +45,22 @@
       empty, with nothing excluded from the comparison.
 - [x] 6.2 Check the positive assertions (`act === 5`, `runStats` zeroed, roster/league/schedule
       sizes), so an empty diff cannot be two identical crashes.
-- [x] 6.3 Exercise the counterfactual: with a synthetic seventh act pushed onto `ACTS`,
+- [x] 6.3 Second harness for the OTHER path into the re-keyed initializer: `checkActTransition()`
+      advancing organically out of Act V (`minorsPennantWon` milestone set) rather than
+      `resetForPrestige()`. Diff pre/post — that call site's key is the one that changed, so the
+      prestige-path diff alone does not cover it. Also assert it is stable on a second pass
+      (Act VI declares `exit: null`).
+- [x] 6.4 Re-run both harnesses against a clean `git archive` of the base commit, not just against
+      the pre-edit working tree.
+- [x] 6.5 Exercise the counterfactual: with a synthetic seventh act pushed onto `ACTS`,
       `ACTS.length - 1` is 6 while `PRESTIGE_ACT_INDEX` stays 5.
-- [x] 6.4 `npm run build` — errors only; the three bundle-size warnings are pre-existing.
+- [x] 6.6 `npm run build` — errors only; the three bundle-size warnings are pre-existing.
+
+## 7. Comment debt in the same file
+
+- [x] 7.1 Rewrite `getActConfig()`'s comment. It explained the clamp by saying "prestige replays
+      Act VI in place rather than extrapolating an Act VII" — the same fusion of two facts this
+      change exists to separate, and actively misleading once Act VII is a thing. The clamp is
+      about the arc having an end, not about where prestige lands.
+- [x] 7.2 Leave the `ACTS` header's "The odyssey is six acts" alone: that is a true statement about
+      today's content, and the story that adds a seventh act should be the one to update it.

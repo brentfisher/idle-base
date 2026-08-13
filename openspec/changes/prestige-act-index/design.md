@@ -156,6 +156,19 @@ actAfterPrestige: 5      runStatsZeroed: true     legacyPointsAwarded: 403
 era: 3                   rosterSize: 15           leagueTeamCount: 11    scheduleLength: 33
 ```
 
+**A second harness covers the other path into the re-keyed initializer.** `resetForPrestige()`
+is only one of the two ways to enter the prestige floor; the other is `checkActTransition()`
+advancing a player organically out of Act V, which is how anyone reaches Act VI the first time.
+Since `ACT_INITIALIZERS`' *key* is what changed, the prestige-path diff alone does not cover that
+call site. `/tmp/story014-transition-fixture.js` sets `progression.act = 4` and the
+`minorsPennantWon` milestone (Act V's exit has no registered predicate, so `isExitSatisfied()`
+falls through to the milestone lookup) and drives `checkActTransition()`. 668 lines, `diff` clean,
+landing at act 5 with `runStats` zeroed and stable on a second pass — the loop stops at the
+terminal act, as the rewritten comment claims.
+
+Both harnesses were re-run against a clean `git archive` of the base commit (3dc3542) extracted to
+`/tmp`, not just against the pre-edit working tree, so the comparison is against committed code.
+
 The counterfactual was checked directly — pushing a synthetic seventh act onto `ACTS` at runtime
 makes `ACTS.length - 1` evaluate to 6 (what `resetForPrestige()` used to pass) while
 `PRESTIGE_ACT_INDEX` stays 5 (what it passes now).
