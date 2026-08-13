@@ -2,7 +2,8 @@ const balanceConfig = require('../data/balanceConfig');
 const { createStartingRoster } = require('./playerFactory');
 const { createLeagueTeams, resetStandings, generateSeasonSchedule, buildTradeWindows } = require('./schedule');
 const { computeModifiers } = require('./modifiers');
-const { enterAct, FINAL_ACT_INDEX } = require('./progression');
+const { PRESTIGE_ACT_INDEX } = require('../data/acts');
+const { enterAct } = require('./progression');
 
 function calculateLegacyPoints(state) {
   const { championships, peakOverallRating, totalRevenue } = state.prestige.runStats;
@@ -13,10 +14,16 @@ function calculateLegacyPoints(state) {
 // legacyPoints, purchasedPerks, and the era counter (which is what makes the next
 // run feel different, per data/eras.js).
 //
-// Prestige resets to the FINAL-ACT FLOOR, never below it: the odyssey is played once per save
+// Prestige resets to the PRESTIGE FLOOR, never below it: the odyssey is played once per save
 // and prestige stays what it is today, an Act VI replay axis. Every earlier act's unlocks stay
 // on, because unlocks are derived from the act index (engine/progression.js) and the index
 // never moves backwards.
+//
+// The floor is PRESTIGE_ACT_INDEX and emphatically not FINAL_ACT_INDEX, which this used to
+// read. They are equal today, so this is not a behaviour change — but the day ACTS grows a
+// seventh entry, FINAL_ACT_INDEX becomes 6 and this line would have started dropping every
+// prestiging player into Act VII, past the crossing rather than at it. See data/acts.js for
+// the two meanings.
 function resetForPrestige(state) {
   const earned = calculateLegacyPoints(state);
   const nextEra = state.prestige.era + 1;
@@ -69,7 +76,7 @@ function resetForPrestige(state) {
     },
     prestige,
     hasWonLeagueThisRun: false,
-  }, FINAL_ACT_INDEX);
+  }, PRESTIGE_ACT_INDEX);
 }
 
 module.exports = { calculateLegacyPoints, resetForPrestige };

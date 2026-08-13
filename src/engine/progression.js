@@ -1,4 +1,4 @@
-const { ACTS, FINAL_ACT_INDEX, getActConfig } = require('../data/acts');
+const { ACTS, FINAL_ACT_INDEX, PRESTIGE_ACT_INDEX, getActConfig } = require('../data/acts');
 const { STARTER_KIT_ITEMS } = require('../data/actOneConfig');
 const { isCrewAssembled } = require('./wallBall');
 const {
@@ -122,10 +122,19 @@ const ACT_INITIALIZERS = {
     return state.travelBall ? state : openTravelBall(state);
   },
 
-  // Entering the final act zeroes runStats. addRevenue() accumulates totalRevenue and
+  // Entering the prestige floor zeroes runStats. addRevenue() accumulates totalRevenue and
   // calculateLegacyPoints() divides it by 100,000, so without this the entire odyssey's
   // earnings would inflate the very first legacy payout exactly once.
-  [FINAL_ACT_INDEX]: function zeroRunStatsForFinalAct(state) {
+  //
+  // Keyed on PRESTIGE_ACT_INDEX rather than FINAL_ACT_INDEX, which it used to read. The two are
+  // equal today so nothing moves, but they are equal by coincidence and this belongs to the
+  // prestige floor, not to the end of the arc: runStats measure one prestige run, and a run
+  // starts where prestige drops the player (engine/prestige.js) and is cashed out by the
+  // `prestige` unlock Act VI carries. Under a seventh act, keying this on FINAL_ACT_INDEX would
+  // have zeroed runStats at Act VII while prestige still returned to Act VI — so the first
+  // payout after each prestige would have been inflated by everything earned in Act VI, which
+  // is precisely the bug the zeroing was written to prevent.
+  [PRESTIGE_ACT_INDEX]: function zeroRunStatsAtPrestigeFloor(state) {
     return {
       ...state,
       prestige: {
@@ -152,8 +161,24 @@ function enterAct(state, actIndex) {
 // This loops rather than advancing a single act, and that is load-bearing: with no discrete
 // event pending, findNextEventClock() returns Infinity and advance() consumes an entire 8-hour
 // catch-up in ONE iteration — so it calls this exactly once. A player who was two exit
-// conditions past the boundary would otherwise be stranded mid-odyssey. Bounded by the number
-// of acts, and Act VI declares no exit, so this can never run past the final act.
+// conditions past the boundary would otherwise be stranded mid-odyssey.
+//
+// What stops the loop is not the act count: it is that EVERY advance is player-gated. The loop
+// breaks the first time isExitSatisfied() is false, and an exit is satisfied only by something
+// the player did — buying the starter kit, assembling a crew, winning a title. Looping can
+// therefore only ever collapse boundaries the player has *already* earned into one iteration;
+// it can never hand out an act nobody paid for, however long the catch-up was. And the last
+// transition is player-gated in the strongest form there is: the terminal act declares
+// `exit: null`, so isExitSatisfied() returns false there structurally — because of what that
+// act IS, not because of which index it sits at. That still holds when the terminal act stops
+// being Act VI.
+//
+// `steps < FINAL_ACT_INDEX` is a belt-and-braces iteration cap, not the thing preventing
+// overshoot; the previous version of this comment conflated the two. Note also that both
+// FINAL_ACT_INDEX uses below are correct as FINAL_ACT_INDEX: this loop walks the authored arc
+// to its end, which is a different question from where prestige drops the player
+// (PRESTIGE_ACT_INDEX, used by the initializer above). Both constants now live in data/acts.js
+// and they are equal today — do not let one be substituted for the other here.
 function checkActTransition(state) {
   // Tolerate a save written before the progression slice existed rather than throwing.
   if (!state.progression) return state;

@@ -297,13 +297,43 @@ const ACTS = [
 
 const FINAL_ACT_INDEX = ACTS.length - 1;
 
-// Unlike eras, the odyssey is a finite authored arc — prestige replays Act VI in place rather
-// than extrapolating an Act VII. So this clamps instead of synthesising, and coerces garbage
-// (a corrupt save, an undefined slice) to Act I rather than throwing.
+// PRESTIGE_ACT_INDEX and FINAL_ACT_INDEX are both 5 today and they are NOT the same fact.
+//
+// FINAL_ACT_INDEX means "the end of the authored arc" — it is derived, and it is supposed to
+// move when ACTS grows. PRESTIGE_ACT_INDEX means "the act a prestiging player is returned to",
+// which is Act VI because that is where the `prestige` unlock lives and where legacy points
+// start being earnable at endgame scale (changes/odyssey-progression-architecture/design.md,
+// Decision 4). That is an authored decision about the shape of the endgame, not a fact about
+// how many acts happen to exist.
+//
+// They coincide only because Act VI is currently last. Before this split, resetForPrestige()
+// read FINAL_ACT_INDEX and got the right answer by luck: appending a seventh act would have
+// made it 6, and every prestige would have teleported the player into Act VII, skipping the
+// crossing entirely. That is why this is a literal and deliberately not `ACTS.length - 1`.
+//
+// It is also deliberately not derived from `unlocks.includes('prestige')`. A derivation would
+// silently move the prestige floor the day someone edits an unlocks array, which is the exact
+// class of accident this constant exists to prevent. Appending an act must not change this
+// number; moving the prestige floor is a decision someone has to type out here.
+//
+// No assertion guards the literal on purpose: getActConfig() below clamps out-of-range indices
+// to the last act, so a bad value degrades instead of throwing, and this repo has no test
+// framework in which a throw from src/data/ would be caught before a player saw it.
+const PRESTIGE_ACT_INDEX = 5;
+
+// Unlike eras, the odyssey is a finite authored arc: there is no act N+1 to synthesise, so an
+// index past the end has to be clamped rather than extrapolated. Act indices arrive from saves
+// and from arithmetic on saves, so this also coerces garbage (a corrupt save, an undefined
+// slice) to Act I rather than throwing.
+//
+// This clamp is about the ARC, not about prestige — it reads FINAL_ACT_INDEX and should keep
+// reading it however many acts exist. The previous version of this comment explained the clamp
+// by saying prestige replays Act VI in place, which fused two unrelated facts and is exactly
+// the conflation PRESTIGE_ACT_INDEX above exists to undo.
 function getActConfig(actIndex) {
   if (typeof actIndex !== 'number' || !Number.isFinite(actIndex) || actIndex < 0) return ACTS[0];
   if (actIndex > FINAL_ACT_INDEX) return ACTS[FINAL_ACT_INDEX];
   return ACTS[Math.floor(actIndex)];
 }
 
-module.exports = { ACTS, FINAL_ACT_INDEX, getActConfig };
+module.exports = { ACTS, FINAL_ACT_INDEX, PRESTIGE_ACT_INDEX, getActConfig };
