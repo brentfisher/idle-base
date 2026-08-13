@@ -29,8 +29,25 @@ function wallBallDuesPerSecond(state) {
 //
 // Per design Decision 1 the offseason suspension is a property of ticket sales, not
 // of income in general, so the phase gate lives inside the contributor.
+//
+// `seasonFrozen` is the second suspension condition on that same contributor and it is here for
+// exactly the same reason, rather than as an act-level branch in advance(): a frozen league
+// sells no tickets, but the act that froze it has income of its own, and suspending income as a
+// whole would take that down with the turnstiles. Adding it here also means every consumer that
+// already reads a rate — the header, the revenue ticker, the tick loop — agrees about it for
+// free, with no second gate to keep in sync.
+//
+// Read off the RESOLVED rules rather than balanceConfig, because this is a value an act
+// overrides (engine/modifiers.js: "never read balanceConfig directly for anything an act can
+// override"). `modifiers.rules` is always present — computeModifiers() attaches it — which is
+// why it is dereferenced as plainly as modifiers.rules.playoffTeams is in tickEngine.js.
+//
+// This is NOT the only place the freeze is enforced, and the other two are not redundant with
+// it: engine/tickEngine.js gates the season phase block, and — far less obviously — gates
+// findNextEventClock() as well. Read the comment there before concluding either can go.
 function ticketingPerSecond(state, modifiers) {
   if (!state.stadium || !state.season) return 0;
+  if (modifiers.rules.seasonFrozen) return 0;
   if (state.season.phase === 'offseason') return 0;
   return revenuePerSecond(state, modifiers);
 }

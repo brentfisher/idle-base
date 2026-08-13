@@ -12,6 +12,19 @@ module.exports = {
   tradeWindows: [{ openFraction: 0.5, closeFraction: 0.61 }],
   playoffTeams: 4,
   secondsPerPlayoffRound: 90,
+  // Stops the baseball simulation without deleting it: no fixture resolves, no playoff round
+  // turns over, no offseason rolls the season forward, and the turnstiles stop paying — while
+  // `season`, `league`, `roster`, `stadium` and `powerups` all stay in state exactly as they
+  // were. Act VII (the act that stops being a baseball game) declares `seasonFrozen: true`;
+  // nulling the season slice instead would send AppShell down its pre-season early return and
+  // take the whole app with it, not just the tabs.
+  //
+  // Declared here as an explicit `false` rather than left absent from balanceConfig, and that is
+  // deliberate: resolveRules() layers by spread precisely so that a real `false` is
+  // distinguishable from "not overridden" (engine/modifiers.js), so a rule with no base value
+  // has nothing to be distinguishable *from*. Every act shipping today leaves it false, which is
+  // why the whole mechanism is inert until an act declares otherwise.
+  seasonFrozen: false,
   offlineCapSeconds: 8 * 3600,
   tickIntervalMs: 1000,
   autosaveIntervalMs: 30000,
