@@ -2612,6 +2612,123 @@ input[type='range']::-moz-range-thumb {
   color: #dfe9f2;
 }
 
+/* --- Act VII: the teardown overlay --- */
+/*
+ * DELIBERATELY PLACED HERE, above the file's last `@media (max-width: 640px)` block. global.css
+ * ends inside that block, so a rule appended at EOF is silently a mobile-only rule. This section
+ * is unconditional and must stay above line ~2533.
+ *
+ * The whole sequence is CSS. There is no JS timer and no second tick source: the component mounts
+ * the overlay, the animations run, and `animationend` on the backdrop is what unmounts it. That
+ * is an event, not a clock — nothing here can drift from state.clock or fire during an offline
+ * catch-up, because there is nothing to fire.
+ *
+ * Total run is 4.6s (backdrop 0.35s in, three panel stages ending at 4.25s, then the settle).
+ * Short on purpose: this is an idle game, and a player who has crossed once will cross again on a
+ * new save.
+ */
+.teardown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #05070a;
+  animation: teardown-backdrop 4.6s ease-out forwards;
+}
+
+@keyframes teardown-backdrop {
+  0% { background: rgba(5, 7, 10, 0); }
+  8% { background: rgba(5, 7, 10, 0.97); }
+  100% { background: rgba(5, 7, 10, 1); }
+}
+
+.teardown-box {
+  max-width: 460px;
+  width: 100%;
+  text-align: center;
+  color: #e8eef5;
+}
+
+/* The tear itself, depicted rather than performed: three rules that fracture and fall. Performing
+   it would mean keeping the baseball shell mounted and stale, which `hides` forecloses by design
+   (data/acts.js) — and a stale shell that the simulation has already stopped writing to would be
+   showing the player numbers that are no longer true. */
+.teardown-seam {
+  height: 2px;
+  margin: 14px 0;
+  background: linear-gradient(90deg, transparent, #f4d35e, transparent);
+  transform-origin: center;
+  animation: teardown-seam 3.2s ease-in forwards;
+}
+
+/* nth-of-TYPE, not nth-child: the seams are divs with three <p> lines interleaved between them,
+   so nth-child would count the paragraphs and stagger the wrong elements. The three delays keep
+   every seam finished by 4.2s, inside the backdrop's 4.6s — a seam still falling when the overlay
+   unmounts reads as a dropped frame. */
+.teardown-seam:nth-of-type(2) { animation-delay: 0.5s; }
+.teardown-seam:nth-of-type(3) { animation-delay: 1s; }
+
+@keyframes teardown-seam {
+  0% { transform: scaleX(1) translateY(0) rotate(0deg); opacity: 0.9; }
+  30% { transform: scaleX(1) translateY(0) rotate(0deg); opacity: 1; }
+  55% { transform: scaleX(0.7) translateY(6px) rotate(-1.5deg); opacity: 0.7; }
+  100% { transform: scaleX(0.1) translateY(70px) rotate(-6deg); opacity: 0; }
+}
+
+.teardown-line {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  opacity: 0;
+  animation: teardown-line 1.6s ease-out forwards;
+}
+
+.teardown-line:nth-of-type(1) { animation-delay: 0.35s; }
+.teardown-line:nth-of-type(2) { animation-delay: 1.65s; }
+.teardown-line:nth-of-type(3) { animation-delay: 2.95s; }
+
+@keyframes teardown-line {
+  0% { opacity: 0; transform: translateY(8px); }
+  18% { opacity: 1; transform: translateY(0); }
+  82% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0.55; transform: translateY(0); }
+}
+
+/* Present from the first frame, never faded in. A repeat viewing has to be skippable in under a
+   second, and a skip control that animates in is a skip control that is not there yet. 44px min
+   height is the house tap target. */
+.teardown-skip {
+  margin-top: 22px;
+  min-height: 44px;
+  padding: 10px 20px;
+}
+
+/*
+ * REDUCED MOTION KEEPS THE ANIMATIONS AND SHORTENS THEM — it does not remove them, and that is a
+ * correctness requirement rather than a stylistic choice. `animationend` on the backdrop is the
+ * only thing that unmounts this overlay, so `animation: none` here would strand a player on a
+ * black screen until they found the skip button. Same one exit path, 0.6s instead of 4.6s, and no
+ * transforms.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .teardown-backdrop { animation-duration: 0.6s; }
+  .teardown-seam {
+    animation: none;
+    opacity: 0.9;
+  }
+  .teardown-line {
+    animation: teardown-line-static 0.6s ease-out forwards;
+    animation-delay: 0s;
+  }
+  @keyframes teardown-line-static {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+}
+
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
      description do not share 390px with a price button and stay readable. Stacked, the price
