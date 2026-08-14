@@ -19,15 +19,46 @@ const { CHALLENGERS, REPUTATION_PER_RESPECT } = require('../data/wallBallConfig'
 // That makes it self-healing: retuning which act unlocks a feature takes effect immediately on
 // an existing save with no migration. Only *intra-act* triggers are persisted, in
 // `progression.milestones`, alongside presentation state (`seenTabs`, `storyBeatsSeen`).
+//
+// `hides` (optional, see data/acts.js) is the same thing in reverse: an act that RETIRES a
+// feature. It is config resolved on read for exactly the reason above — a stored "hidden" flag
+// would freeze one edit of acts.js into every existing save and need a migration to undo.
+//
+// Resolution is UNION-THEN-SUBTRACT, not per-act. The whole `unlocks` union for acts 0..actIndex
+// is built first, and only then is every id named by any of those acts' `hides` removed. The
+// consequence is the rule worth stating outright: **`hides` wins over a later `unlocks` of the
+// same id.** Per-act interleaving would give the opposite — a later act's `unlocks` would
+// silently resurrect what an earlier act retired.
+//
+// That choice is deliberate, and the reason is how these arrays are authored. Every `unlocks`
+// array lists only what its act ADDS; ids are never restated, because unlocks are cumulative.
+// So an id reappearing in a later act's `unlocks` after an earlier act hid it is much more
+// likely two config edits colliding than an author intending to bring the feature back.
+// Union-then-subtract makes that collision inert: restoring a retired feature has to be a new
+// decision someone types out (drop the `hides` entry), never a side effect of edit ordering.
+// The same rule settles the degenerate case of one act naming an id in both arrays — hidden.
+//
+// Note the subtraction reads `hides` only from acts 0..actIndex, exactly as the union does. A
+// teardown authored into a late act is invisible to a player who has not reached it yet.
 function getUnlockedFeatures(actIndex) {
   const current = getActConfig(actIndex);
   const features = [];
+  const hidden = [];
   for (let i = 0; i <= current.id; i += 1) {
     ACTS[i].unlocks.forEach((feature) => {
       if (!features.includes(feature)) features.push(feature);
     });
+    // Optional key: an act that declares no `hides` contributes nothing here, which is why
+    // adding this key is a no-op for every act authored before it existed.
+    (ACTS[i].hides || []).forEach((feature) => {
+      if (!hidden.includes(feature)) hidden.push(feature);
+    });
   }
-  return features;
+  // filter() rather than a rebuild, so the surviving ids keep the order the union produced them
+  // in — AppShell derives tab order from PANELS, but HeaderStats and the mechanic gates read
+  // this array directly, and with no act declaring `hides` this must return what it always did,
+  // element for element and in the same order.
+  return features.filter((feature) => !hidden.includes(feature));
 }
 
 // Exit predicates live here, not in data/acts.js, because src/data/ is config with no logic.
