@@ -896,6 +896,30 @@ A capacity pin caused by load-following reduces draw on that producer's *inputs*
 input into surplus — and that is a **boundary event**, resolved by the next `advance()` iteration
 rather than by more passes here. §5.7's iteration ceiling is derived from that choice and pays for it.
 
+> **⚠️ CORRECTION — the two worked examples below contain arithmetic errors. The model they
+> illustrate is sound; the printed intermediate numbers are not.** Found during implementation
+> (STORY-018 / PR #22) and verified against independent closed forms:
+>
+> - **Example B's satisfaction trace diverges from its own recurrence after pass 3.** The equations
+>   given (`gross.power = 21 + 36·s_prov`, `demand.power = 89.6`, `gross.prov = 4.5·s_power`,
+>   `demand.prov = 5.70`) determine the sequence uniquely, and passes 1–3 match to four decimals.
+>   Pass 8 is **0.3499**, not 0.351; pass 16 is **0.3433**, not 0.3488. The printed 0.3488 is
+>   impossible for a monotone-decreasing sequence converging to the closed-form fixed point 0.34325
+>   — it sits below pass 8's true value and above the limit.
+> - **The per-pass contraction is 0.563 analytically** (`sqrt((36/89.6)·(4.5/5.7))`), measured
+>   0.573 — not the 0.63 stated. The *conclusion* is unaffected: 16 passes remains the right cap,
+>   and convergence was measured to land 0.02% from the closed form.
+> - **Example A**: its listed power terms sum to 108.8, not the printed 104.6; `7×3.0 + 3×12.0` is
+>   57, not the printed 60.0; and `gross.prov` silently omits the four Ration Printers at 57.4%
+>   while including them at 100%.
+>
+> **Implementers: take the equations and the shape, not the printed intermediates.** The shipped
+> solver reproduces PRD §5.7's healthy-colony departure rates exactly — Power +14.200, Provisions
+> +0.850, Fuel 2.100 against the 2.10/sec anchor, Fuel ending at exactly 1920 — with Oxygen the only
+> difference, off by exactly the 2.00/s Home Plate site term that `engine/sites.js` has yet to land.
+> This is a documentation defect, not a design one, and it is left in place rather than rewritten so
+> the correction stays auditable against what was originally reasoned.
+
 #### Worked example A — a colony at 57% Power satisfaction
 
 An over-committed `lifeSupport` colony: the player bought the Fuel chain before the reactors.
