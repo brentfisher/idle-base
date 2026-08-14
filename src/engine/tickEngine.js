@@ -114,41 +114,112 @@ function updatePeakRating(working) {
   };
 }
 
-// A frozen season must stop offering its events as step targets, and this is the least obvious
-// half of the whole rule — it looks redundant against the guard in advance() and it is not.
+// ---------------------------------------------------------------------------------------------
+// Event-clock contributors.
+//
+// findNextEventClock() answers "when does the next discrete thing happen?", and its answer is
+// what bounds the step advance() takes. Until this list existed it was a twelve-line if-chain
+// with four hardcoded sources, in what is already the most contended file in the codebase for
+// parallel work. Act VII then queued four more sources onto it — colony resource boundaries,
+// launch arrivals and site builds, puzzle cooldowns, and contract windows — which is four
+// separate branches editing the same twelve lines, i.e. four hand-resolved merge conflicts in
+// shared control flow.
+//
+// So the chain became a registration list, for the same reason and in the same shape that
+// engine/income.js is a list of per-contributor rate functions (odyssey design.md Decision 1:
+// "every new act would edit a conditional that every other act also touches"). APPEND a
+// contributor below; do not reach back into findNextEventClock().
+//
+// The contract every contributor must honour:
+//
+//   * Pure `(state) => clock | Infinity`. No mutation, no Date.now(), no bare Math.random() —
+//     this runs inside the offline catch-up as well as the live tick, and the two must agree.
+//
+//   * Guard your OWN slice. Every contributor runs on every iteration in every act, including
+//     acts where its slice does not exist yet, so a contributor whose state is absent returns
+//     Infinity rather than throwing. (`season` is null until Act III; the Act VII slices are
+//     null until later still.)
+//
+//   * Return Infinity — never 0, null or undefined — when nothing is pending. This is
+//     load-bearing, not tidiness. Infinity from every contributor makes findNextEventClock()
+//     return Infinity, which makes advance() take the ENTIRE remaining span as a single step
+//     and integrate income across it in one pass. That is what resolves an 8h offline return
+//     (28,800s) in a handful of iterations instead of hitting safetyCapIterations (2,000) and
+//     silently discarding seven hours of a returning player's progress — see odyssey design.md
+//     Decision 1, "income must be rate-integrated, not event-driven". A contributor that
+//     returns 0 for "nothing pending" pins the step at zero and burns the whole iteration
+//     budget doing nothing.
+// ---------------------------------------------------------------------------------------------
+
+// The two season contributors below are gated on `seasonFrozen`, and that gate is the least
+// obvious half of the freeze rule — it looks redundant against the guard in advance() and it is
+// not.
 //
 // A frozen season's `nextGameAtClock` is left where it was and never rescheduled, so within
 // seconds it sits permanently in the past. advance() would keep choosing it as the next event,
-// compute `step = max(0, past - now)` = 0, resolve nothing (the phase block is skipped), and
-// come round again on the same target — burning all 2,000 safetyCapIterations without
-// decrementing `remaining` by a single second. Income is gated on `step > 0`, so nothing would
-// accrue either. The result is a frozen *app*, which is the exact failure mode freezing the
-// season instead of nulling it exists to avoid. Powerup expiry and camp completions stay in the
-// candidate list: they are clock-driven, not baseball, and they keep running while frozen.
+// compute `step = max(0, past - now)` = 0, resolve nothing (the phase block is skipped), and come
+// round again on the same target — burning all 2,000 safetyCapIterations without decrementing
+// `remaining` by a single second. Income is gated on `step > 0`, so nothing would accrue either.
+// The result is a frozen *app*, which is the exact failure mode freezing the season instead of
+// nulling it exists to avoid. Powerup expiry and camp completion are deliberately NOT gated:
+// they are clock-driven rather than baseball, and they keep running while frozen.
 //
-// Rules are resolved in here rather than passed in so that the exported signature is unchanged,
-// which means no call site can forget the gate. components/layout/HeaderStats.js calls this with
-// `state` alone for its countdown bar and so gets the frozen behaviour with no edit: it counts
-// down to whichever non-season event is pending — a powerup expiring, a camp finishing, both of
-// which are live by the acts that would freeze a season — and falls back to Infinity (no bar at
-// all) only when nothing is. Both readings are honest, because that chip is worded for events in
-// general ("Time until the next scheduled event"), not for the next game. One extra
-// resolveRules() per loop iteration, against a module-memoized acts lookup, is not measurable.
-function findNextEventClock(working) {
+// The gate lives inside each contributor rather than in findNextEventClock() because guarding
+// your own slice is this list's contract (above) — a later contributor must never have to know
+// that some other function is filtering on its behalf. Rules are resolved here rather than
+// passed in so the exported signature is unchanged, which means no call site can forget the
+// gate: components/layout/HeaderStats.js calls findNextEventClock(state) for its countdown and
+// gets frozen behaviour with no edit, counting down to whichever non-season event is pending and
+// falling back to Infinity only when nothing is. That reading stays honest because the chip is
+// worded for events in general ("Time until the next scheduled event"), not for the next game.
+// Two resolveRules() calls per loop iteration, against a module-memoized acts lookup, is not
+// measurable.
+function nextGameAtClock(state) {
+  if (!state.season || state.season.phase !== 'regular') return Infinity;
+  if (resolveRules(state).seasonFrozen) return Infinity;
+  return state.season.nextGameAtClock;
+}
+
+function nextPlayoffRoundAtClock(state) {
+  if (!state.season || state.season.phase !== 'playoffs' || !state.season.playoffs) return Infinity;
+  if (resolveRules(state).seasonFrozen) return Infinity;
+  return state.season.playoffs.nextRoundAtClock;
+}
+
+// A permanent powerup carries `expiresAtClock: null` and is deliberately not a candidate —
+// it never expires, so it is never an event. Matches the same `!= null` test expirePowerups()
+// uses above, and the two must keep agreeing or the loop steps to an expiry that never fires.
+function nextPowerupExpiryAtClock(state) {
+  const active = (state.powerups && state.powerups.active) || [];
   const candidates = [];
-  if (working.season && !resolveRules(working).seasonFrozen) {
-    if (working.season.phase === 'regular') candidates.push(working.season.nextGameAtClock);
-    if (working.season.phase === 'playoffs' && working.season.playoffs) {
-      candidates.push(working.season.playoffs.nextRoundAtClock);
-    }
-  }
-  working.powerups.active.forEach((p) => {
+  active.forEach((p) => {
     if (p.expiresAtClock != null) candidates.push(p.expiresAtClock);
   });
-  working.roster.forEach((p) => {
+  return candidates.length ? Math.min(...candidates) : Infinity;
+}
+
+function nextCampCompletionAtClock(state) {
+  const roster = state.roster || [];
+  const candidates = [];
+  roster.forEach((p) => {
     if (p.campStatus) candidates.push(p.campStatus.completesAtClock);
   });
   return candidates.length ? Math.min(...candidates) : Infinity;
+}
+
+const EVENT_CLOCK_CONTRIBUTORS = [
+  nextGameAtClock,
+  nextPlayoffRoundAtClock,
+  nextPowerupExpiryAtClock,
+  nextCampCompletionAtClock,
+];
+
+// The Infinity seed is the empty-case answer, so there is no "nothing pending" branch to write.
+function findNextEventClock(working) {
+  return EVENT_CLOCK_CONTRIBUTORS.reduce(
+    (soonest, contributor) => Math.min(soonest, contributor(working)),
+    Infinity
+  );
 }
 
 function resolveGameSlot(working, modifiers) {
