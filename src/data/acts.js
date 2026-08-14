@@ -16,6 +16,17 @@
 // PANELS map gate a whole tab; the rest gate a mechanic within an already-visible panel.
 // Unlocks are cumulative and DERIVED, never stored — see engine/progression.js.
 //
+// `hides` is the optional inverse: feature ids switched OFF from this act onward, drawn from the
+// same id namespace as `unlocks` (a PANELS key retires a whole tab; anything else retires a
+// mechanic). It exists because the arc eventually reaches an act that tears down what an earlier
+// act built, and a cumulative-union-only config cannot express that at all. Omit the key for an
+// act that retires nothing — that is every act today, which is why the key ships inert.
+//
+// `hides` beats `unlocks` when both name the same id, whatever order the acts sit in: the whole
+// union is built first and the hidden ids are subtracted from it afterwards. engine/progression.js
+// carries the reasoning; the practical consequence for an author editing this file is that
+// re-listing an id in a later act's `unlocks` will NOT bring it back. Delete the `hides` entry.
+//
 // `exit` names the machine-checkable condition that ends the act. The engine owns the predicate
 // (engine/progression.js); this file only names it. Act VI has no exit: its "exit" is the game's
 // win condition, and prestige replays Act VI in place rather than advancing past it.
