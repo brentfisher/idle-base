@@ -21,6 +21,7 @@ const { checkActTransition, getUnlockedFeatures } = require('./progression');
 const { recordTravelSeason } = require('./travelBall');
 const { settleWager, refundOpenWager } = require('./bookie');
 const { newlyAvailableSponsors, markSponsorsAnnounced } = require('./sponsorships');
+const { integrateColony, nextColonyThresholdClock } = require('./colony');
 const { winPurseForAct, playoffPurseForAct } = require('../data/winPurseConfig');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
 const { effectiveSecondsPerGame, effectiveSecondsPerPlayoffRound } = require('./pacing');
@@ -212,6 +213,14 @@ const EVENT_CLOCK_CONTRIBUTORS = [
   nextPlayoffRoundAtClock,
   nextPowerupExpiryAtClock,
   nextCampCompletionAtClock,
+  // Act VII's colony (engine/colony.js). The first contributor that is not a scheduled event at
+  // all: it is the earliest instant at which a CONTINUOUS quantity reaches a boundary and its rate
+  // therefore changes. Registered as an append, exactly as this list's contract asks — nothing
+  // above this line was touched to add it.
+  //
+  // It abstains (Infinity) for every act before Act VII and for every Act VII colony with no
+  // modules owned, which today is all of them, so the shipped game's step sizes are unchanged.
+  nextColonyThresholdClock,
 ];
 
 // The Infinity seed is the empty-case answer, so there is no "nothing pending" branch to write.
@@ -542,6 +551,19 @@ function advance(state, deltaSeconds) {
     // gating — the offseason suspension now lives inside ticketing (see engine/income.js).
     if (step > 0) {
       working = creditIncome(working, totalIncomePerSecond(working, modifiers), step);
+      // TWO INTEGRATION PATHS, DELIBERATELY, SHARING THE STEP AND NOTHING ELSE. The line above is
+      // monotone currency accumulation: a bundle that is always >= 0, credited through a wallet
+      // that structurally refuses a negative. The line below integrates SIGNED net rates against a
+      // capacity clamp, from a fixed-point solve rather than a sum.
+      //
+      // Act VII's consumables cannot be forced through the first path. Doing so means either
+      // splitting each into a produce-side and a consume-side income contributor — which loses the
+      // satisfaction coupling that is the entire mechanic — or relaxing the invariant that
+      // engine/wallet.js exists to hold. See engine/colony.js.
+      //
+      // This is a no-op returning `working` by identity for every act before Act VII and for every
+      // colony with no modules owned, so it is exactly zero change to the shipped game.
+      working = integrateColony(working, modifiers, step);
     }
     working = { ...working, clock: working.clock + step };
     remaining -= step;
