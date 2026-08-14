@@ -42,14 +42,19 @@
 // race that only ever shows up on somebody's real save.
 //
 // `exit` names the machine-checkable condition that ends the act. The engine owns the predicate
-// (engine/progression.js); this file only names it. Act VI has no exit, and neither does Act VII —
-// for two DIFFERENT reasons, which is worth keeping straight. Act VI's "exit" is the game's win
-// condition, and prestige replays Act VI in place rather than advancing past it. Act VII's is that
-// it is the end of the authored arc; it is also, today, what keeps Act VII unreachable in play,
-// because a null exit makes isExitSatisfied() false and checkActTransition() therefore cannot
-// cross into it. The call-up story replaces Act VI's `exit: null` with the `callUpAccepted`
-// milestone one player action sets (PRD Decision 3.2) — that is the crossing, and it is opt-in on
-// purpose: this act discards the ladder rather than being a rung on it.
+// (engine/progression.js); this file only names it. Act VII has no exit, because it is the end of
+// the authored arc. Act VI's is the odd one in the table and worth keeping straight: winning the
+// championship is the game's WIN CONDITION, not a transition, and prestige replays Act VI in place
+// rather than advancing past it — so the thing that ends Act VI is not an achievement at all.
+//
+// It is `callUpAccepted`, a milestone exactly one player action sets and no engine path does (PRD
+// Decision 3.2). There is deliberately no entry for it in EXIT_PREDICATES: isExitSatisfied() falls
+// through to progression.milestones[id], and that fall-through IS the mechanism. A predicate would
+// be a second way to satisfy the exit, and the whole point of this one is that there is exactly one
+// — a player pressing a button in a modal that told them it was one-way.
+//
+// Opt-in on purpose. Act VII discards the ladder rather than being a rung on it, so a player who
+// wants to keep managing the franchise declines and Act VI behaves as it always has, forever.
 const ACTS = [
   {
     id: 0,
@@ -302,8 +307,14 @@ const ACTS = [
     name: 'Act VI — The Big Leagues',
     description: 'Everything you have done was to get here.',
     entry: 'A full stadium and the minor-league pennant.',
-    // Terminal act: winning the championship is the win condition, not a transition.
-    exit: null,
+    // NOT terminal any more, but not a rung either. Winning the championship remains the win
+    // condition; this exit is what the player may choose to do AFTER winning it. `callUpAccepted`
+    // is set by one action, from one modal, behind one confirmation — see the header comment above
+    // for why it has no EXIT_PREDICATES entry, and data/storyBeats.js `act-7-offer` for the copy.
+    exit: {
+      id: 'callUpAccepted',
+      description: 'Win the championship, then accept the call-up. This one is your choice.',
+    },
     // Otherwise empty by design — Act VI defers entirely to the era config so today's prestige
     // behaviour is preserved exactly. None of the four click keys below is a balanceConfig
     // field and no era declares one (engine/clicker.js reads them straight off act.rules), so

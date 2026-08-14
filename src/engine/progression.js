@@ -143,6 +143,30 @@ const EXIT_PREDICATES = {
   travelBallWinRateReached: (state) => hasReachedTravelWinRate(state),
 };
 
+// The milestone that ends Act VI. Named here, next to the predicates it deliberately is not one
+// of, because two files need to agree on the string: data/acts.js declares it as Act VI's exit id
+// and state/actions/progressionActions.js is the one place that writes it.
+const CALL_UP_MILESTONE = 'callUpAccepted';
+
+// Whether to make the call-up offer. This is a rules question — "may the player cross" — so it
+// lives here rather than in the modal that renders it, per the layer split: components decide
+// nothing about availability.
+//
+// NOTE WHAT IT DOES NOT CONTAIN: an act index. The offer belongs to whichever act names
+// `callUpAccepted` as its exit, read from the config, so moving the crossing to a different act is
+// a data edit and this function keeps working. Hardcoding 5 here would be a second place that
+// knows the arc's shape, and the one thing this engine is careful about is having exactly one.
+//
+// The championship gate is `>= 1` against runStats rather than against the acknowledged count:
+// the offer is re-made after every title (declining is never permanent, PRD §3.2), and it also
+// survives a player who won, declined, prestiged, and won again.
+function isCallUpOffered(state) {
+  if (!state.progression || state.progression.milestones[CALL_UP_MILESTONE]) return false;
+  const act = getActConfig(state.progression.act);
+  if (!act.exit || act.exit.id !== CALL_UP_MILESTONE) return false;
+  return !!state.prestige && state.prestige.runStats.championships >= 1;
+}
+
 function isExitSatisfied(state, act) {
   if (!act.exit) return false;
   const predicate = EXIT_PREDICATES[act.exit.id];
@@ -263,13 +287,14 @@ function enterAct(state, actIndex) {
 // act IS, not because of which index it sits at. That held when the terminal act stopped being
 // Act VI: Act VII declares `exit: null` in its turn and the loop stops at it for the same reason.
 //
-// TODAY THE LOOP STOPS ONE ACT EARLIER THAN THAT, and it is worth knowing why before reading a
-// bug into it. Act VI ALSO declares `exit: null`, so nothing in this engine can cross into Act
-// VII at all — crossing is an opt-in the player takes in a modal, and the story that lands it
-// gives Act VI the `callUpAccepted` exit, a milestone exactly one player action sets and no
-// engine path does (PRD Decision 3.2). Until then Act VII is reachable only by an injected save.
-// When that exit lands, this loop's invariant does not change: the crossing stays player-gated,
-// it is merely gated by a milestone instead of by the absence of a condition.
+// THE ACT VI→VII CROSSING IS THE ONE EXIT NOT EARNED BY PLAY, and it is worth knowing why before
+// reading a bug into it. Act VI's exit is `callUpAccepted`, a milestone set by exactly one player
+// action — a button in a modal that told them it was one-way — and by no engine path at all (PRD
+// Decision 3.2). The loop's invariant survives that intact: it is still true that looping can only
+// collapse boundaries the player already earned, because *choosing* is a thing only the player
+// does. What changed is the form of the gate, from the absence of a condition to a milestone
+// nothing but a deliberate press can write. An eight-hour catch-up crosses here only if the press
+// happened before the tab was closed.
 //
 // `steps < FINAL_ACT_INDEX` is a belt-and-braces iteration cap, not the thing preventing
 // overshoot; the previous version of this comment conflated the two. Note also that both
@@ -304,6 +329,8 @@ module.exports = {
   getUnlockedFeatures,
   checkActTransition,
   enterAct,
+  isCallUpOffered,
   EXIT_PREDICATES,
+  CALL_UP_MILESTONE,
   FINAL_ACT_INDEX,
 };
