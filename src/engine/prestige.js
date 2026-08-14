@@ -55,7 +55,11 @@ function resetForPrestige(state) {
   return enterAct({
     ...state,
     // Prestige clears every currency, not just cash — mirrors the wallet in createInitialState().
-    wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash },
+    // `salvage` is listed for that reason and not because it does anything yet: it is zero at every
+    // point in the game that can reach prestige today, so listing it and omitting it are
+    // indistinguishable at runtime (balanceOf() reads an absent key as 0). It is here so the comment
+    // above stays true, which is what stops the next currency from being the one that gets missed.
+    wallet: { caps: 0, coins: 0, cash: balanceConfig.startingCash, salvage: 0 },
     reputation: balanceConfig.startingReputation,
     stadium: { level: 1, capacity: balanceConfig.startingCapacity, ticketPrice: balanceConfig.startingTicketPrice },
     roster: createStartingRoster(),
