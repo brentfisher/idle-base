@@ -9,7 +9,12 @@
 // Pure — no React, no DOM. Operates on the wallet object, not on state, so the callers that
 // also touch other slices (tickEngine's addRevenue keeps prestige.runStats in step) can
 // compose it rather than work around it.
-const CURRENCIES = ['caps', 'coins', 'cash'];
+//
+// Nothing below special-cases a currency: every function keys the wallet by the id it is handed and
+// returns a spread, so a fourth currency is a data change, not a code change. `salvage` (Act VII)
+// was added to the list below and no function needed touching. The list is the ids only —
+// data/currencies.js owns the labels and the display order.
+const CURRENCIES = ['caps', 'coins', 'cash', 'salvage'];
 
 // Coerces anything that is not a usable amount to 0. A NaN reaching a balance is
 // unrecoverable — every later comparison against it is false, so the balance can never be
