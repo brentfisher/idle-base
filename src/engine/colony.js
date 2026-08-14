@@ -258,23 +258,35 @@ function grossProduction(owned, satisfaction, modifiers, extraThrottle) {
 // time it is asked. A ration may never RISE inside the solve; it rises between steps, when a
 // boundary is crossed or the player buys something.
 //
-// MEASURED CONVERGENCE BOUND (this story's harness, /tmp, not committed — there is no test runner
-// in this repo):
-//   * empty colony (everything this story ships): 1 pass. delta is 0 on the first pass.
-//   * healthy end-of-lifeSupport colony (PRD §5.7's 8h trace fixture): 1 pass.
-//   * over-committed colony, Power stock 0 (PRD §5.6 example A): 2 passes — the second pass
-//     confirms delta 0 and exits. Matches the PRD's hand-worked "CONVERGED (2 passes)".
-//   * fully collapsed colony, Power AND Provisions both at 0 with the reactors fed by the
-//     hydroponics they power (PRD example B): 16 passes, i.e. it exhausts SOLVE_MAX_PASSES and
-//     stops on the cap rather than on SOLVE_EPSILON. It lands at s.power = 0.3488 against a
-//     closed-form 0.3431 — 1.7% high, inside §5.6's stated 2%. Per-pass contraction measured at
-//     0.63, exactly the PRD's figure.
-//   * WORST CASE OBSERVED ACROSS EVERY FIXTURE: 16 passes, and only ever on the mutually-recursive
-//     collapse. Never more, because 16 is the cap; the point of the measurement is that nothing
-//     except the deliberate collapse fixture gets anywhere near it, so the cap costs nothing on
-//     the live path and buys a bounded worst case on the offline one.
-//   * No fixture oscillated. The sequence was non-increasing on every pass of every fixture, which
-//     is what the Math.min guarantees and what the harness asserted directly rather than inferred.
+// MEASURED CONVERGENCE BOUND (driven under `node` while building this story; the harness lives in
+// /tmp and is deliberately not committed — there is no test runner in this repo and adding one is
+// its own change):
+//   * empty colony — everything this story actually ships:                          1 pass
+//   * healthy end-of-lifeSupport colony (PRD §5.7's 8h trace fixture):               1 pass
+//   * one bus starved: Power at 0, Provisions still in the silo:                     2 passes
+//   * mutual collapse: Power AND Provisions both at 0, reactors fed by the
+//     hydroponics those reactors power (PRD §5.6 example B):                        16 passes
+//   * WORST CASE ACROSS EVERY FIXTURE: 16 passes, i.e. the mutual-collapse case exhausts
+//     SOLVE_MAX_PASSES and stops on the cap rather than on SOLVE_EPSILON. Nothing else gets
+//     anywhere near it — the cap costs nothing on the live path and bounds the offline one.
+//
+// ACCURACY AT THE CAP: the collapse fixture lands at s.power = 0.343323 against a closed-form
+// fixed point of 21 / (89.6 - 36 x 4.5/5.7) = 0.343254. That is 0.02% high, comfortably inside
+// §5.6's stated 2% budget, so 16 passes is more than the model needs rather than barely enough.
+//
+// NO OSCILLATION, ASSERTED RATHER THAN INFERRED: the harness checked that the satisfaction vector
+// was non-increasing on EVERY pass of every fixture, which is what the Math.min above guarantees.
+// Measured per-pass contraction on the collapse fixture is 0.573, against an analytic
+// sqrt((36/89.6) x (4.5/5.7)) = 0.563 for that system's two-pass error decay.
+//
+// TWO CORRECTIONS TO PRD §5.6, both arithmetic in the prose rather than errors in the model.
+// Passes 1-3 of its published trace reproduce EXACTLY (0.636/0.789, 0.551/0.502, 0.436/0.435), so
+// the recurrence implemented here is the one it specified. Its pass 8 (0.351) and pass 16 (0.3488)
+// are not on that trajectory: the same recurrence gives 0.3499 and 0.3433, and a monotone sequence
+// converging to 0.3433 cannot read 0.3488 at pass 16 having read 0.436 at pass 3. Its stated
+// per-pass contraction of 0.63 is likewise 0.563 analytically. Neither correction changes the
+// conclusion the PRD drew from those numbers — 8 passes really would leave a ~1.9% over-estimate,
+// so SOLVE_MAX_PASSES stays at 16.
 function solveSatisfaction(owned, stocks, demand, modifiers) {
   let satisfaction = EXPEDITION_RESOURCE_IDS.reduce((acc, id) => {
     acc[id] = 1;
@@ -489,23 +501,62 @@ function integrateColony(state, modifiers, step) {
 // free for every act before Act VII: with no modules owned there is nothing to solve, so the
 // contributor abstains before it computes any modifiers at all.
 //
-// MEASURED ITERATION BOUND FOR AN 8-HOUR RETURN (this story's harness):
-//   * empty colony: 1 advance() iteration for the full 28,800s — unchanged from before this story,
-//     which is the whole point of shipping with the catalogue empty.
-//   * PRD §5.7's healthy end-of-lifeSupport colony: 6 iterations. Four boundary steps (Power at
-//     cap, Fuel at cap, Provisions at cap, Oxygen at cap), one cascade iteration behind the
-//     Provisions pin, and the terminal step that credits the remaining 7h43m in one pass.
-//   * over-committed colony (net-negative on Power, Oxygen AND Provisions): 4 iterations — three
-//     resources cross zero, and the fourth iteration takes the entire remainder because every
-//     crossed resource is then pinned and abstains.
-//   * fully collapsed colony: 1 iteration. Everything is already pinned, so nothing has a boundary.
-//   * WORST CASE OBSERVED: 6 iterations, against balanceConfig.safetyCapIterations of 2,000 — a
-//     margin of 333x. The PRD's a-priori derivation was 21, stated as 25 (3 regime changes x 4
-//     resources, plus 2 cascade iterations per capacity pin, plus a terminal step); the measured
-//     figure is comfortably under it because real colonies do not put every resource through every
-//     regime in one absence. The number that matters is that BOTH are far below 2,000: silently
-//     hitting that cap would under-credit a returning player with no error raised anywhere, so the
-//     margin is the deliverable, not the count.
+// MEASURED: CHUNKED VS STEPWISE. Two synthetic colonies were run across a full 8h span, once as a
+// single advance() call with this contributor registered, and once with the contributor
+// de-registered and the span walked in fixed increments. Both were also compared against the
+// closed-form answer computed by hand outside the engine.
+//
+//   Fixture A, Power crossing ZERO at t = 55.5556s (Oxygen output drops 1.40/s -> 0.35/s as the
+//   scrubbers lose their ration). Exact answer 10138.333333 Oxygen.
+//     chunked, one call ............ 10138.333333   (exact to the last digit)
+//     stepwise dt = 1s ............. 10138.800000   (+0.4667, one dt of the 1.05/s rate jump)
+//     stepwise dt = 0.01s .......... 10138.338001   (+0.0047, 100x smaller for 100x smaller dt)
+//     contributor DE-REGISTERED .... 40320.000000   (4x the true figure)
+//
+//   Fixture B, Fuel filling its 500 tank at t = 357.1429s, at which point nothing consumes Fuel so
+//   the stacks idle completely and Power's net rises 36/s -> 60/s. Exact answer 1719428.571429.
+//     chunked, one call ............ 1719428.571429 (exact)
+//     stepwise dt = 1s ............. 1719408.000000 (-20.57, one dt of the 24/s rate jump)
+//     stepwise dt = 0.01s .......... 1719428.400176 (-0.171)
+//     contributor DE-REGISTERED .... 1036800.000000 (40% under-credit)
+//
+// Three things are established by those numbers. The chunked run is not merely close to the
+// stepwise run, it is EXACT — which is what "the only instants a rate can change are the ones this
+// function returns" means in practice. The stepwise residual is bounded a priori by one dt of the
+// rate jump across the boundary and shrinks linearly with dt, which is what separates step-size
+// error from a wrong rate model: a wrong rate leaves a residual that does not shrink. And the
+// de-registered run is WRONG BY 4x AND BY 40% — that is this contributor's entire value, measured,
+// and it is also the mutation test proving the comparison is not vacuous.
+//
+// MEASURED ITERATION BOUND FOR AN 8-HOUR RETURN. Counted by wrapping this function and running
+// advance(state, 28800) to completion, so it is the real advance() loop count and not a model of
+// one:
+//   * empty colony — everything this story actually ships:                       1 iteration
+//   * synthetic colony crossing ZERO inside the span:                            2 iterations
+//   * synthetic colony crossing its CAP inside the span:                         2 iterations
+//   * over-committed colony, net-negative on Power, Oxygen AND Provisions:       4 iterations
+//   * the same colony rescued by adding generators:                              5 iterations
+//   * PRD §5.7's healthy end-of-lifeSupport colony (Power, Provisions and Fuel
+//     all fill to their caps, Oxygen drains to zero):                            5 iterations
+//   * WORST CASE OBSERVED: 5 iterations, against balanceConfig.safetyCapIterations of 2,000 — a
+//     margin of 400x.
+//
+// The PRD's a-priori ceiling was 21, stated as 25: three regime changes per resource (interior ->
+// cap-pinned -> draining -> zero-pinned) x four resources, plus two cascade iterations per capacity
+// pin, plus a terminal step. The measured figure is well under it because a real colony does not
+// put every resource through every regime in one absence, and because each crossing removes a
+// boundary rather than adding one — a pinned resource has net exactly 0 and abstains for the rest
+// of the span, which is precisely what the absorbing-pin rule above buys.
+//
+// The number that matters is not 5 or 21 but the margin to 2,000. Silently hitting that cap would
+// stop the loop with `remaining` still positive, under-crediting a returning player by however
+// many hours were left, with no error raised anywhere. Every fixture above was additionally checked
+// to carry the clock the full 28,800s.
+//
+// One caveat worth recording: the clock lands on 28800.000000000004 rather than 28800 on fixtures
+// whose boundaries fall at non-representable instants, because advance() accumulates `clock + step`
+// per iteration. That is pre-existing behaviour of the loop — a powerup expiring at a fractional
+// clock does the same — and 4e-12 seconds is not a quantity any mechanic can observe.
 // COLONY_MIN_STEP_SECONDS caps the pathological case independently of any of this: it drops
 // boundaries closer than half a second, so even a colony contrived to chatter cannot produce a run
 // of zero-length steps.
