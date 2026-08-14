@@ -189,10 +189,30 @@ anything about safety, so a vacuous pass is detectable.
 | Over-committed colony, 8h | every resource in `[0, capacity]`, no module removed, no currency negative, full clock, recoverable by adding generators |
 | Iteration bound, 8h | worst case **5** against `safetyCapIterations` 2,000 |
 | Convergence bound | worst case **16** passes, monotone on every pass of every fixture |
+| Malformed / hostile stored state (23 cases) | no `NaN` escapes into a rate, a stock or the clock; threshold clock is always `Infinity` or strictly future |
 
 The `FINAL_ACT_INDEX` trap was avoided by **not touching `ACTS` at all** — the colony model is
 act-independent, so no fixture needed act rules. Nothing was appended to `ACTS` and no act was
 mutated.
+
+## Decision 7 — `normalizeResource()` now finiteness-checks `amount`, which it did not have to before
+
+The slice accessor defaulted `amount` with `|| 0`, and the comment explaining why was correct on its
+own terms: 0 *is* the default for a stock, so absent and zero mean the same thing and the
+absent-vs-zero trap that forced `Number.isFinite` onto `capacity` is genuinely inert for `amount`.
+
+But `|| 0` is not only a defaulting idiom. It is also what lets a non-number through: `('lots' || 0)`
+is `'lots'`, and `Math.max(0, 'lots')` is `NaN`. That was harmless while nothing read a stored amount
+into a rate. **This change is what makes it dangerous.** `NaN` now flows
+`amount -> net -> distance / rate -> the clock this file hands findNextEventClock()`, and `advance()`
+computes `step` as `NaN`, `remaining -= NaN` as `NaN`, and exits its loop on the first iteration
+because `NaN > 0` is false. The clock is `NaN` from then on and every subsequent tick does nothing —
+not a wrong number, a permanently frozen game, and unrepairable by play because every comparison
+against a `NaN` stock is false.
+
+Found by the malformed-state suite, which was added precisely because every other fixture in the
+harness was well-formed. Silent coercion is the safe behaviour, on the argument
+`engine/wallet.js`'s `sanitizeAmount()` already makes for currencies.
 
 ## Risks
 
@@ -202,4 +222,6 @@ mutated.
 | A later story folds load-follow into the Kleene loop | Decision 4, restated above `loadFollowThrottles()` |
 | A UI story computes its own rate and disagrees about time-to-empty | `colonyRates()` is documented as the single solve; §6's `listResources()` is specified as a thin wrapper |
 | A content story memoizes the catalogue at module load | Decision 6, with the `FINAL_ACT_INDEX` precedent named in `data/actSevenConfig.js` |
+| The cap-end `net` pin is this change's addition, not the PRD's | Stated as such in Decision 2. With an unthrottleable site production term against a full tank it will read `0/s` for a resource genuinely producing and discarding; `engine/sites.js`'s story should revisit it when site terms land |
+| Two full solves per iteration on a non-empty colony | `integrateColony()` solves, and the contributor solves again because `findNextEventClock()` passes only state. Not a correctness issue, and every measured bound above was taken WITH the doubling present. The UI-wrapper story should know before it adds a third |
 | The harness is not committed, so these results are not re-runnable in CI | There is no CI. The measured figures are recorded as comments in `engine/colony.js`, which the conventions treat as deliverables |

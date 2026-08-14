@@ -63,9 +63,15 @@
 - [x] 4.7 **Over-committed colony, 8h.** Net-negative on all three consumables (asserted, after the
       first attempt turned out to be net-positive on Provisions). No resource outside
       `[0, capacity]`, no module removed, no currency negative, full clock, recoverable. **29/29.**
-- [x] 4.8 **Record the measured bounds as comments** in `engine/colony.js`: iteration bound 5 vs
+- [x] 4.8 **Malformed and hostile stored state** — 23 cases (negative/over-cap/NaN/string/Infinity
+      amounts, NaN/negative/Infinity capacities, null records, missing maps, NaN/negative/Infinity
+      module counts, unknown ids, a non-array `modules`). **Found a real bug**: `normalizeResource()`
+      defaulted `amount` with `|| 0`, which passes a string through to `Math.max` as `NaN` and, via
+      this change's new read path, freezes `advance()`'s clock permanently. Fixed with
+      `Number.isFinite`. **72/72.**
+- [x] 4.9 **Record the measured bounds as comments** in `engine/colony.js`: iteration bound 5 vs
       `safetyCapIterations` 2,000; convergence bound 16 passes; the chunked-vs-stepwise table.
-- [x] 4.9 `npm run build`.
+- [x] 4.10 `npm run build`.
 
 ## 5. Not done here, deliberately
 

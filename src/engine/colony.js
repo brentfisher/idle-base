@@ -32,11 +32,26 @@ const { computeModifiers } = require('./modifiers');
 // stored 0 and the base 0 agree; the day a mechanic lowers a capacity, `||` would quietly restore
 // the base ceiling and let the player over-fill a tank they no longer own.
 //
-// `amount` uses `|| 0` deliberately: 0 IS the default there, so absent and zero mean the same thing
-// and the trap is inert.
+// `amount` ALSO uses Number.isFinite, and it did not have to before this story. The absent-vs-zero
+// trap above genuinely is inert for `amount` — 0 is its default, so `|| 0` cannot lose information
+// — but `|| 0` is not only a defaulting idiom, it is also the thing that lets a non-number through.
+// `('lots' || 0)` is `'lots'`, and `Math.max(0, 'lots')` is NaN.
+//
+// That was harmless while nothing read a stored amount into a rate. It is not harmless now. NaN
+// flows amount -> net -> `distance / rate` -> the clock this file hands findNextEventClock(), and
+// `advance()` then computes `step` as NaN, `remaining -= NaN` as NaN, and exits its loop on the
+// first iteration because `NaN > 0` is false. The clock is NaN from then on and every subsequent
+// tick does nothing: not a wrong number, a permanently frozen game. And it is unrepairable by play,
+// because every comparison against a NaN stock is false, so the stock can never be filled, spent or
+// clamped back into range.
+//
+// Measured: without this line, a save carrying `power.amount = 'lots'` returns a NaN threshold clock
+// and a NaN clock out of an 8h advance(). With it, that save reads as an empty tank and plays.
+// Coercing silently is the safe behaviour here rather than the sloppy one — the same argument
+// engine/wallet.js's sanitizeAmount() makes, for the same reason.
 function normalizeResource(stored, resource) {
   const record = stored || {};
-  const amount = record.amount || 0;
+  const amount = Number.isFinite(record.amount) ? record.amount : 0;
   const capacity = Number.isFinite(record.capacity) ? record.capacity : resource.baseCapacity;
   return { amount: Math.max(0, amount), capacity: Math.max(0, capacity) };
 }
