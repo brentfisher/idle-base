@@ -1,4 +1,4 @@
-// The odyssey is six acts, played once per save. An act is a stage of the game the same way an
+// The odyssey is seven acts, played once per save. An act is a stage of the game the same way an
 // era is (see data/eras.js) — a declarative ruleset override plus additive modifier bonuses —
 // so acts deliberately reuse that shape rather than introducing a parallel config system.
 //
@@ -27,9 +27,29 @@
 // carries the reasoning; the practical consequence for an author editing this file is that
 // re-listing an id in a later act's `unlocks` will NOT bring it back. Delete the `hides` entry.
 //
+// `unlockedBy` is the optional INTRA-act companion to `unlocks`: a map of feature id to the
+// `expedition.phase` id (data/actSevenConfig.js EXPEDITION_PHASES) at which that feature actually
+// appears. `unlocks` fires once, at the act boundary, and Act VII needs five of its six tabs to
+// arrive over the two-plus hours that follow — so the ids sit in `unlocks` from the boundary and
+// this map holds them back until the run has got far enough. The comparison is a RANK ("at least
+// `lunar`"), never an equality test, and engine/progression.js owns it.
+//
+// It keys off `expedition.phase` and NOT off `progression.milestones`, which is where the PRD
+// (§6.5) originally put it. Ledger R4 overruled that: engine/sites.js is the single writer of the
+// phase field and it recomputes it from a pure predicate ladder every advance(), so a reveal keyed
+// to it is self-healing for free. A parallel set of `phaseLunar`-style milestones would be a
+// second source of truth for "how far into the act are we", and two writers on that question is a
+// race that only ever shows up on somebody's real save.
+//
 // `exit` names the machine-checkable condition that ends the act. The engine owns the predicate
-// (engine/progression.js); this file only names it. Act VI has no exit: its "exit" is the game's
-// win condition, and prestige replays Act VI in place rather than advancing past it.
+// (engine/progression.js); this file only names it. Act VI has no exit, and neither does Act VII —
+// for two DIFFERENT reasons, which is worth keeping straight. Act VI's "exit" is the game's win
+// condition, and prestige replays Act VI in place rather than advancing past it. Act VII's is that
+// it is the end of the authored arc; it is also, today, what keeps Act VII unreachable in play,
+// because a null exit makes isExitSatisfied() false and checkActTransition() therefore cannot
+// cross into it. The call-up story replaces Act VI's `exit: null` with the `callUpAccepted`
+// milestone one player action sets (PRD Decision 3.2) — that is the crossing, and it is opt-in on
+// purpose: this act discards the ladder rather than being a rung on it.
 const ACTS = [
   {
     id: 0,
@@ -304,11 +324,134 @@ const ACTS = [
     // Acts III-V declare `tradeWindows: []` so no window ever opens before it.
     unlocks: ['playoffs', 'trade', 'prestige'],
   },
+  {
+    id: 6,
+    name: 'Act VII — The Farm Team',
+    description:
+      'The trophy ceremony is interrupted. Baseball was an aptitude program, Earth is a farm team, and there is a call-up.',
+    entry: 'Accept the call-up, after a championship.',
+    // Terminal act, and the end of the authored arc — FINAL_ACT_INDEX is 6 and means it
+    // literally. Winning is committing the fifth burn (PRD §7.8), which is a milestone the launch
+    // story sets and not a transition, so there is nothing for an exit to name.
+    exit: null,
+    rules: {
+      // The one rule that does the teardown's other half. `hides` retires the baseball TABS;
+      // this retires the baseball SIMULATION, without deleting a byte of it (Decision 3.5).
+      // engine/tickEngine.js gates the whole season-phase block on it, findNextEventClock() stops
+      // proposing fixture and playoff clocks, and engine/income.js zeroes the ticketing
+      // contributor — while `season`, `league`, `roster`, `stadium` and `powerups` stay in state,
+      // valid and untouched. Nulling `season` instead would have been catastrophic rather than
+      // merely wrong: AppShell early-returns a pre-season Lot shell when it is absent, so the act
+      // that retires the ballpark would have rendered as Act I's vacant lot.
+      seasonFrozen: true,
+      // The click, per PRD §5.2. Salvage is an ordinary currency (data/currencies.js) and the
+      // click is its faucet, which makes this act the one where the never-gated click matters
+      // most: every shop in Act VII is Salvage-priced, so the button is the anti-softlock
+      // guarantee for the whole act (engine/clicker.js's header, design Decision 6).
+      clickCurrency: 'salvage',
+      clickLabel: 'Sift the wreck',
+      // clickFlatValue is a NEW key and it ships INERT here, the same way `hides` shipped inert:
+      // engine/clicker.js's clickValue() does not read it yet — the §5 click story owns that
+      // file. Declaring it now keeps the act's authored value in the one place act rules live
+      // rather than in a story's head. What it will do is make the press a FLAT 8 Salvage for
+      // every player: clickValue() is `perClick × clickMultiplier` today and `perClick` spans 2
+      // to 77 across the concessions ladder, a 38x spread on the only income the act's first two
+      // minutes have. Act VI tolerates that because caps are a side currency there; an opening
+      // that is one button on one screen cannot.
+      //
+      // Until that story lands, no clickMultiplier is declared, so the scale falls to 1 and the
+      // press pays `perClick` Salvage. That is deliberately not papered over with a placeholder
+      // multiplier: an inert key is a visible gap, and a wrong multiplier would be an invisible
+      // one that survives into balance measurement.
+      clickFlatValue: 8,
+      // Three seconds, unchanged from every act since Act III — the throttle never silently lifts
+      // at the last act, least of all at the one where the click is the whole opening.
+      clickCooldownSeconds: 3,
+    },
+    modifierBonuses: {},
+    // Six tabs replace twelve (PRD §6.4). All six are listed here because `unlocks` fires once, at
+    // the boundary; five of them are then held back by `unlockedBy` below until the run reaches
+    // the phase that gives them something to show. Declaration order here is not tab order —
+    // AppShell's PANELS map owns that.
+    //
+    // Deliberately NOT listed: `salvage`. Currency ids are not feature ids anywhere in this file,
+    // and adding one would not be cosmetic — HeaderStats.js:61 filters CURRENCIES by the unlocked
+    // set and falls back to "whatever the player holds" only when that filter comes back empty,
+    // which it always does today. Unlocking `salvage` would make Act VII the first act where the
+    // filter matches, and the caps and cash chips would vanish from the header as a side effect of
+    // a routing change. The Salvage chip appears on its own the moment the click credits any, and
+    // the header's Act VII re-fit is PRD §6.7's story.
+    unlocks: ['ops', 'fab', 'launch', 'sites', 'artifacts', 'contracts'],
+    // The intra-act reveal. `ops` is absent on purpose: the act opens on exactly one tab and
+    // nothing else for 20-30 minutes, which is the deliberate echo of Act I, where the whole game
+    // was one button on one screen. One screen is not a punishment; it is the only state a reveal
+    // can build from.
+    //
+    // `launch` and `sites` key on `lifeSupport` rather than on PRD §7's `launchReady` capability
+    // flag. R4 lets that flag stand as a design ruling, but nothing writes it yet — engine/sites.js
+    // is a later story — and inventing a second gate KIND here to hold a flag that does not exist
+    // would put two mechanisms in the shell for one question. The phase rank is never later than
+    // the flag would be: the first Fuel tank is a `lifeSupport` purchase (PRD §5.3) and `lunar`
+    // requires a completed launch, so both tabs must exist during `lifeSupport` regardless. The
+    // cost of being early is a Launch tab that says you have no tank yet; the cost of being late
+    // would be a player who cannot find the button that ends the phase. The sites story may
+    // tighten these two entries to the flag once it owns a writer for it.
+    unlockedBy: {
+      fab: 'lifeSupport',
+      launch: 'lifeSupport',
+      sites: 'lifeSupport',
+      artifacts: 'lunar',
+      contracts: 'deepSpace',
+    },
+    // The teardown. Twelve ids, every one of them a key of AppShell's PANELS map — that is the
+    // whole ballpark, and nothing survives it.
+    //
+    // ONLY TAB IDS BELONG HERE, and the rule is not stylistic. Feature ids do double duty: an id
+    // matching a PANELS key gates a tab, every other id gates a mechanic inside a panel. Three
+    // mechanic ids would do real damage if they leaked into this list — `hustle` would remove the
+    // manual click, which is never gated in any act and is this act's Salvage faucet; `retirement`
+    // is read by tickEngine.js to decide whether checkRetirements() runs at all; `walkup` gates the
+    // record crate in RosterPanel. `hustle` is the one that would be a project-invariant break
+    // rather than a bug (design Decision 6): the click exists in every act, so that any state is
+    // recoverable in bounded time.
+    //
+    // The near-miss worth recording: `concessions` and `sponsorships` are BOTH tab ids and income
+    // contributor names, so hiding those two tabs looks like it switches off two income rails. It
+    // does not. engine/income.js gates every contributor on its own slice contents — ticketing on
+    // `state.stadium`, the rest on their arrays — and never on a feature id, so the caps and cash
+    // trickles keep running in Act VII. That is correct: `seasonFrozen` freezes the SEASON, and the
+    // only rail it takes down is ticketing, from inside that contributor.
+    //
+    // `lot` and `wallBall` are not listed even though Acts I-II unlocked them, because neither is a
+    // PANELS key: they render only in AppShell's pre-season branch, which an act with a season can
+    // never reach. Listing them would be inert config implying a teardown that does not happen.
+    //
+    // `prestige` is retired as a TAB and as nothing more (Decision 3.2, part 5): legacy points,
+    // purchased perks and the era counter all stay in state and stay applied through
+    // computeModifiers(), so a perk bought in Act VI still pays out here. What is gone is the
+    // button, because prestige's reset is meaningless once the league it would reset is frozen.
+    hides: [
+      'field',
+      'roster',
+      'concessions',
+      'sponsorships',
+      'bookie',
+      'ticketing',
+      'capsShop',
+      'league',
+      'playoffs',
+      'camp',
+      'trade',
+      'prestige',
+    ],
+  },
 ];
 
 const FINAL_ACT_INDEX = ACTS.length - 1;
 
-// PRESTIGE_ACT_INDEX and FINAL_ACT_INDEX are both 5 today and they are NOT the same fact.
+// PRESTIGE_ACT_INDEX is 5 and FINAL_ACT_INDEX is now 6. They HAVE diverged — the split below was
+// authored while they still coincided, and appending Act VII is the edit it was written for. Every
+// sentence of it survived the move unchanged, which is the point of having typed it out early.
 //
 // FINAL_ACT_INDEX means "the end of the authored arc" — it is derived, and it is supposed to
 // move when ACTS grows. PRESTIGE_ACT_INDEX means "the act a prestiging player is returned to",
@@ -317,10 +460,11 @@ const FINAL_ACT_INDEX = ACTS.length - 1;
 // Decision 4). That is an authored decision about the shape of the endgame, not a fact about
 // how many acts happen to exist.
 //
-// They coincide only because Act VI is currently last. Before this split, resetForPrestige()
-// read FINAL_ACT_INDEX and got the right answer by luck: appending a seventh act would have
-// made it 6, and every prestige would have teleported the player into Act VII, skipping the
-// crossing entirely. That is why this is a literal and deliberately not `ACTS.length - 1`.
+// They used to coincide, because Act VI used to be last. Before this split, resetForPrestige()
+// read FINAL_ACT_INDEX and got the right answer by luck; Act VII has now made FINAL_ACT_INDEX 6,
+// and under the old line every prestige would be teleporting the player into Act VII, skipping the
+// crossing entirely and handing them a torn-down UI they never accepted. That is why this is a
+// literal and deliberately not `ACTS.length - 1` — and it is no longer a hypothetical.
 //
 // It is also deliberately not derived from `unlocks.includes('prestige')`. A derivation would
 // silently move the prestige floor the day someone edits an unlocks array, which is the exact

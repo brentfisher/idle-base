@@ -3,6 +3,7 @@ const { useGame } = require('../../state/GameContext');
 const actionTypes = require('../../state/actionTypes');
 const useGameTick = require('../../hooks/useGameTick');
 const { getUnlockedFeatures } = require('../../engine/progression');
+const { expeditionSlice } = require('../../engine/colony');
 const HeaderStats = require('./HeaderStats');
 const TabNav = require('./TabNav');
 const EventFeed = require('./EventFeed');
@@ -22,6 +23,12 @@ const SponsorshipsPanel = require('../sponsorships/SponsorshipsPanel');
 const BookiePanel = require('../bookie/BookiePanel');
 const CapsShopPanel = require('../capsShop/CapsShopPanel');
 const SearchLotButton = require('../lot/SearchLotButton');
+const OpsPanel = require('../expedition/OpsPanel');
+const FabPanel = require('../expedition/FabPanel');
+const LaunchPanel = require('../expedition/LaunchPanel');
+const SitesPanel = require('../expedition/SitesPanel');
+const ArtifactsPanel = require('../expedition/ArtifactsPanel');
+const ContractsPanel = require('../expedition/ContractsPanel');
 const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
 const { getActIntroBeat } = require('../../data/storyBeats');
@@ -30,6 +37,13 @@ const { getActIntroBeat } = require('../../data/storyBeats');
 // coupling between the tab bar and the act config: if the real acts name a feature differently,
 // change the key here (or map it) rather than hunting through the components.
 // Declaration order is the tab order.
+//
+// TWO REGISTRATION LISTS, and a miss in either is silent. An id unlocked with no entry HERE never
+// reaches `visibleTabs` at all, because that list is built by intersecting these keys with the
+// unlocked set — so the tab simply does not exist, with no error. An id with an entry here but
+// none in TabNav's TABS renders no button, so the tab is unreachable, also with no error. Neither
+// is caught by `npm run build`. Act VII's six ids are spread into TabNav from
+// data/actSevenPanels.js precisely so only one of the two lists is hand-authored for them.
 const PANELS = {
   field: FieldView,
   roster: RosterPanel,
@@ -46,6 +60,17 @@ const PANELS = {
   camp: TrainingCampPanel,
   trade: TradeDeadlinePanel,
   prestige: PrestigePanel,
+  // Act VII. Every key above is retired by that act's `hides` (data/acts.js), so these six are
+  // never on screen beside them: the map holds eighteen entries and no act ever shows more than
+  // twelve of them. Order matters twice over — it is the tab order, and `visibleTabs[0]` is the
+  // fallback tab, so `ops` being the first Act VII key is what makes the teardown land on the
+  // terminal rather than nowhere.
+  ops: OpsPanel,
+  fab: FabPanel,
+  launch: LaunchPanel,
+  sites: SitesPanel,
+  artifacts: ArtifactsPanel,
+  contracts: ContractsPanel,
 };
 
 function AppShell() {
@@ -54,23 +79,56 @@ function AppShell() {
   useGameTick();
 
   // Locked tabs are not rendered at all — no greyed-out teasers. The reveal is the reward.
+  //
+  // The phase is Act VII's intra-act clock: five of its six tabs are listed in `unlocks` at the
+  // act boundary and held back by `unlockedBy` until the run reaches the phase that names them
+  // (data/acts.js). It is read through engine/colony.js's slice accessor rather than off
+  // `state.expedition`, which is the only sanctioned way into that slice, and it is `'aftermath'`
+  // for every save that predates the slice — so every act before VII passes a phase that gates
+  // nothing. BOTH values are memo dependencies: keying only on `act` would freeze the tab set at
+  // whatever the phase was when the act began, and the reveal would simply never fire.
   const act = state.progression.act;
-  const unlocked = React.useMemo(() => getUnlockedFeatures(act), [act]);
+  const phase = expeditionSlice(state).phase;
+  const unlocked = React.useMemo(() => getUnlockedFeatures(act, phase), [act, phase]);
   const visibleTabs = React.useMemo(
     () => Object.keys(PANELS).filter((tabId) => unlocked.indexOf(tabId) !== -1),
     [unlocked]
   );
 
   // If the tab the player is on ever stops being unlocked, fall back to the first visible tab
-  // instead of rendering blank. `PANELS[...] || FieldView` stays as the final backstop.
-  const effectiveTab = visibleTabs.indexOf(activeTab) !== -1 ? activeTab : visibleTabs[0] || 'field';
-  const ActivePanel = PANELS[effectiveTab] || FieldView;
+  // instead of rendering blank. That is the whole crossing into Act VII, and it needs no reset:
+  // a player who crosses while sitting on League keeps `activeTab === 'league'` in the useState
+  // above, `visibleTabs` no longer contains it, and every render resolves to `visibleTabs[0]`
+  // until they tap something. The stale value is masked, costs nothing and self-corrects.
+  //
+  // THE `|| 'field'` AND `|| FieldView` BACKSTOPS THAT USED TO BE HERE ARE GONE, and removing them
+  // is the point rather than a tidy-up. They made the ballpark the answer to every question the
+  // tab gate could not answer — including, once an act retires `field` itself, "which tab does an
+  // act that has no baseball in it open on?", where the answer they gave was to render the pitch
+  // inside the act whose entire premise is that the pitch is gone. The fallback is now purely
+  // structural: whatever the act's first visible tab is, which is `ops` in Act VII and `field` in
+  // Acts III-VI exactly as before, with no id spelled out in this file at all.
+  //
+  // `ActivePanel` can now be undefined, in one case only: no visible tabs at all. It cannot happen
+  // for a *missing* PANELS entry, because `visibleTabs` is built from this map's own keys — an
+  // unlocked id with no panel never gets that far. So the guard below covers an act that unlocks
+  // no tab, and rendering nothing there is the honest answer; the previous code would have shown
+  // that player a ballpark.
+  const effectiveTab = visibleTabs.indexOf(activeTab) !== -1 ? activeTab : visibleTabs[0];
+  const ActivePanel = effectiveTab ? PANELS[effectiveTab] : null;
 
   // Looking at a tab is what marks it seen, which covers the tab the app opens on as well as
   // one the player clicks. markTabSeen is a no-op once the id is recorded, so this settles.
+  //
+  // Guarded on `effectiveTab` existing now that it can be undefined: `seenTabs.indexOf(undefined)`
+  // is -1, so without the guard an act with no visible tabs would dispatch MARK_TAB_SEEN with an
+  // undefined id and persist it into the save, once, forever. Note what is NOT here: nothing
+  // clears `seenTabs` at the Act VII boundary. It is append-only, the twelve ballpark ids stay in
+  // it and are simply never queried again, and each Act VII tab therefore gets its NEW badge at
+  // the moment it is revealed — which is exactly what the badge is for.
   const seenTabs = state.progression.seenTabs;
   React.useEffect(() => {
-    if (seenTabs.indexOf(effectiveTab) === -1) {
+    if (effectiveTab && seenTabs.indexOf(effectiveTab) === -1) {
       dispatch({ type: actionTypes.MARK_TAB_SEEN, tabId: effectiveTab });
     }
   }, [effectiveTab, seenTabs, dispatch]);
@@ -84,6 +142,21 @@ function AppShell() {
   // (design doc, Decision 2) — pre-season acts are the lot, and nothing else. This early return
   // is also what stops the tab gate above from rendering an empty shell during Acts I-II, when
   // no franchise feature is unlocked yet. Every hook must stay above it.
+  //
+  // ACT VII DEPENDS ON THIS BRANCH NOT BEING TAKEN, and it was verified rather than assumed,
+  // because if it were taken the act that retires the ballpark would render as Act I's vacant lot.
+  // It holds for a structural reason and not a lucky one: `seasonFrozen` is a SUSPENSION, never a
+  // deletion (Decision 3.5) — engine/tickEngine.js gates the season-phase block on it and leaves
+  // `season`, `league`, `roster` and `stadium` in state, valid and untouched — and the only way
+  // into Act VII is forward through Act III, whose initializer is what creates the season in the
+  // first place. Nothing in the engine ever nulls the slice. Measured on an injected Act VII save:
+  // 30 minutes of simulated clock, season still truthy, `scheduleIndex` and standings unmoved.
+  //
+  // The condition is deliberately left as `!state.season` rather than being widened to something
+  // Act VII-aware. Making it `!state.season && visibleTabs.length === 0` looked tempting and is a
+  // crash: the branch below dereferences `state.season.tradeWindows` immediately, and FieldView and
+  // StandingsPanel read the season too, so a season-less save would fall through to a null
+  // dereference instead of to a lot that at least renders.
   //
   // Act II adds the wall BESIDE the lot rather than replacing it. The Hustle button exists in
   // every act and is never gated (PRD 6.4): a broke player who cannot make the minimum wager
@@ -143,7 +216,7 @@ function AppShell() {
         tradeOpen={tradeOpen}
         playoffsActive={playoffsActive}
       />
-      <ActivePanel />
+      {ActivePanel && <ActivePanel />}
       {/* The manual click, in every act. It lived inside LotPanel, which only renders in the
           pre-season branch above — so creating a season in Act III silently deleted the one
           action that guarantees any state is recoverable (engine/clicker.js, PRD 6.4). It is

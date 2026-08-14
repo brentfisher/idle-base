@@ -14,6 +14,10 @@ const {
   hasReachedTravelWinRate,
 } = require('./travelBall');
 const { CHALLENGERS, REPUTATION_PER_RESPECT } = require('../data/wallBallConfig');
+// The ordered phase list, imported for its ORDER and nothing else: `unlockedBy` gates compare
+// ranks within it. data/actSevenConfig.js owns the list; this file owns the comparison, because
+// src/data/ carries no logic.
+const { EXPEDITION_PHASES } = require('../data/actSevenConfig');
 
 // Which features are unlocked is DERIVED from the act index on every read and is never stored.
 // That makes it self-healing: retuning which act unlocks a feature takes effect immediately on
@@ -40,10 +44,39 @@ const { CHALLENGERS, REPUTATION_PER_RESPECT } = require('../data/wallBallConfig'
 //
 // Note the subtraction reads `hides` only from acts 0..actIndex, exactly as the union does. A
 // teardown authored into a late act is invisible to a player who has not reached it yet.
-function getUnlockedFeatures(actIndex) {
+//
+// `unlockedBy` (optional, see data/acts.js) is the third and last layer, and it is the only one
+// that is INTRA-act: a feature listed in `unlocks` but named in `unlockedBy` stays withheld until
+// the run has reached the `expedition.phase` its entry names. Act VII needs it because its six
+// tabs arrive across two-plus hours rather than at the boundary, and `unlocks` has no vocabulary
+// for "later, but still this act".
+//
+// TWO THINGS ABOUT THE SECOND ARGUMENT, both load-bearing.
+//
+// It is the phase STRING and not `state`. Handing state to the function that owns the derived
+// unlock set would invite every future gate to read arbitrary state, and derived-never-stored is
+// the property this whole file exists to protect (odyssey design, Decision 5). A scalar cannot be
+// read for anything except the question it answers. AppShell reads it through
+// engine/colony.js's expeditionSlice(), which is the only sanctioned way into that slice.
+//
+// It FAILS OPEN, at both edges: an omitted argument and an unrecognized phase id both reveal
+// everything. That is one rule rather than two, and it is safe here rather than merely convenient.
+// Only the tab gate passes a phase; the three other callers omit it and every one of them queries
+// an id that will never carry an `unlockedBy` entry — HeaderStats queries currency ids,
+// RosterPanel queries `walkup`, tickEngine queries `retirement`. So the rule is: only tab ids
+// carry `unlockedBy`, and the only caller that queries tab ids passes a phase. A future gate on a
+// non-tab id has to revisit those three call sites in the same change.
+//
+// Failing open on garbage is the deliberate half. `expedition.phase` is self-healing — recomputed
+// from a pure predicate ladder every advance() and written only when it differs — so an
+// unrecognized value is a corrupt save one tick away from repair. Failing CLOSED there would hide
+// the fabrication tab, i.e. the only Salvage sink, for that tick; failing open shows a tab early.
+// A gate that is presentation-only should never be the thing that strands a save.
+function getUnlockedFeatures(actIndex, expeditionPhase) {
   const current = getActConfig(actIndex);
   const features = [];
   const hidden = [];
+  const gated = {};
   for (let i = 0; i <= current.id; i += 1) {
     ACTS[i].unlocks.forEach((feature) => {
       if (!features.includes(feature)) features.push(feature);
@@ -53,12 +86,38 @@ function getUnlockedFeatures(actIndex) {
     (ACTS[i].hides || []).forEach((feature) => {
       if (!hidden.includes(feature)) hidden.push(feature);
     });
+    // Same story for `unlockedBy`, and it accumulates across acts rather than replacing, so a
+    // later act could in principle gate a feature an earlier act unlocked. Only Act VII declares
+    // one today.
+    Object.assign(gated, ACTS[i].unlockedBy || {});
   }
   // filter() rather than a rebuild, so the surviving ids keep the order the union produced them
   // in — AppShell derives tab order from PANELS, but HeaderStats and the mechanic gates read
   // this array directly, and with no act declaring `hides` this must return what it always did,
   // element for element and in the same order.
-  return features.filter((feature) => !hidden.includes(feature));
+  return features.filter((feature) => {
+    if (hidden.includes(feature)) return false;
+    return hasReachedPhase(expeditionPhase, gated[feature]);
+  });
+}
+
+// Rank comparison, never equality: the gate asks "at least `lunar`", so a feature revealed in
+// `lunar` is still revealed in `deepSpace`. An equality test would flicker every tab off again the
+// moment the run moved on, which is the bug this comment exists to make impossible to reintroduce.
+//
+// Both -1 cases are the fail-open documented above: `required` absent (the overwhelming majority
+// of features carry no gate) and `phase` absent or unrecognized (every caller but the tab gate,
+// plus a corrupt save that is one tick from healing).
+function hasReachedPhase(phase, required) {
+  if (!required) return true;
+  const reached = EXPEDITION_PHASES.indexOf(phase);
+  if (reached === -1) return true;
+  const needed = EXPEDITION_PHASES.indexOf(required);
+  // An `unlockedBy` naming a phase that does not exist is an authoring typo. Revealing the
+  // feature is the right way to fail: a tab that appears too early is visible and gets reported,
+  // where one that never appears looks like a feature nobody built.
+  if (needed === -1) return true;
+  return reached >= needed;
 }
 
 // Exit predicates live here, not in data/acts.js, because src/data/ is config with no logic.
@@ -201,8 +260,16 @@ function enterAct(state, actIndex) {
 // it can never hand out an act nobody paid for, however long the catch-up was. And the last
 // transition is player-gated in the strongest form there is: the terminal act declares
 // `exit: null`, so isExitSatisfied() returns false there structurally — because of what that
-// act IS, not because of which index it sits at. That still holds when the terminal act stops
-// being Act VI.
+// act IS, not because of which index it sits at. That held when the terminal act stopped being
+// Act VI: Act VII declares `exit: null` in its turn and the loop stops at it for the same reason.
+//
+// TODAY THE LOOP STOPS ONE ACT EARLIER THAN THAT, and it is worth knowing why before reading a
+// bug into it. Act VI ALSO declares `exit: null`, so nothing in this engine can cross into Act
+// VII at all — crossing is an opt-in the player takes in a modal, and the story that lands it
+// gives Act VI the `callUpAccepted` exit, a milestone exactly one player action sets and no
+// engine path does (PRD Decision 3.2). Until then Act VII is reachable only by an injected save.
+// When that exit lands, this loop's invariant does not change: the crossing stays player-gated,
+// it is merely gated by a milestone instead of by the absence of a condition.
 //
 // `steps < FINAL_ACT_INDEX` is a belt-and-braces iteration cap, not the thing preventing
 // overshoot; the previous version of this comment conflated the two. Note also that both
