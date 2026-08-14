@@ -1,8 +1,18 @@
 const React = require('react');
+const { ACT_SEVEN_PANELS } = require('../../data/actSevenPanels');
 
 // Labels and ordering for every tab the game can ever show. Which of these are actually
 // rendered is decided by AppShell from the unlocked features for the current act and passed
 // in as `visibleTabs` — a tab absent from that list is not rendered at all.
+//
+// The twelve ballpark tabs are listed here; Act VII's six are SPREAD IN from
+// data/actSevenPanels.js at the end. Two lists rather than one because the split is the house
+// layering rule showing through, not an inconsistency: a player-facing string literal in a
+// component is a bug, and the twelve below are a pre-existing one this story is not widening. The
+// spread also means Act VII's ids are authored exactly once, so the class of failure this file is
+// most prone to — a tab id registered in AppShell's PANELS map and forgotten here, which renders
+// no button at all and makes the tab unreachable with no error anywhere — cannot happen for the
+// six that came last.
 const TABS = [
   { id: 'field', label: 'Field' },
   { id: 'roster', label: 'Roster' },
@@ -18,6 +28,11 @@ const TABS = [
   { id: 'camp', label: 'Training Camp' },
   { id: 'trade', label: 'Trade Deadline' },
   { id: 'prestige', label: 'Prestige' },
+  // Act VII. Every one of the twelve above is retired by that act's `hides` (data/acts.js), so
+  // these six are never on screen beside them — the bar gets SMALLER at the biggest act in the
+  // game, which is a result to defend: ten tabs already had to be converted to a scroll-snapped
+  // single row to survive a 390px screen.
+  ...ACT_SEVEN_PANELS.map((panel) => ({ id: panel.id, label: panel.label })),
 ];
 
 function TabNav({ activeTab, visibleTabs, seenTabs, onChange, tradeOpen, playoffsActive }) {
