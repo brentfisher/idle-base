@@ -31,12 +31,22 @@
 - [x] 4.1 Add `'salvage'` to the exported id list in `src/engine/wallet.js`.
 - [x] 4.2 Confirm `balanceOf`/`creditWallet`/`debitWallet`/`canAfford` are key-agnostic and need no
       special-casing; do not change their bodies.
-- [x] 4.3 Grep every from-scratch wallet literal (`wallet: {`) and classify each as benign or needing
-      the key. Do not add behaviour to fix a benign one. Result: three sites —
-      `state/initialState.js` (gets the key), `engine/prestige.js` (gets the key, its comment claims
-      it mirrors `initialState`), and `engine/tickEngine.js:88`'s `next.wallet || { caps: 0, coins: 0,
-      cash: 0 }`, which is a fallback for a wholly absent wallet and is left alone — the very next
-      thing it does is route through `creditWallet`, which adds whatever key it is handed.
+- [x] 4.3 Enumerate every from-scratch wallet literal and classify each as benign or needing the key.
+      Do not add behaviour to fix a benign one. `grep "wallet: {"` is not sufficient — it cannot match
+      a literal that is not assigned to a `wallet:` key — so close it with `grep "caps: 0"`. Result,
+      four sites:
+      - `state/initialState.js` — gets the key.
+      - `engine/prestige.js` — gets the key; its comment already claims it mirrors `initialState`.
+      - `engine/tickEngine.js:88`, `next.wallet || { caps: 0, coins: 0, cash: 0 }` — benign, left
+        alone. It is a fallback for a wholly absent wallet, and the next thing it does is route
+        through `creditWallet`, which adds whatever key it is handed.
+      - `components/layout/HeaderStats.js:30`, `readWallet()`'s pre-`state.wallet` fallback — benign,
+        left alone. Every read site is `wallet[c.id] || 0`, and that branch is only reachable for a
+        save predating `state.wallet`, which `loadGame()` discards on version anyway.
+- [x] 4.4 Confirm the per-act click currency needs no work: `engine/clicker.js`'s `clickCurrency()`
+      reads `actClickRules(state).clickCurrency` and the credit is
+      `creditWallet(state.wallet, currency, value)` — generic, no switch on id — so PRD §5.2's
+      `clickCurrency: 'salvage'` is a `data/acts.js` line and nothing else.
 
 ## 5. Verification — headless, under `node`
 
