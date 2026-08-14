@@ -1,5 +1,5 @@
 const balanceConfig = require('../data/balanceConfig');
-const { computeModifiers } = require('./modifiers');
+const { computeModifiers, resolveRules } = require('./modifiers');
 const { totalIncomePerSecond } = require('./income');
 const { creditWallet } = require('./wallet');
 const { simulateGame } = require('./gameSim');
@@ -151,13 +151,38 @@ function updatePeakRating(working) {
 //     budget doing nothing.
 // ---------------------------------------------------------------------------------------------
 
+// The two season contributors below are gated on `seasonFrozen`, and that gate is the least
+// obvious half of the freeze rule — it looks redundant against the guard in advance() and it is
+// not.
+//
+// A frozen season's `nextGameAtClock` is left where it was and never rescheduled, so within
+// seconds it sits permanently in the past. advance() would keep choosing it as the next event,
+// compute `step = max(0, past - now)` = 0, resolve nothing (the phase block is skipped), and come
+// round again on the same target — burning all 2,000 safetyCapIterations without decrementing
+// `remaining` by a single second. Income is gated on `step > 0`, so nothing would accrue either.
+// The result is a frozen *app*, which is the exact failure mode freezing the season instead of
+// nulling it exists to avoid. Powerup expiry and camp completion are deliberately NOT gated:
+// they are clock-driven rather than baseball, and they keep running while frozen.
+//
+// The gate lives inside each contributor rather than in findNextEventClock() because guarding
+// your own slice is this list's contract (above) — a later contributor must never have to know
+// that some other function is filtering on its behalf. Rules are resolved here rather than
+// passed in so the exported signature is unchanged, which means no call site can forget the
+// gate: components/layout/HeaderStats.js calls findNextEventClock(state) for its countdown and
+// gets frozen behaviour with no edit, counting down to whichever non-season event is pending and
+// falling back to Infinity only when nothing is. That reading stays honest because the chip is
+// worded for events in general ("Time until the next scheduled event"), not for the next game.
+// Two resolveRules() calls per loop iteration, against a module-memoized acts lookup, is not
+// measurable.
 function nextGameAtClock(state) {
   if (!state.season || state.season.phase !== 'regular') return Infinity;
+  if (resolveRules(state).seasonFrozen) return Infinity;
   return state.season.nextGameAtClock;
 }
 
 function nextPlayoffRoundAtClock(state) {
   if (!state.season || state.season.phase !== 'playoffs' || !state.season.playoffs) return Infinity;
+  if (resolveRules(state).seasonFrozen) return Infinity;
   return state.season.playoffs.nextRoundAtClock;
 }
 
@@ -541,7 +566,21 @@ function advance(state, deltaSeconds) {
 
     // ONE guard for the whole phase block rather than a check per branch: there is no season
     // at all until Act III creates one, and every branch below is a season phase transition.
-    if (working.season) {
+    //
+    // `seasonFrozen` suspends the same block from the other end — the act that stops being a
+    // baseball game (Act VII) rather than the acts that are not one yet. No fixture resolves, no
+    // playoff round turns over, no offseason rolls the season forward; `season`, `league`,
+    // `roster`, `stadium` and `powerups` are left in state untouched and valid. Deliberately a
+    // suspension and not a deletion: `advance()` dereferences `state.season` every iteration and
+    // AppShell early-returns a pre-season shell when it is absent, so nulling the slice would
+    // take the whole app down the Act I/II path instead of just the tabs.
+    //
+    // Everything outside this block keeps running while frozen, because none of it is baseball:
+    // the clock advances, income accrues (minus ticketing, gated inside its own contributor —
+    // see engine/income.js), powerups expire, camps complete and act transitions fire. The
+    // resolved rule is read off `modifiers.rules`, never balanceConfig, because it is an act
+    // override; every act shipping today leaves it false and takes this branch exactly as before.
+    if (working.season && !modifiers.rules.seasonFrozen) {
       if (working.season.phase === 'regular' && working.clock >= working.season.nextGameAtClock) {
         working = resolveGameSlot(working, modifiers);
       }
