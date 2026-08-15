@@ -1,5 +1,5 @@
-const { POWERUPS } = require('../../data/powerupsConfig');
 const { computeModifiers } = require('../../engine/modifiers');
+const { purchase } = require('../../engine/powerupShop');
 const { stadiumUpgradeCost, stadiumCapacityGain } = require('../../engine/economy');
 const { canAfford, debitWallet } = require('../../engine/wallet');
 
@@ -8,32 +8,16 @@ function setTicketPrice(state, action) {
   return { ...state, stadium: { ...state.stadium, ticketPrice: price } };
 }
 
+// Three-line delegation to engine/powerupShop.js. The logic that used to live here moved into
+// the engine so the shop could follow the house contract — see that file's header for the two
+// bugs the move fixes (a hardcoded 'cash' on both the affordability check and the debit, and an
+// unfiltered catalogue that would have leaked Act VII's Salvage-priced rows into Act V's shop).
+//
+// The engine returns null for refused; a reducer returns the state it was handed. Returning the
+// IDENTICAL object matters — several call sites detect "nothing happened" by reference equality.
 function buyPowerup(state, action) {
-  const powerup = POWERUPS.find((p) => p.id === action.powerupId);
-  if (!powerup) return state;
-  if (!canAfford(state.wallet, 'cash', powerup.cost)) return state;
-
-  const isPermanent = powerup.durationSeconds === null;
-  if (isPermanent && state.powerups.purchasedPermanentIds.includes(powerup.id)) return state;
-
-  const activeWithoutThis = state.powerups.active.filter((p) => p.id !== powerup.id);
-  const instance = {
-    id: powerup.id,
-    expiresAtClock: isPermanent ? null : state.clock + powerup.durationSeconds,
-    type: powerup.effectType,
-    value: powerup.value,
-  };
-
-  return {
-    ...state,
-    wallet: debitWallet(state.wallet, 'cash', powerup.cost),
-    powerups: {
-      active: [...activeWithoutThis, instance],
-      purchasedPermanentIds: isPermanent
-        ? [...state.powerups.purchasedPermanentIds, powerup.id]
-        : state.powerups.purchasedPermanentIds,
-    },
-  };
+  const next = purchase(state, action.powerupId);
+  return next || state;
 }
 
 function upgradeStadium(state) {

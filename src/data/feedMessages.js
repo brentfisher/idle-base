@@ -20,6 +20,15 @@ const FEED_CATEGORIES = {
   powerup: { label: 'Promotion', icon: '✨' },
   bookie: { label: 'The Bookie', icon: '🎲' },
   sponsor: { label: 'The Sponsor Board', icon: '📋' },
+  // Act VII (PRD §10.4). `office` and `dispatch` are the two narrative rails and they are
+  // deliberately separate categories: the Office is talking about what you are doing now, and
+  // Earth is talking about a league you left. A player skimming the feed should be able to tell
+  // those apart without reading them.
+  colony: { label: 'Colony', icon: '🛠️' },
+  transit: { label: 'Transit', icon: '🛰️' },
+  contract: { label: 'Assignment', icon: '📄' },
+  office: { label: 'The Office', icon: '📡' },
+  dispatch: { label: 'Earth', icon: '📻' },
 };
 
 // The cash a win paid, as a clause tacked onto the result rather than a feed entry of its own.
@@ -125,10 +134,45 @@ const feedMessages = {
   },
 };
 
+// Act VII's lines. Named functions taking values the engine already holds, returning one string —
+// never a string assembled in the engine (engine/feed.js's rule).
+//
+// THE REGISTER IS FLAT AND IT IS FLAT ON PURPOSE, most of all in the warnings. Nothing in this act
+// can be lost: a starved colony throttles and recovers, no module is ever removed, no resource
+// goes negative. An alarmed warning line would be lying about the stakes, and a player who learns
+// the feed cries wolf stops reading it — which matters here because the feed is where the whole
+// terminology reveal is delivered. "Nothing has been damaged" is the sentence doing that work.
+const actSevenMessages = {
+  moduleOnline: (name) => `${name} brought online.`,
+  moduleIdle: (name) => `${name} is drawing more than the site is making. It is waiting.`,
+  siteColonized: (name, klass) => `${name} entered in the register as a ${klass} affiliate.`,
+  crewRotated: (count) => `${count} on the roster. No moves to report.`,
+
+  resourceStarved: (name) => `${name} is at zero. Everything downstream of it has slowed to match. `
+    + 'Nothing has been damaged.',
+  resourceCapped: (name) => `${name} is at capacity and the overflow is going nowhere. `
+    + 'Build a tank or spend it.',
+  satisfactionThrottled: (pct) => `Site running at ${pct}% of rated output. `
+    + 'This is a supply matter, not a fault.',
+
+  launchArmed: (threshold) => `Requisition filled: ${threshold} units. `
+    + 'The window is open and it does not close.',
+  launchDeparted: (vehicle, dest) => `${vehicle} away, on four burns, for ${dest}.`,
+  launchArrived: (dest) => `Rendezvous with ${dest}. Insertion inside tolerance.`,
+
+  contractOffered: (name) => `Assignment posted: ${name}.`,
+  contractCompleted: (name) => `${name} — terms met. Awaiting your claim.`,
+  contractClaimed: (name, fuel) => `${name} credited: ${fuel} units against your requisition.`,
+  contractLapsed: (name) => `${name} lapsed. It will be rescheduled. `
+    + 'Weather is not counted against anybody.',
+  contractMakeup: (name) => `Rescheduled: ${name}. Longer window, same terms.`,
+};
+
 module.exports = {
   FEED_CAP,
   FEED_CATEGORIES,
   feedMessages,
+  actSevenMessages,
   powerupDisplayName,
   campProgramDisplayName,
   playoffRoundLabel,
