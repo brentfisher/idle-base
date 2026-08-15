@@ -3,6 +3,9 @@ const { useGame } = require('../../state/GameContext');
 const { computeModifiers } = require('../../engine/modifiers');
 const { totalIncomePerSecond } = require('../../engine/income');
 const { getUnlockedFeatures } = require('../../engine/progression');
+const { resolveRules } = require('../../engine/modifiers');
+const { expeditionSlice } = require('../../engine/colony');
+const ResourceChips = require('./ResourceChips');
 const { findNextEventClock } = require('../../engine/tickEngine');
 const { winPct } = require('../../engine/standings');
 const { PLAYER_TEAM_ID } = require('../../engine/schedule');
@@ -11,6 +14,17 @@ const { getEraConfig } = require('../../data/eras');
 const { CURRENCIES } = require('../../data/currencies');
 
 const PHASE_LABELS = { regular: 'Regular Season', playoffs: 'Playoffs', offseason: 'Offseason' };
+
+// Act VII's phase, for the pill that takes over the era pill's slot. Labels live here beside the
+// season's for the same reason those do — they are the header's own vocabulary for a state, not
+// prose the narrative owns.
+const EXPEDITION_PHASE_LABELS = {
+  aftermath: 'Aftermath',
+  lifeSupport: 'Life Support',
+  lunar: 'Lunar',
+  deepSpace: 'Deep Space',
+  majors: 'The Majors',
+};
 
 function formatAmount(currency, value) {
   return `${currency.symbol}${formatNumber(value)}`;
@@ -50,6 +64,14 @@ function readRecord(state) {
 function HeaderStats() {
   const { state } = useGame();
   const era = getEraConfig(state.prestige.era);
+  // THE ONE QUESTION THIS HEADER ASKS ABOUT ACT VII, and it asks it of the rules rather than of
+  // the act index. `seasonFrozen` is the act rule that retires the baseball SIMULATION (see
+  // data/acts.js), so it is exactly the condition under which the record, the season chip and the
+  // era pill stop meaning anything — the league is still in state, still valid, and no longer
+  // moving. Reading resolveRules() rather than progression.act means an era or a later act that
+  // freezes the league gets the same header for free, and it is the only sanctioned way to read an
+  // overridable value (conventions.md).
+  const frozen = !!resolveRules(state).seasonFrozen;
   const modifiers = computeModifiers(state);
   const wallet = readWallet(state);
   const rates = totalIncomePerSecond(state, modifiers);
@@ -142,16 +164,28 @@ function HeaderStats() {
         </span>
       ))}
 
-      <span className="stat-chip">
-        <span className="label">Reputation</span>
-        {Math.round(state.reputation)}
-      </span>
-      {state.stadium && (
+      {/* THIS IS A SWAP, NOT AN ADDITION. Header space is already contested on a 390px screen —
+          the mobile block in global.css records a row that had to be shrunk once already — and
+          four resource chips cannot simply be appended to seven existing ones.
+
+          What goes is what a frozen league makes meaningless: the record and season chip (no games
+          are being played), reputation and capacity (nothing is drawing a crowd), and the champions
+          badge (that run is over; the trophy is what got you here). What arrives is the four
+          consumables and a phase pill in the era pill's slot. The clock and the countdown stay in
+          both worlds, because time still passes and events are still scheduled. */}
+      {!frozen && (
+        <span className="stat-chip">
+          <span className="label">Reputation</span>
+          {Math.round(state.reputation)}
+        </span>
+      )}
+      {!frozen && state.stadium && (
         <span className="stat-chip">
           <span className="label">Capacity</span>
           {formatNumber(state.stadium.capacity)}
         </span>
       )}
+      {frozen && <ResourceChips />}
       <span className="stat-chip">
         <span className="label">Clock</span>
         {formatDuration(state.clock)}
@@ -168,7 +202,7 @@ function HeaderStats() {
           </span>
         )}
       </span>
-      {state.season && (
+      {!frozen && state.season && (
         <span className="stat-chip season-chip" title={seasonTitle}>
           <span className="label">S{state.season.seasonNumber}</span>
           {record && (
@@ -184,15 +218,31 @@ function HeaderStats() {
       {/* Coloured from the era config rather than a per-era class, because getEraConfig()
           synthesises eras past the authored five and there is no bounded set of class names
           to write. */}
-      <span
-        className="stat-chip era-chip"
-        style={{ background: era.pill.bg, color: era.pill.ink }}
-        title={era.description}
-      >
-        <span className="label">Era</span>
-        {era.name}
-      </span>
-      {state.hasWonLeagueThisRun && <span className="stat-chip">🏆 Champions this run</span>}
+      {!frozen && (
+        <span
+          className="stat-chip era-chip"
+          style={{ background: era.pill.bg, color: era.pill.ink }}
+          title={era.description}
+        >
+          <span className="label">Era</span>
+          {era.name}
+        </span>
+      )}
+      {/* The era pill's SLOT, reused rather than a new chip added beside it. The two say the same
+          kind of thing — "which chapter of the game is this" — and they are never both true, so
+          they are one element wearing two hats. Keeping the era-chip class means it inherits the
+          pill's shape and weight without a second rule in global.css.
+
+          An unrecognized phase falls back to the raw id rather than to nothing: expedition.phase is
+          self-healing and a corrupt value is one tick from repair, so showing the odd string for
+          that tick is better than a pill that silently vanishes. */}
+      {frozen && (
+        <span className="stat-chip era-chip phase-chip" title="How far into the odyssey this run has come">
+          <span className="label">Phase</span>
+          {EXPEDITION_PHASE_LABELS[expeditionSlice(state).phase] || expeditionSlice(state).phase}
+        </span>
+      )}
+      {!frozen && state.hasWonLeagueThisRun && <span className="stat-chip">🏆 Champions this run</span>}
     </div>
   );
 }
