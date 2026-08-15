@@ -160,11 +160,18 @@ const CALL_UP_MILESTONE = 'callUpAccepted';
 // The championship gate is `>= 1` against runStats rather than against the acknowledged count:
 // the offer is re-made after every title (declining is never permanent, PRD §3.2), and it also
 // survives a player who won, declined, prestiged, and won again.
+// GUARDED TO THE LEAF, and that is not paranoia here. isExitSatisfied() below dereferences
+// `progression.milestones` unguarded too, but it is only ever reached from the tick engine. This
+// one is called on AppShell's render path, unconditionally, on the first render of every loaded
+// save — so a shape it does not tolerate is a white screen on load, which conventions.md names as
+// the repo's most important pattern and the build cannot catch.
 function isCallUpOffered(state) {
-  if (!state.progression || state.progression.milestones[CALL_UP_MILESTONE]) return false;
-  const act = getActConfig(state.progression.act);
-  if (!act.exit || act.exit.id !== CALL_UP_MILESTONE) return false;
-  return !!state.prestige && state.prestige.runStats.championships >= 1;
+  const progression = state && state.progression;
+  if (!progression || (progression.milestones || {})[CALL_UP_MILESTONE]) return false;
+  const act = getActConfig(progression.act);
+  if (!act || !act.exit || act.exit.id !== CALL_UP_MILESTONE) return false;
+  const runStats = (state.prestige && state.prestige.runStats) || {};
+  return (runStats.championships || 0) >= 1;
 }
 
 function isExitSatisfied(state, act) {
