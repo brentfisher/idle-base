@@ -457,7 +457,49 @@ function colonyRates(state, modifiers) {
     }
   });
 
-  return { satisfaction, supplyThrottle, gross, demand, net, capacity, passes };
+  // SALVAGE COMES OUT OF THE SAME SOLVE, and that is the whole reason it is computed here rather
+  // than in engine/income.js where it is spent.
+  //
+  // Salvage is a wallet currency, not one of the four consumables, so it is not in `gross`, `net`
+  // or `capacity` above and it is not iterated by anything in this file's resource loops (see the
+  // `producesSalvage` note in data/actSevenModulesConfig.js). But a Reclaimer Drone's OUTPUT has
+  // to be throttled by the same `satisfaction` and the same load-follow as everything else it
+  // shares a bus with. A starved drone that still paid full income would make the Power and
+  // Provisions interlock decorative — the player could ignore the colony entirely and just buy
+  // drones, which is precisely the degenerate act the interlock exists to prevent.
+  //
+  // Computing it from the already-solved `satisfaction` and `supplyThrottle` is what keeps it
+  // honest: there is exactly one ration in play, so the header, the income and the colony can
+  // never disagree about how starved the colony is.
+  const salvage = salvageFromOwned(owned, satisfaction, supplyThrottle);
+
+  return { satisfaction, supplyThrottle, gross, demand, net, capacity, passes, salvage };
+}
+
+// Sum of every owned module's Salvage output at the solved ration. Split out rather than inlined
+// so the arithmetic sits next to grossProduction(), which it deliberately mirrors: same throughput
+// term, same load-follow term, different destination.
+//
+// Note it does NOT take an output multiplier. OUTPUT_MULTIPLIER_KEYS in data/actSevenConfig.js is
+// keyed by resource id and Salvage is not a resource; a Salvage powerup, if the act ever wants
+// one, is a wallet-side bonus in data/modifierKeysConfig.js like every other income multiplier in
+// the game, not a term here.
+//
+// The load-follow term is 1 for every module that produces ONLY Salvage, and that falls out
+// correctly rather than needing a special case: loadFollowOf() reads `produces`, a drone has none,
+// so it never backs off. That is right — load-follow is what stops a producer overfilling a
+// ceiling, and Salvage is a monotonic wallet currency with no ceiling to overfill. The term is
+// kept in the expression anyway, because a later module that produces Salvage AND a capped
+// resource must throttle on the capped one, and that case should not need this function reopened.
+function salvageFromOwned(owned, satisfaction, supplyThrottle) {
+  let total = 0;
+  owned.forEach(({ definition, count }) => {
+    const rate = definition.producesSalvage;
+    if (!Number.isFinite(rate) || rate <= 0) return;
+    const throughput = throughputOf(definition, satisfaction);
+    total += count * rate * throughput * loadFollowOf(definition, supplyThrottle);
+  });
+  return total;
 }
 
 // Applies net x step and clamps every resource to [0, capacity]. The clamp is unconditional and

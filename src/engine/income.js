@@ -4,6 +4,20 @@ const { CREW_DUES_PER_SECOND, RESPECT_CAPS_BONUS_PER_POINT } = require('../data/
 const { handsPerSecond } = require('./wallBallShop');
 const { concessionsPerSecond } = require('./concessions');
 const { sponsorshipsPerSecond } = require('./sponsorships');
+const { colonyRates, expeditionSlice } = require('./colony');
+const { getUnlockedFeatures } = require('./progression');
+
+// The feature id the Salvage faucet is gated on. `ops` rather than `fab`: `ops` is the one Act VII
+// tab with no `unlockedBy` entry, so it is live from the act boundary — which is exactly when the
+// colony can first own a module. Gating on `fab` would withhold income until `lifeSupport` and
+// silently zero the whole `aftermath` economy.
+const SALVAGE_INCOME_FEATURE = 'ops';
+
+function isSalvageUnlocked(state) {
+  if (!state || !state.progression) return false;
+  const features = getUnlockedFeatures(state.progression.act, expeditionSlice(state).phase);
+  return features.indexOf(SALVAGE_INCOME_FEATURE) !== -1;
+}
 
 // Act I: each owned collector tier contributes its authored caps/second.
 function collectorsPerSecond(state) {
@@ -61,8 +75,34 @@ function respectCapsMultiplier(state) {
   return 1 + Math.max(0, respect) * RESPECT_CAPS_BONUS_PER_POINT;
 }
 
+// Act VII: the colony's Salvage output. A contributor like any other, which is the point — Salvage
+// is an ordinary wallet currency and this is its passive faucet, sitting beside ticketing and
+// concessions rather than in a parallel system of its own.
+//
+// GATED ON ITS OWN UNLOCK, not on the act index. `getUnlockedFeatures` recomputes the unlocked set
+// from the act config on every read, so gating here on a feature id means a retune of when
+// fabrication opens takes effect on an existing save with no migration — the rule this codebase
+// calls derived-never-stored. An act-index check would be a second place that knows the arc's
+// shape, and would also pay the solve on the tick after the boundary rather than when the player
+// can actually build anything.
+//
+// The rate is read off colonyRates() rather than summed from the modules here, so the ration that
+// throttles a starved drone's income is the SAME ration the colony is integrating against. Two
+// sums would be two rations, and a header that says 26/s while the wallet fills at 9/s is a bug
+// the player experiences as the game lying to them.
+//
+// The solve costs one pass on a healthy colony and this file already sits inside the same tick as
+// integrateColony()'s call; see the measured convergence bound in engine/colony.js for why that is
+// not the expensive thing in advance().
+function salvagePerSecond(state, modifiers) {
+  if (!isSalvageUnlocked(state)) return 0;
+  const rates = colonyRates(state, modifiers);
+  return Number.isFinite(rates.salvage) ? rates.salvage : 0;
+}
+
 function totalIncomePerSecond(state, modifiers) {
   return {
+    salvage: salvagePerSecond(state, modifiers),
     caps: (collectorsPerSecond(state) + wallBallDuesPerSecond(state) + handsPerSecond(state))
       * respectCapsMultiplier(state),
     // Still structurally present and zero. The PRD gives Act IV coins; Act III shipped its

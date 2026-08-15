@@ -16,6 +16,8 @@
 // will recompute it from a pure predicate ladder (PRD R4), and it is the SINGLE progression signal
 // for the act — there are no parallel milestone flags mirroring it. Ordered because the gating rule
 // is a rank comparison ("at least `lunar`"), never an equality test against one phase.
+const { ACT_SEVEN_MODULES } = require('./actSevenModulesConfig');
+
 const EXPEDITION_PHASES = ['aftermath', 'lifeSupport', 'lunar', 'deepSpace', 'majors'];
 
 // Where a fresh expedition starts. `aftermath` is the default phase in the predicate ladder — the
@@ -66,7 +68,16 @@ const EXPEDITION_RESOURCE_IDS = EXPEDITION_RESOURCES.map((resource) => resource.
 // built once at load here would do the identical thing to every synthetic colony a harness injects:
 // the mutation would be invisible, every rate would solve to zero, and an offline-safety suite
 // would go green having simulated nothing at all.
-const EXPEDITION_MODULES = [];
+// Populated from data/actSevenModulesConfig.js, which owns the rows and their measurement
+// comments. The indirection is not ceremony: this file is the act's SHAPE and is required by
+// engine/colony.js on every solve, whereas the ladder is a tuning table that will be edited by
+// every content story in the act. Keeping them apart means a balance edit never touches the file
+// that defines what a resource IS.
+//
+// Still deliberately partial — `aftermath` rows only. Everything the header note below says about
+// shipping against an empty catalogue applies unchanged to shipping against a one-phase one: the
+// phases with no rows produce nothing, solve to zero, and are provably unaffected.
+const EXPEDITION_MODULES = ACT_SEVEN_MODULES;
 
 // The Kleene iteration in colonyRates(). `gross` and `satisfaction` are mutually recursive — a
 // reactor that eats Provisions feeds the hydroponics that grow them — so the ration is a fixed

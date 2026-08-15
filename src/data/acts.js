@@ -350,19 +350,22 @@ const ACTS = [
       // guarantee for the whole act (engine/clicker.js's header, design Decision 6).
       clickCurrency: 'salvage',
       clickLabel: 'Sift the wreck',
-      // clickFlatValue is a NEW key and it ships INERT here, the same way `hides` shipped inert:
-      // engine/clicker.js's clickValue() does not read it yet — the §5 click story owns that
-      // file. Declaring it now keeps the act's authored value in the one place act rules live
-      // rather than in a story's head. What it will do is make the press a FLAT 8 Salvage for
-      // every player: clickValue() is `perClick × clickMultiplier` today and `perClick` spans 2
-      // to 77 across the concessions ladder, a 38x spread on the only income the act's first two
-      // minutes have. Act VI tolerates that because caps are a side currency there; an opening
-      // that is one button on one screen cannot.
+      // A FLAT 8 Salvage per press, for every player, read by engine/clicker.js's clickValue().
+      // It REPLACES the `perClick × clickMultiplier` calculation rather than scaling it, which is
+      // why no clickMultiplier is declared here — declaring one would be dead config.
       //
-      // Until that story lands, no clickMultiplier is declared, so the scale falls to 1 and the
-      // press pays `perClick` Salvage. That is deliberately not papered over with a placeholder
-      // multiplier: an inert key is a visible gap, and a wrong multiplier would be an invisible
-      // one that survives into balance measurement.
+      // The reason is `perClick`'s spread: it runs 2 to 77 across the eight concessions rungs (the
+      // ceiling is recorded further up this file), so any multiplier leaves a 38x gap between two
+      // players who reached the same act. Act VI tolerates that because caps are a side currency
+      // there. Act VII cannot — it opens the way Act I opens, one button on one screen, and for
+      // the first two minutes the click is 100% of the act's income. The gap between "two minutes
+      // to your first Drone" and "three seconds" is the gap between an opening and a cutscene.
+      //
+      // MEASURED: 8 / 3s = 2.667 Salvage/s, so the first Reclaimer Drone (320) is 118 seconds of
+      // pure clicking, against PRD §5.11's 90-130s target. The full tuning record for the act's
+      // opening is in data/actSevenModulesConfig.js.
+      //
+      // The click never gets better from here. Every improvement in this act is a module.
       clickFlatValue: 8,
       // Three seconds, unchanged from every act since Act III — the throttle never silently lifts
       // at the last act, least of all at the one where the click is the whole opening.
