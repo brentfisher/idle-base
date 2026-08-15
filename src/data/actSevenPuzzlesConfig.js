@@ -92,9 +92,8 @@
 //
 // ---------------------------------------------------------------------------------------------
 // HOW THESE PRICES SIT AGAINST STORY-025's MEASURED SURPLUS — the reconciliation that story asked
-// the §8 implementer for by name. (Source: the full-ladder measurement block at the top of
-// data/actSevenModulesConfig.js on branch story/STORY-025-module-ladder, which was not yet on
-// master when this file was written. Re-check the figures when it merges.)
+// the §8 implementer for by name. (Source: THE FULL LADDER, MEASURED (STORY-025) — the measurement
+// block at the top of data/actSevenModulesConfig.js.)
 //
 // STORY-025 drove a continuous run through `aftermath` and `lifeSupport` with an OPTIMAL buyer and
 // found the ladder more generous than §5.3 assumed:
