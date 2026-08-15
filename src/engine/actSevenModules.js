@@ -1,6 +1,11 @@
 const { ACT_SEVEN_MODULES, moduleCost, getModuleDefinition } = require('../data/actSevenModulesConfig');
-const { EXPEDITION_PHASES } = require('../data/actSevenConfig');
-const { expeditionSlice } = require('./colony');
+// Phase rank, not phase equality. `aftermath` rows must stay buyable in `lunar` — a ladder whose
+// bottom rung disappears is a ladder a returning player cannot climb — so availability is "the run
+// has reached at least this phase", the same rank comparison getUnlockedFeatures() makes against
+// `unlockedBy` in engine/progression.js. Shared with engine/sites.js as of STORY-027 rather than
+// reimplemented per consumer; the fail-open convention is documented at its definition.
+const { phaseRank } = require('../data/actSevenConfig');
+const { expeditionSlice, resolvedSites } = require('./colony');
 const { balanceOf, debitWallet, canAfford } = require('./wallet');
 
 // Act VII's fabrication shop, in the house shop contract: listOffers(state) returns rows with
@@ -11,19 +16,6 @@ const { balanceOf, debitWallet, canAfford } = require('./wallet');
 // The currency is Salvage for every row, and it is read from the definition rather than assumed,
 // so a later row priced in something else is a data edit and not a change here.
 const MODULE_CURRENCY = 'salvage';
-
-// Phase rank, not phase equality. `aftermath` rows must stay buyable in `lunar` — a ladder whose
-// bottom rung disappears is a ladder a returning player cannot climb — so availability is
-// "the run has reached at least this phase", the same rank comparison getUnlockedFeatures() makes
-// against `unlockedBy` in engine/progression.js. Ordered lists exist for exactly this.
-//
-// An unrecognized phase FAILS OPEN (rank -1 for the required phase reads as "no requirement"),
-// matching getUnlockedFeatures'. `expedition.phase` is self-healing — recomputed from a pure
-// predicate ladder every advance() — so an unrecognized value is a corrupt save one tick from
-// repair, and failing closed there would hide the only Salvage sink in the act for that tick.
-function phaseRank(phaseId) {
-  return EXPEDITION_PHASES.indexOf(phaseId);
-}
 
 // A prerequisite on OTHER modules, as `{ moduleId: count }`. This is a SPEND gate rather than a
 // price gate, and the distinction is the whole point (PRD §5.5).
@@ -48,12 +40,25 @@ function meetsRequirements(definition, slice) {
 // FAILS CLOSED, unlike the phase gate, and the asymmetry is deliberate. An unrecognized phase is a
 // corrupt value one tick from self-repair, so revealing everything is the safe direction. A missing
 // site is not corruption — it is the accurate statement that the player has not colonized anything
-// yet, which is true for the whole game until STORY-027 lands. Failing open here would offer the
-// cheapest Power in the act from minute one and delete the `lunar` phase's central beat.
-function meetsSiteCapability(definition, slice) {
+// yet. Failing open here would offer the cheapest Power in the act from minute one and delete the
+// `lunar` phase's central beat.
+//
+// READS RESOLVED SITES RATHER THAN THE STORED LIST, which is the only change this story made to
+// this file and is worth the sentence. The capability flags are CONFIG (`vacuumSolar` on On-Deck,
+// `iceAvailable` on First Base — PRD §5.11 lists them as config additions), not save fields.
+// Denormalizing them into the stored record would freeze them at the value they had the day the
+// save was written, because this codebase never migrates a save, so retuning which site carries
+// which capability would apply to new games only. resolvedSites() merges the definition over the
+// record, so the site handed to this function carries the flag and the predicate below is unchanged.
+//
+// AND IT REQUIRES `colonized`, NOT MERELY `reached` (§5.4: "a colonized site that declares
+// vacuumSolar"). Flying past a place does not let you build there. That gap is a real beat rather
+// than a technicality: arriving at On-Deck opens `lunar`, and paying to colonize it is what puts
+// the cheapest Power in the act on the board.
+function meetsSiteCapability(definition, state) {
   const capability = definition.requiresSiteCapability;
   if (!capability) return true;
-  return slice.sites.some((site) => site && site[capability]);
+  return resolvedSites(state).some((site) => site.colonized && site[capability]);
 }
 
 function isAvailable(definition, currentPhase) {
@@ -90,7 +95,7 @@ function listOffers(state) {
   return ACT_SEVEN_MODULES.filter((definition) => (
     isAvailable(definition, slice.phase)
     && meetsRequirements(definition, slice)
-    && meetsSiteCapability(definition, slice)
+    && meetsSiteCapability(definition, state)
   )).map((definition) => {
     const count = ownedCount(slice, definition.id);
     const cost = moduleCost(definition, count);
@@ -147,7 +152,7 @@ function purchase(state, moduleId) {
   // and an engine that only enforces a gate in the function that DRAWS the button is not enforcing
   // it at all.
   if (!meetsRequirements(definition, slice)) return null;
-  if (!meetsSiteCapability(definition, slice)) return null;
+  if (!meetsSiteCapability(definition, state)) return null;
 
   const count = ownedCount(slice, moduleId);
   const cost = moduleCost(definition, count);

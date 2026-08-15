@@ -20,7 +20,13 @@ const {
   OUTPUT_MULTIPLIER_KEYS,
   DRAW_MULTIPLIER_KEY,
 } = require('../data/actSevenConfig');
+const {
+  ACT_SEVEN_SITES,
+  padUpkeepAt,
+  siteFuelCapacity,
+} = require('../data/actSevenSitesConfig');
 const { computeModifiers } = require('./modifiers');
+const { getUnlockedFeatures } = require('./progression');
 
 // One resource's stored record, normalized. Split out because the two fields default by DIFFERENT
 // rules and that difference is the whole point.
@@ -102,6 +108,184 @@ function expeditionSlice(state) {
     // by construction rather than needing a separate slot to reconcile.
     launches: Array.isArray(slice.launches) ? slice.launches : [],
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// THE SITE RECORDS, RESOLVED — and why this lives in colony.js rather than in engine/sites.js.
+//
+// engine/sites.js owns every RULE about sites: what may be colonized, what a pad costs, when a
+// build completes, and the phase ladder. It does not own the record SHAPE, because three separate
+// modules need a resolved site and only one of them is sites.js — engine/colony.js needs the
+// production, upkeep and Fuel-capacity terms for its solve, and engine/actSevenModules.js needs the
+// capability flags for its buildability gate. If sites.js owned the shape, both of those would have
+// to import it while it imports expeditionSlice from here, and CommonJS resolves that cycle by
+// handing whichever module loads second a half-built exports object. That failure is invisible at
+// require time and shows up as an undefined function on the first tick.
+//
+// Putting the resolution beside expeditionSlice() is also just the truthful place for it. This file
+// already declares itself the slice's gatekeeper — "nothing outside this file may reach into
+// state.expedition directly" — and turning a stored record into a usable one is exactly that job.
+// sites.js consumes this the same way every other caller does.
+//
+// ---------------------------------------------------------------------------------------------
+// THE STORED RECORD IS DELIBERATELY TINY, AND EVERYTHING ELSE IS DERIVED FROM CONFIG EVERY READ.
+//
+//   stored    { id, reached, colonized, launchPadTier, buildingId, readyAtClock }
+//   derived   rung, upkeepFactor, baseUpkeep, produces, fuelCapacityOnArrival, the capability
+//             flags, the phase this site grants, its colonize cost and window
+//
+// That split is the no-migration rule doing real work. Saves are never migrated in this codebase —
+// persistence/saveLoad.js DISCARDS a save whose meta.version differs and there is no migration
+// function — so anything denormalized into a save record is frozen at the value it had the day it
+// was written. Copy `vacuumSolar` or a Fuel grant into the record and a balance edit silently
+// applies to new games only, which is the worst possible shape for a bug: it is invisible to the
+// person who made the edit and permanent for the player who has been playing longest.
+//
+// It also means HOME PLATE NEEDS NO STORED RECORD AT ALL. It is reached and colonized before the
+// act begins, and a fresh save's `sites: []` already says so correctly once `reachedAtStart` is
+// what answers the question. A save only grows a site record when the player DOES something to a
+// site, which keeps the persisted slice proportional to what has actually happened.
+// ---------------------------------------------------------------------------------------------
+
+// The feature id the site terms are gated on, and the gate exists because Home Plate's 2.0 O2/s is
+// otherwise live in Act I.
+//
+// GATED ON ITS OWN UNLOCK RATHER THAN THE ACT INDEX, which is the argument engine/income.js makes
+// for the Salvage faucet and it is the same feature id for the same reason: `ops` is the one Act
+// VII tab with no `unlockedBy` entry, so it is live from the act boundary — exactly when the
+// expedition starts existing. An act-index check would be a second place that knows the arc's
+// shape, and derived-never-stored means a retune of the boundary should take effect on an existing
+// save with no migration.
+//
+// THIS IS WHAT KEEPS "advance() IS BYTE-FOR-BYTE UNCHANGED FOR EVERY PRE-ACT-VII SAVE" TRUE, and
+// that guarantee got harder to hold with this story rather than easier. Before it, the colony was
+// inert because the module list was empty and an empty list sums to zero — a structural fact that
+// needed no gate. Home Plate is not empty: it is reached, colonized and producing from the first
+// second the expedition exists. Without this gate every Act I save would accrue Oxygen, materialise
+// an `expedition` slice through integrateColony(), and hand findNextEventClock() a boundary 50
+// seconds out, chopping every step in the first six acts into 50-second pieces. Nothing in the
+// build catches any of that, and the last symptom is the one a player would notice.
+const EXPEDITION_SITE_FEATURE = 'ops';
+
+function isExpeditionLive(state, phase) {
+  const progression = state && state.progression;
+  if (!progression) return false;
+  const features = getUnlockedFeatures(progression.act, phase);
+  return features.indexOf(EXPEDITION_SITE_FEATURE) !== -1;
+}
+
+// One resolved record per CONFIGURED site, in ladder order, joined to whatever the save holds.
+// Config order rather than save order, so a hand-edited or reordered `sites` array cannot change
+// the rung ordering that the whole ladder's strictness rests on.
+//
+// Returns [] outside Act VII — see the gate above. Every caller therefore iterates an empty list
+// for six acts and needs no act check of its own.
+function resolvedSites(state, slice) {
+  const resolved = slice || expeditionSlice(state);
+  if (!isExpeditionLive(state, resolved.phase)) return [];
+  return ACT_SEVEN_SITES.map((definition) => {
+    const stored = resolved.sites.find((site) => site && site.id === definition.id);
+    return resolveSiteRecord(definition, stored);
+  });
+}
+
+// `=== true` throughout rather than truthiness, because these three fields arrive from a save file
+// and the truthy values that are not `true` are all corruption: a stored `reached: 'yes'` should
+// read as reached, but a stored `reached: {}` from a mangled write should not silently colonize a
+// site the player never flew to. Explicit is cheap here and the failure it prevents is unrecoverable
+// by play — nothing in the act can UN-reach a site.
+//
+// A build with no finite `readyAtClock` is treated as no build at all, and that pairing is
+// load-bearing rather than tidy. `buildingId` is what makes a site busy (one build per site, §7.7);
+// `readyAtClock` is what makes it finish. A record carrying the first without the second is a site
+// that is permanently occupied and can never complete — a soft-lock on that rung, and on the whole
+// ladder above it, that no amount of play repairs. Reading the pair as idle turns a corrupt save
+// into a lost build instead of a dead run.
+function resolveSiteRecord(definition, stored) {
+  const record = stored || {};
+  const reached = definition.reachedAtStart === true || record.reached === true;
+  const colonized = reached && (definition.colonizedAtStart === true || record.colonized === true);
+
+  const storedTier = Number.isFinite(record.launchPadTier) ? record.launchPadTier : 0;
+  const startingTier = reached && Number.isFinite(definition.startingPadTier) ? definition.startingPadTier : 0;
+
+  const readyAtClock = Number.isFinite(record.readyAtClock) ? record.readyAtClock : null;
+  const building = typeof record.buildingId === 'string' && readyAtClock !== null;
+
+  return {
+    ...definition,
+    reached,
+    colonized,
+    launchPadTier: Math.max(0, storedTier, startingTier),
+    buildingId: building ? record.buildingId : null,
+    readyAtClock: building ? readyAtClock : null,
+    // Ledger R1's tank floor, recomputed from the site's departing threshold on every read so it
+    // cannot be stale in a save. Whether it is GRANTED is a separate question the capacity sum
+    // answers — see colonyCapacity().
+    fuelCapacityOnArrival: siteFuelCapacity(definition),
+  };
+}
+
+// Adds a `{ resourceId: perSecond }` bundle into an accumulator, dropping anything non-finite or
+// non-positive. Shared by the site upkeep and site production sums because both are flat per-site
+// rate tables and both must reject a corrupt one identically: a NaN reaching a rate poisons every
+// comparison downstream, and a poisoned rate cannot be repaired by play (see normalizeResource).
+function addRates(accumulator, rates) {
+  Object.keys(rates || {}).forEach((resourceId) => {
+    const rate = rates[resourceId];
+    if (!Number.isFinite(rate) || rate <= 0) return;
+    if (accumulator[resourceId] === undefined) return;
+    accumulator[resourceId] += rate;
+  });
+}
+
+// THE NETWORK'S FLAT LIFE-SUPPORT DRAW: each colonized site's colony base upkeep, plus its pad's
+// upkeep scaled by that site's `upkeepFactor` (§7.2). Constant in time within a step, like every
+// other term in this file, which is what keeps nextColonyThresholdClock a closed-form solve.
+//
+// GATED ON `colonized`, NOT ON `reached`. A site you have flown to but not paid for has no colony
+// on it and therefore nothing to keep alive — which is what makes colonization a decision with a
+// running cost rather than a one-off fee, and what lets a player arrive at the Warning Track and
+// look at the number before committing to it.
+//
+// The pad term rides on the same flag because a pad can only be built on a colonized site. Home
+// Plate is the one site holding a pad without ever having been colonized by the player, and its
+// tier-1 Sandlot has an upkeep of exactly nothing — Earth is not being kept alive by this network.
+function siteUpkeepPerSecond(sites) {
+  const upkeep = zeroedByResource();
+  sites.forEach((site) => {
+    if (!site.colonized) return;
+    addRates(upkeep, site.baseUpkeep);
+    if (site.launchPadTier > 0) addRates(upkeep, padUpkeepAt(site, site.launchPadTier));
+  });
+  return upkeep;
+}
+
+// The free half of §5.6's gross: production that belongs to a PLACE rather than to a machine.
+// Home Plate's 2.0 O2/s is the only entry in the act.
+//
+// IT IS OUTSIDE BOTH THROTTLES, AND THAT IS THE WHOLE REASON IT IS SUMMED SEPARATELY FROM THE
+// MODULE LOOP RATHER THAN FOLDED INTO IT. A planet does not ration itself when the colony is short
+// of Power, and it does not back off when your tank is full — there is nobody out there deciding.
+// So it takes neither `throughput` (the rationing term) nor `extraThrottle` (the load-follow term).
+//
+// It also takes NO OUTPUT MULTIPLIER, and the asymmetry with site upkeep is deliberate rather than
+// an oversight: §5.6 puts `drawMult` on the site draw term and no `outMult` on the site production
+// term. A powerup that makes your scrubbers work harder is a statement about your equipment; there
+// is no equipment here. Getting this backwards would be invisible until §5.9's powerups land and
+// would then read as Earth's atmosphere responding to a battery upgrade.
+//
+// The consequence at the full end is handled by the pin in colonyRates(): a resource at capacity
+// whose surplus comes from here cannot be load-followed away, so its net is assigned exactly 0
+// rather than computed — otherwise it would report a boundary it is already standing on, every
+// iteration, forever.
+function siteProductionPerSecond(sites) {
+  const gross = zeroedByResource();
+  sites.forEach((site) => {
+    if (!site.colonized) return;
+    addRates(gross, site.produces);
+  });
+  return gross;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -217,12 +401,16 @@ function throughputOf(definition, satisfaction) {
 // A pinned resource un-pins on an EVENT — the player buys a generator, or a downstream module
 // load-follows off — never on continuous drift.
 //
-// Where the site and contract terms go: engine/sites.js's story adds
-// `+ drawMult * Σ_sites site.draw[r]` and engine/contracts.js's adds
-// `+ drawMult * contractUpkeepPerSecond(state)[r]`, both HERE, before the solve. A contract
-// drawing 3 Power/s is a consumer like any other; folded in after the solve it can push a resource
-// through zero inside a step, which is the precise failure this whole file prevents.
-function demandAtFullOutput(owned, drawMult) {
+// THE SITE TERM IS NOW HERE, WHICH IS THE POINT OF THIS STORY. engine/contracts.js's
+// `+ drawMult * contractUpkeepPerSecond(state)[r]` still goes in the same place, and for the same
+// reason: a contract drawing 3 Power/s is a consumer like any other, and folded in after the solve
+// it can push a resource through zero inside a step, which is the precise failure this whole file
+// prevents.
+//
+// Site upkeep IS multiplied by `drawMult` (§5.6), unlike site production which takes no output
+// multiplier. Life support is life support wherever it is being drawn — a permanent that makes the
+// colony frugal makes the whole network frugal, including the pads.
+function demandAtFullOutput(owned, drawMult, sites) {
   const demand = zeroedByResource();
   owned.forEach(({ definition, count }) => {
     const consumes = definition.consumes || {};
@@ -230,6 +418,11 @@ function demandAtFullOutput(owned, drawMult) {
       const rate = consumes[resourceId];
       if (Number.isFinite(rate) && rate > 0) demand[resourceId] += drawMult * count * rate;
     });
+  });
+
+  const upkeep = siteUpkeepPerSecond(sites);
+  EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
+    demand[resourceId] += drawMult * upkeep[resourceId];
   });
   return demand;
 }
@@ -240,9 +433,17 @@ function demandAtFullOutput(owned, drawMult) {
 // `extraThrottle` is the load-follow pass, applied on the second call only (it is `null` during the
 // solve). Keeping it out of the iteration is deliberate and is explained on applyLoadFollow().
 //
-// engine/sites.js's story adds `+ Σ_sites site.produces[r]` here — Home Plate's 2.0 O2/s, the only
-// free atmosphere in the game — OUTSIDE the throughput term, because a planet does not load-follow.
-function grossProduction(owned, satisfaction, modifiers, extraThrottle) {
+// `+ Σ_sites site.produces[r]` is added AFTER the module loop and outside both throttle terms —
+// Home Plate's 2.0 O2/s, the only free atmosphere in the game. See siteProductionPerSecond() for
+// the full argument; the short version is that a planet neither rations nor load-follows.
+//
+// EVERY CALLER GETS THE SITE TERM, INCLUDING THE ONE INSIDE THE SOLVE, and that is required rather
+// than convenient. colonyRates() calls this three times — once per solve pass, once at the solved
+// ration, once with load-follow applied — and the load-follow ratio is `demand / gross`. If the
+// site term were added by only some callers, the ration would be solved against one gross and the
+// throttle computed against another, and the two would disagree about how starved the colony is at
+// exactly the moment it matters most.
+function grossProduction(owned, satisfaction, modifiers, extraThrottle, sites) {
   const gross = zeroedByResource();
   owned.forEach(({ definition, count }) => {
     const produces = definition.produces || {};
@@ -254,6 +455,11 @@ function grossProduction(owned, satisfaction, modifiers, extraThrottle) {
         gross[resourceId] += outputMultiplier(modifiers, resourceId) * count * rate * followed;
       }
     });
+  });
+
+  const fromSites = siteProductionPerSecond(sites);
+  EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
+    gross[resourceId] += fromSites[resourceId];
   });
   return gross;
 }
@@ -302,7 +508,7 @@ function grossProduction(owned, satisfaction, modifiers, extraThrottle) {
 // per-pass contraction of 0.63 is likewise 0.563 analytically. Neither correction changes the
 // conclusion the PRD drew from those numbers — 8 passes really would leave a ~1.9% over-estimate,
 // so SOLVE_MAX_PASSES stays at 16.
-function solveSatisfaction(owned, stocks, demand, modifiers) {
+function solveSatisfaction(owned, stocks, demand, modifiers, sites) {
   let satisfaction = EXPEDITION_RESOURCE_IDS.reduce((acc, id) => {
     acc[id] = 1;
     return acc;
@@ -311,7 +517,7 @@ function solveSatisfaction(owned, stocks, demand, modifiers) {
 
   for (let pass = 0; pass < SOLVE_MAX_PASSES; pass += 1) {
     passes = pass + 1;
-    const gross = grossProduction(owned, satisfaction, modifiers, null);
+    const gross = grossProduction(owned, satisfaction, modifiers, null, sites);
     const next = {};
     let delta = 0;
     EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
@@ -429,19 +635,37 @@ function actualDraw(owned, drawMult, throttles) {
 // save managed that, integrateColony() clamps to [0, capacity] unconditionally, so the surplus is
 // discarded rather than becoming an impossible state.
 //
-// THE FUEL SITE TERM IS 0 TODAY, on purpose and not as a stub. `slice.sites` is always empty until
-// STORY-027 lands colonization, so the sum is over nothing. The term is written now because §5.5's
-// whole point is that Fuel capacity has TWO sources and the draft that derived it from storage
-// alone was overruled — encoding one source now and discovering the second later is how the
-// overruled version gets rebuilt by accident.
-function colonyCapacity(slice, owned) {
+// THE FUEL SITE TERM IS LIVE AS OF THIS STORY, and it is the larger of the two sources by an order
+// of magnitude. Each reached site grants a Fuel floor of 1.6x the threshold of the launch DEPARTING
+// from it (§7.3), so the ceiling is always exactly the overshoot band of the burn the player is
+// currently filling for. §5's storage ladder becomes optional headroom for banking past 1.6x —
+// which is what beat L-5's tank farms are for — rather than the gate on whether a launch is
+// reachable at all. That inversion is ledger R1, and under the overruled reading the opening launch
+// of the act needed three Fuel Bladders before it was even possible.
+//
+// GRANTED ON `reached`, NOT ON `colonized`. The tank is the vehicle's, not the colony's: you
+// arrive, and what you arrived in is what holds the propellant for the next leg. A player who flies
+// to a site and decides not to pay for it still gets to fill up and go on.
+//
+// HOME PLATE'S GRANT IS GATED ON OWNING A TANK, and this is the one conditional in the sum. Every
+// other site's grant lands on an arrival, which is an event partway through the act. Home Plate is
+// reached at t = 0, so an unconditional grant would hand the player 1,920 Fuel of ceiling in the
+// first second — and Fuel's base capacity of 0 is not an accounting convenience, it is the pacing
+// control for the entire launch system (§5.5, ledger R1). Fuel that cannot be stored cannot
+// accumulate, the clamp discards it, and L1 is therefore gated on the first tank purchase rather
+// than on the Fuel rate. Ungate this and the first launch threshold is crossed roughly a third of a
+// phase early, stealing that time from `lunar`. What 3,600 Salvage buys is not 400 units of
+// headroom; it is Fuel existing.
+function colonyCapacity(sites, owned) {
   const capacity = {};
   EXPEDITION_RESOURCES.forEach((resource) => {
     capacity[resource.id] = resource.baseCapacity;
   });
 
+  let hasFuelTank = false;
   owned.forEach(({ definition, count }) => {
     const grants = definition.capacity || {};
+    if (Number.isFinite(grants.fuel) && grants.fuel > 0) hasFuelTank = true;
     Object.keys(grants).forEach((resourceId) => {
       const grant = grants[resourceId];
       if (!Number.isFinite(grant) || grant <= 0) return;
@@ -450,8 +674,10 @@ function colonyCapacity(slice, owned) {
     });
   });
 
-  slice.sites.forEach((site) => {
-    const granted = site && site.fuelCapacityOnArrival;
+  sites.forEach((site) => {
+    if (!site.reached) return;
+    if (site.fuelCapacityRequiresTank && !hasFuelTank) return;
+    const granted = site.fuelCapacityOnArrival;
     if (Number.isFinite(granted) && granted > 0) capacity.fuel += granted;
   });
 
@@ -462,21 +688,26 @@ function colonyRates(state, modifiers) {
   const slice = expeditionSlice(state);
   const resolved = modifiers || computeModifiers(state);
   const owned = ownedModules(slice);
+  const sites = resolvedSites(state, slice);
   const drawMult = multiplierOf(resolved, DRAW_MULTIPLIER_KEY);
 
   const stocks = {};
   EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
     stocks[resourceId] = slice.resources[resourceId].amount;
   });
-  const capacity = colonyCapacity(slice, owned);
+  const capacity = colonyCapacity(sites, owned);
 
-  const demand = demandAtFullOutput(owned, drawMult);
-  const { satisfaction, passes } = solveSatisfaction(owned, stocks, demand, resolved);
+  const demand = demandAtFullOutput(owned, drawMult, sites);
+  const { satisfaction, passes } = solveSatisfaction(owned, stocks, demand, resolved, sites);
 
-  const rationed = grossProduction(owned, satisfaction, resolved, null);
+  const rationed = grossProduction(owned, satisfaction, resolved, null, sites);
   const supplyThrottle = loadFollowThrottles(rationed, demand, stocks, capacity);
-  const gross = grossProduction(owned, satisfaction, resolved, (definition) =>
-    loadFollowOf(definition, supplyThrottle)
+  const gross = grossProduction(
+    owned,
+    satisfaction,
+    resolved,
+    (definition) => loadFollowOf(definition, supplyThrottle),
+    sites
   );
   const draw = actualDraw(owned, drawMult, supplyThrottle);
 
@@ -662,9 +893,22 @@ function integrateColony(state, modifiers, step) {
 // COLONY_MIN_STEP_SECONDS caps the pathological case independently of any of this: it drops
 // boundaries closer than half a second, so even a colony contrived to chatter cannot produce a run
 // of zero-length steps.
+// THE ABSTAIN GUARD IS "NO MODULES AND NO SITES", AND THE SECOND HALF ARRIVED WITH THIS STORY.
+// Until sites existed, "owns no modules" was a complete statement of "produces and consumes
+// nothing", so abstaining on it was exact. Home Plate breaks that: it is colonized from the act
+// boundary and makes 2.0 O2/s with zero modules owned, which fills the 100-unit base tank in
+// fifty seconds — a real rate change at a real instant. Left as it was, this function would have
+// abstained from a boundary it exists to report, advance() would have taken the whole remaining
+// span as one step, and the clamp in integrateColony() would have quietly hidden the error by
+// producing the right stock for the wrong reason. The day something consumes Oxygen in `aftermath`
+// that stops being invisible.
+//
+// resolvedSites() returns [] for every act before Act VII, so the six acts that have no expedition
+// still abstain on the cheapest possible test and their step sizes are unchanged.
 function nextColonyThresholdClock(state, modifiers) {
   const slice = expeditionSlice(state);
-  if (slice.modules.length === 0) return Infinity;
+  const sites = resolvedSites(state, slice);
+  if (slice.modules.length === 0 && sites.length === 0) return Infinity;
 
   const { net, capacity } = colonyRates(state, modifiers);
   const clock = state && Number.isFinite(state.clock) ? state.clock : 0;
@@ -746,6 +990,7 @@ function isAftermathPhase(state) {
 
 module.exports = {
   expeditionSlice,
+  resolvedSites,
   colonyRates,
   integrateColony,
   nextColonyThresholdClock,

@@ -22,6 +22,7 @@ const { recordTravelSeason } = require('./travelBall');
 const { settleWager, refundOpenWager } = require('./bookie');
 const { newlyAvailableSponsors, markSponsorsAnnounced } = require('./sponsorships');
 const { integrateColony, nextColonyThresholdClock } = require('./colony');
+const { resolveBuilds, nextBuildClock, writeExpeditionPhase } = require('./sites');
 const { winPurseForAct, playoffPurseForAct } = require('../data/winPurseConfig');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
 const { effectiveSecondsPerGame, effectiveSecondsPerPlayoffRound } = require('./pacing');
@@ -236,6 +237,14 @@ const EVENT_CLOCK_CONTRIBUTORS = [
   // It abstains (Infinity) for every act before Act VII and for every Act VII colony with no
   // modules owned, which today is all of them, so the shipped game's step sizes are unchanged.
   nextColonyThresholdClock,
+  // Act VII's site builds (engine/sites.js): colonization windows and pad builds, which share one
+  // `readyAtClock` per site because a site's crew can only do one thing at a time. At most one
+  // boundary per site, so the whole ladder contributes at most five over an eight-hour catch-up.
+  //
+  // Appended, exactly as this list's contract asks — nothing above this line was touched. It
+  // abstains on the cheapest possible test (`slice.sites.length === 0`), which is every save in
+  // every act until the player commits their first launch.
+  nextBuildClock,
 ];
 
 // The Infinity seed is the empty-case answer, so there is no "nothing pending" branch to write.
@@ -628,6 +637,28 @@ function advance(state, deltaSeconds) {
         working = runOffseasonTransition(working, computeModifiers(working));
       }
     }
+
+    // Act VII's site builds, resolved before the phase is recomputed below, because completing a
+    // build is one of the things that can move the phase. Both return `working` by identity when
+    // there is nothing to do, so a quiet iteration allocates nothing and the six acts before Act
+    // VII pay two cheap guards.
+    //
+    // Idempotent by construction: a completed build clears its `buildingId`, so replaying a step
+    // finds nothing pending. That is what makes an offline return that crosses three build windows
+    // resolve them once each rather than once per iteration.
+    working = resolveBuilds(working);
+
+    // THE SINGLE WRITER OF `expedition.phase` (PRD §7.7, ledger R4), recomputed from a pure
+    // predicate ladder every iteration and written only when it differs. Nothing else in the
+    // codebase may set this field.
+    //
+    // Inside the loop rather than after it, for the same reason checkActTransition() is: a phase
+    // boundary crossed during an eight-hour catch-up must be crossed at the instant it happened,
+    // not at the end of the span. A player who left in `lifeSupport` and returns in `deepSpace`
+    // otherwise spends the whole absence gated out of the shops that should have been open.
+    //
+    // Last of the three because it reads what the other two just did.
+    working = writeExpeditionPhase(working);
 
     working = updatePeakRating(working);
     // Inside the loop, so act transitions fire during offline catch-up too — a player who
