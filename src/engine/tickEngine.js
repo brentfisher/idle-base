@@ -244,11 +244,8 @@ const EVENT_CLOCK_CONTRIBUTORS = [
   // rather than returning the player to a panel whose OPERATE MANUALLY button is stale in either
   // direction.
   //
-  // Registered as an append, exactly as this list's contract asks — nothing above this line was
-  // touched, and findNextEventClock()'s body is not edited by this story either.
-  //
-  // It abstains (Infinity) for every act before Act VII and for every Act VII run with no live
-  // governor, which is every run that has not just submitted an answer. Storm-safe by construction:
+  // It abstains for every act before Act VII and for every Act VII run with no live governor, which
+  // is every run that has not just submitted an answer. STORM-SAFE BY CONSTRUCTION:
   // nothing in advance() writes `expedition.puzzles`, so this boundary is read and never written
   // through — an eight-hour catch-up cannot advance an attempt count or resolve a puzzle.
   nextPuzzleCooldownClock,
