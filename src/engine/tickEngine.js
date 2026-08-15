@@ -90,6 +90,21 @@ function creditIncome(working, incomePerSecond, step) {
     next = { ...next, wallet: creditWallet(creditWallet(wallet, 'caps', caps), 'coins', coins) };
   }
 
+  // Salvage, Act VII's currency. THIS FUNCTION READS NAMED KEYS AND DOES NOT ITERATE THE BUNDLE,
+  // which is why adding a contributor to engine/income.js is not enough on its own — the rate was
+  // computed and silently dropped until this block existed. Anything added to
+  // totalIncomePerSecond() needs a line here or it does nothing at all.
+  //
+  // Guarded on `> 0` for the same reason the caps/coins block is: below Act VII the rate is
+  // structurally zero, and crediting zero would write a `salvage` key into the wallet of every
+  // save in existence. Saves are never migrated, so a shape change on a path every tick travels
+  // is not a small thing — and it would also break the by-identity return that lets an unchanged
+  // tick be proven unchanged by reference equality.
+  const salvage = (incomePerSecond.salvage || 0) * step;
+  if (salvage > 0) {
+    next = { ...next, wallet: creditWallet(next.wallet || {}, 'salvage', salvage) };
+  }
+
   return next;
 }
 

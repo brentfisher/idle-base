@@ -52,7 +52,25 @@ function clickLabel(state) {
 
 // Act I is exactly clicker.perClick (multiplier 1), so the authored 25-clicks-to-first-
 // collector pacing holds without adjustment.
+//
+// `clickFlatValue` REPLACES the whole calculation rather than scaling it, and PRD §5.2 argues the
+// case at length. `perClick` spans 2 to 77 across the eight concessions rungs (the ceiling is
+// recorded in data/acts.js), so at any multiplier the press is a 38x spread between two players
+// who reached the same act. Act VI tolerates that because caps are a side currency there. Act VII
+// cannot: it opens the way Act I opens — one button, one screen, nothing else — and for the first
+// two minutes the click is 100% of the act's income. The gap between "two minutes to your first
+// Drone" and "three seconds" is the gap between an opening and a cutscene.
+//
+// An absent key is today's behaviour EXACTLY, which is what keeps Acts I-VI untouched: the early
+// return does not fire, and `perClick` is neither read nor written on that path. The guard is a
+// strict typeof rather than a Number() coercion, matching clickCooldownSeconds() below and
+// clampStake() in engine/wallBall.js — one rule for reading a config number, not three.
+//
+// `clicker.perClick` stays in state and would still apply if a later era wanted it back. The click
+// itself never improves in Act VII; every improvement in that act is a module instead.
 function clickValue(state) {
+  const flat = actClickRules(state).clickFlatValue;
+  if (typeof flat === 'number' && Number.isFinite(flat) && flat > 0) return flat;
   const multiplier = actClickRules(state).clickMultiplier;
   const scale = typeof multiplier === 'number' ? multiplier : 1;
   return Math.max(1, clickerSlice(state).perClick * scale);
