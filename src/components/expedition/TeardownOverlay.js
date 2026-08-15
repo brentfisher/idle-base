@@ -66,6 +66,12 @@ function TeardownOverlay() {
   const beat = getStoryBeat(TEARDOWN_BEAT_ID);
   if (!playing || !beat) return null;
 
+  // NOT OBSERVED IN A REAL BROWSER. The unmount path below is reasoned, not tested — there is no
+  // test runner here and no headless DOM, so `animationend` firing on the backdrop has never been
+  // watched happen. It is recoverable rather than a softlock if it does not: the skip button and a
+  // backdrop click both dismiss, and neither depends on the event. Worth one manual crossing to
+  // confirm, and worth knowing that this is the component's entire automatic exit.
+  //
   // onAnimationEnd is an EVENT, not a timer. There is no setTimeout here and no second tick
   // source: the CSS owns the duration, and the one animation on the backdrop is the longest, so
   // its end is the sequence's end. onAnimationEnd bubbles from children, so the guard on
