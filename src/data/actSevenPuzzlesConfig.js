@@ -88,9 +88,54 @@
 // ITEM_MINUTES are the FIRST two tables to move, before anything in §5's module ladder or §7's
 // colonization ladder — those are load-bearing for the pacing tables and this is not. Moving either
 // table here is a one-line edit plus a regeneration of the baked column above; moving §5 or §7 is a
-// re-simulation of the act. Note also that the sink scales with income by construction, so a phase
-// measured as earning 2x its §5.3 budget automatically has §8 draw 2x as much Salvage out of it in
-// absolute terms while holding the same PERCENTAGE — the surplus is absorbed without a retune.
+// re-simulation of the act.
+//
+// ---------------------------------------------------------------------------------------------
+// HOW THESE PRICES SIT AGAINST STORY-025's MEASURED SURPLUS — the reconciliation that story asked
+// the §8 implementer for by name. (Source: the full-ladder measurement block at the top of
+// data/actSevenModulesConfig.js on branch story/STORY-025-module-ladder, which was not yet on
+// master when this file was written. Re-check the figures when it merges.)
+//
+// STORY-025 drove a continuous run through `aftermath` and `lifeSupport` with an OPTIMAL buyer and
+// found the ladder more generous than §5.3 assumed:
+//
+//   phase        measured earn   §5.3 budget   ratio    measured exit   authored band
+//   aftermath    10,613          15,400        0.69x    14.6 min        20-30 min
+//   lifeSupport  285,218         108,200       2.6x     40.2 min        45-60 min
+//
+// and recorded the expectation directly: "A player who buys any of §8's elastic catalogue — which
+// this buyer does not, because §8 does not exist yet — spends that surplus and lands inside the
+// band. The story that adds the artifact/instrument sinks should re-measure."
+//
+// THIS IS THAT RE-MEASURE, AND THE ANSWER IS: §8 HELPS, BUT IT DOES NOT CLOSE THE GAP ALONE, AND IT
+// SHOULD NOT BE STRETCHED UNTIL IT DOES. Prices here are baked against §5.2's AUTHORED bands, as
+// §8.4 instructs, so §8's absolute draw does not scale with a measured surplus — the percentages
+// move instead:
+//
+//   phase        §8's claim   as % of §5.3 budget   as % of STORY-025's MEASURED earn
+//   aftermath    1,914        12.4%                 18.0%
+//   lifeSupport  24,120       22.3%                  8.5%
+//
+// Converted to wall time at each phase's measured average rate, the full §8 catalogue buys back
+// ~2.6 min of `aftermath` and ~3.4 min of `lifeSupport`. That moves the measured exits to roughly
+// 17.2 min and 43.6 min, against authored floors of 20 and 45 — most of the `lifeSupport` shortfall
+// and about half of `aftermath`'s, from a buyer who purchases the entire catalogue on sight.
+//
+// THE REACH OF THE R6 LEVER IS BOUNDED, AND THAT IS THE USEFUL PART OF THIS NOTE. Closing
+// `lifeSupport`'s remaining ~1.4 min by inflating §8 alone would need roughly 1.4x these prices;
+// closing the whole 177,018-Salvage surplus with §8 would need about 7x, which lands the sink near
+// 60% of the phase's authored earn and shreds §8.6's 8-15% band. So R6 stands — §8 is still the
+// first lever to move, and it is cheap to move — but a surplus of this size is a §5 finding, and
+// the honest reading of STORY-025's own words is that the optimal buyer's early exit is mostly a
+// property of the ladder rather than of a missing sink. Note also that STORY-025's buyer is an
+// UPPER BOUND on pace by construction; a player who does not buy perfectly is slower than 40.2 min
+// before §8 takes a single Salvage off them.
+//
+// One consequence worth flagging for whoever retunes: measured against the numbers above, §8's load
+// is HEAVIEST where the surplus is SMALLEST. `aftermath` earns 0.69x its budget and pays 18% of it
+// to §8; `lifeSupport` earns 2.6x and pays 8.5%. If either phase has to give, it is `aftermath` —
+// and the cheapest correction there is HINT_TIER_SECONDS.T3, which is 70% of that phase's whole §8
+// claim and is the tier §8.4 calls "an admission" rather than a purchase anyone plans around.
 // ---------------------------------------------------------------------------------------------
 
 // The only authored numbers in the pricing scheme. Seconds of that phase's income per hint tier.
