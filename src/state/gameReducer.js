@@ -74,6 +74,8 @@ function gameReducer(state, action) {
 
     case actionTypes.MARK_TAB_SEEN:
       return progressionActions.markTabSeen(state, action);
+    case actionTypes.ACCEPT_CALL_UP:
+      return progressionActions.acceptCallUp(state);
     case actionTypes.SET_TEAM_NAME:
       return identityActions.setTeamName(state, action);
 

@@ -69,6 +69,51 @@ const STORY_BEATS = [
     ],
     objective: 'Win 60% of your games across two full travel seasons.',
   },
+
+  // --- Act VII: the call-up ---
+  //
+  // A `callUp` beat is not an `actIntro`: it is the copy for the OFFER, shown before the act it
+  // describes and only to a player who has won a championship. It is not recorded in
+  // storyBeatsSeen, because the offer is re-made after every subsequent title — declining is never
+  // permanent (PRD §3.2), and a seen-ledger would make the first decline final.
+  //
+  // The two-step shape is load-bearing rather than decorative. `prose` sells the crossing;
+  // `confirm` has one job, which is to state plainly that it is one-way, and it is the only screen
+  // whose accept button actually dispatches. A player who mis-taps the first button gets a sentence
+  // telling them what they are about to lose, and a way out that is not the destructive one.
+  //
+  // STORY-033 owns the final wording of the Act VII narrative and will rewrite the prose here. The
+  // beat id, the shape of the object and the two-step structure are this story's and should
+  // survive that rewrite — what changes is the words.
+  {
+    id: 'act-7-offer',
+    kind: 'callUp',
+    actIndex: 6,
+    title: 'There is a man here from the league office',
+    prose: [
+      'He waited until the trophy was handed over and the photographers had gone, and then he '
+        + 'introduced himself, and he did not give the name of any league you have heard of.',
+      'He says baseball was never only baseball. He says the reflexes, the arm, the way you read '
+        + 'a ball off a bat in the first tenth of a second — those were an aptitude test, and the '
+        + 'whole planet has been sitting the test for a hundred and fifty years without being '
+        + 'told. He says Earth is a farm team.',
+      'He says there is a call-up. He says it is not a promotion so much as a transfer, and that '
+        + 'if you take it there is a great deal of work waiting and not much of it looks like a '
+        + 'ballgame.',
+    ],
+    acceptLabel: 'Ask him what the work is',
+    confirm: {
+      title: 'This one is one-way',
+      prose: [
+        'Accepting ends the franchise. The league keeps playing without you — the season, the '
+          + 'roster, the stadium and the prestige ladder all stop being yours, and nothing in the '
+          + 'game brings them back.',
+        'Your titles stay won. Everything else here you are leaving behind on purpose.',
+      ],
+      acceptLabel: 'Accept the call-up',
+      declineLabel: 'Not yet',
+    },
+  },
 ];
 
 function getStoryBeat(beatId) {

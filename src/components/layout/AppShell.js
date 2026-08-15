@@ -2,7 +2,7 @@ const React = require('react');
 const { useGame } = require('../../state/GameContext');
 const actionTypes = require('../../state/actionTypes');
 const useGameTick = require('../../hooks/useGameTick');
-const { getUnlockedFeatures } = require('../../engine/progression');
+const { getUnlockedFeatures, isCallUpOffered } = require('../../engine/progression');
 const { expeditionSlice } = require('../../engine/colony');
 const HeaderStats = require('./HeaderStats');
 const TabNav = require('./TabNav');
@@ -31,7 +31,7 @@ const ArtifactsPanel = require('../expedition/ArtifactsPanel');
 const ContractsPanel = require('../expedition/ContractsPanel');
 const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
-const { getActIntroBeat } = require('../../data/storyBeats');
+const { getActIntroBeat, getStoryBeat } = require('../../data/storyBeats');
 
 // Tab id === feature id in an act's `unlocks` array (data/acts.js). This is the single point of
 // coupling between the tab bar and the act config: if the real acts name a feature differently,
@@ -76,6 +76,11 @@ const PANELS = {
 function AppShell() {
   const { state, dispatch } = useGame();
   const [activeTab, setActiveTab] = React.useState('field');
+  // The call-up's second step. Local and not stored: it is which of two screens is showing, which
+  // is the definition of view state, and persisting it would mean a reload could drop the player
+  // back onto a confirmation they never opened. It sits up here with the other hooks because
+  // AppShell early-returns a pre-season shell below and a hook may not live past that return.
+  const [confirmingCallUp, setConfirmingCallUp] = React.useState(false);
   useGameTick();
 
   // Locked tabs are not rendered at all — no greyed-out teasers. The reveal is the reward.
@@ -205,6 +210,13 @@ function AppShell() {
   const unseenChampionships = state.prestige.runStats.championships - state.prestige.victoryAcknowledgedCount;
   const showVictory = unseenChampionships > 0;
 
+  // The offer, and the prose for it. Both are looked up unconditionally rather than behind
+  // `showVictory` so that a beat id typo shows up as a missing offer on the very first title
+  // rather than as a crash — getStoryBeat() returns null for an unknown id, and every use of
+  // `callUpBeat` below is null-guarded.
+  const callUpOffered = isCallUpOffered(state);
+  const callUpBeat = getStoryBeat('act-7-offer');
+
   return (
     <div className="app-shell">
       <HeaderStats />
@@ -231,7 +243,15 @@ function AppShell() {
       {pendingBeat && <StoryCard beat={pendingBeat} />}
       <ToastHost />
 
-      {showVictory && (
+      {/* The call-up rides inside the victory modal rather than arriving as a popup of its own,
+          because the offer only makes sense in the moment the trophy is handed over — and because
+          reusing this modal means "Continue" is already the decline, with no second dismissal for
+          a player to mis-read as consent. `showVictory` fires once per championship, so winning
+          another title re-offers for free (PRD §3.2: declining is never permanent).
+
+          Whether to offer at all is engine/progression.js's isCallUpOffered() — the component is
+          not allowed to know what makes the crossing available, only how to draw it. */}
+      {showVictory && !confirmingCallUp && (
         <Modal
           title="🏆 League Champions!"
           onClose={() => dispatch({ type: actionTypes.ACKNOWLEDGE_VICTORY })}
@@ -246,6 +266,43 @@ function AppShell() {
             You can keep playing to chase more titles and grow the franchise, or head to the Prestige tab to bank a
             permanent bonus and start a new era.
           </p>
+          {callUpOffered && callUpBeat && (
+            /* Inline style rather than a class, matching Modal.js's own footer: this is a divider
+               inside a modal, and global.css ends inside its mobile media block, so a rule added
+               there is a mobile-only rule unless it is placed by hand in a feature section. */
+            <div style={{ marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 16 }}>
+              <h3>{callUpBeat.title}</h3>
+              {callUpBeat.prose.map((paragraph, i) => (
+                <p key={i}>{paragraph}</p>
+              ))}
+              <button className="btn" onClick={() => setConfirmingCallUp(true)}>
+                {callUpBeat.acceptLabel}
+              </button>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* Step two, and the only screen whose button dispatches. Closing it (backdrop, or the
+          decline label) returns to the trophy — a mis-tap on step one costs nothing. */}
+      {showVictory && confirmingCallUp && callUpBeat && (
+        <Modal
+          title={callUpBeat.confirm.title}
+          onClose={() => setConfirmingCallUp(false)}
+          closeLabel={callUpBeat.confirm.declineLabel}
+        >
+          {callUpBeat.confirm.prose.map((paragraph, i) => (
+            <p key={i}>{paragraph}</p>
+          ))}
+          <button
+            className="btn danger"
+            onClick={() => {
+              setConfirmingCallUp(false);
+              dispatch({ type: actionTypes.ACCEPT_CALL_UP });
+            }}
+          >
+            {callUpBeat.confirm.acceptLabel}
+          </button>
         </Modal>
       )}
 
