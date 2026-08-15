@@ -22,6 +22,7 @@ const { recordTravelSeason } = require('./travelBall');
 const { settleWager, refundOpenWager } = require('./bookie');
 const { newlyAvailableSponsors, markSponsorsAnnounced } = require('./sponsorships');
 const { integrateColony, nextColonyThresholdClock } = require('./colony');
+const { nextPuzzleCooldownClock } = require('./puzzles');
 const { winPurseForAct, playoffPurseForAct } = require('../data/winPurseConfig');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
 const { effectiveSecondsPerGame, effectiveSecondsPerPlayoffRound } = require('./pacing');
@@ -236,6 +237,20 @@ const EVENT_CLOCK_CONTRIBUTORS = [
   // It abstains (Infinity) for every act before Act VII and for every Act VII colony with no
   // modules owned, which today is all of them, so the shipped game's step sizes are unchanged.
   nextColonyThresholdClock,
+  // Act VII's attempt governors (engine/puzzles.js), PRD §8.8. A UI-WAKE BOUNDARY, NOT A RATE ONE:
+  // it changes no rate, so the linear-within-a-step requirement the colony solve depends on is
+  // untouched. It exists so that an offline catch-up lands a step the moment a governor expires,
+  // rather than returning the player to a panel whose OPERATE MANUALLY button is stale in either
+  // direction.
+  //
+  // Registered as an append, exactly as this list's contract asks — nothing above this line was
+  // touched, and findNextEventClock()'s body is not edited by this story either.
+  //
+  // It abstains (Infinity) for every act before Act VII and for every Act VII run with no live
+  // governor, which is every run that has not just submitted an answer. Storm-safe by construction:
+  // nothing in advance() writes `expedition.puzzles`, so this boundary is read and never written
+  // through — an eight-hour catch-up cannot advance an attempt count or resolve a puzzle.
+  nextPuzzleCooldownClock,
 ];
 
 // The Infinity seed is the empty-case answer, so there is no "nothing pending" branch to write.

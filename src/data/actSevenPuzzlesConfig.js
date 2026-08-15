@@ -531,12 +531,12 @@ const ACT_SEVEN_PUZZLES = [
       + 'transfer.',
     ignoredLabel: 'Direct transfers at a large Fuel premium.',
     // §8.3 authored 8 here and argued that 8 is "deliberately above what a systematic player needs":
-    // with positional feedback, 24 permutations collapse in three or four submissions. LEDGER R9 IS
-    // WHAT MOVED IT TO 6 — the measured brute-force ratio had to come under 1.3 and the counter is
-    // the only knob R9 permits (the cooldowns are also the anti-spam rate limit and they set §8.2's
-    // binary-search price). The ceiling-not-a-pace argument is unchanged and 6 is still above what a
-    // deducing player needs; see this file's tuning block. Do not restore 8 from §8.3 without
-    // re-running the measurement.
+    // with positional feedback, 24 permutations collapse in three or four submissions. 6 preserves
+    // that argument — a deducing player never reaches either number — and buys margin on ledger R9's
+    // ratio, which the measurement clears at BOTH values but by only 0.007 at 8 on the adversarial
+    // bound. The tuning block at the foot of this file has the run and is explicit that this is a
+    // margin decision rather than a correction: restoring 8 after §7's launch ladder lands and the
+    // Fuel coefficients are re-measured would not be undoing an error.
     attemptsToBypass: 6,
     attemptCooldownSeconds: 90,
   },
@@ -645,9 +645,11 @@ const ACT_SEVEN_PUZZLES = [
     ],
     unlocksLabel: 'Rendezvous assist: docking with a salvage hulk yields +50% Salvage.',
     ignoredLabel: 'Less Salvage per hulk — purely a rate.',
-    // §8.3 authored 10. Ledger R9 brought it to 7 — this is the single largest contributor to the
-    // brute-forcer's wall time in the act (90s cooldown, `deepSpace`), so it is where the tuning has
-    // the most effect per unit of counter. See the tuning block.
+    // §8.3 authored 10; 7 here. This is the largest single contributor to the brute-forcer's wall
+    // time among the graded puzzles (90s cooldown, and the highest count), so it is where a unit of
+    // counter buys the most margin on ledger R9's ratio — 4.5 of the 16 minutes the reduction saves
+    // across the act come from this row alone. See the tuning block for why margin, and not a failed
+    // measurement, is the reason.
     attemptsToBypass: 7,
     attemptCooldownSeconds: 90,
   },
@@ -898,84 +900,113 @@ const PUZZLE_ITEMS = [
 // R9 retires §8.6's "never worse than 1.5x" clause and rules that `attemptsToBypass` comes down
 // until the MEASURED ratio of a zero-solve, zero-hint run to a median run is <= 1.3. The arithmetic
 // behind the ceiling: the stretched act is 3.85 h, and 1.5x of that is 5.8 h, which breaches §12
-// criterion 8's 5-hour ceiling. 1.3x is 5.0 h — exactly on it.
+// criterion 8's 5-hour ceiling. 1.3x is 5.0 h — exactly on it. R9 also states that a ratio asserted
+// rather than measured does not discharge the obligation, so everything below is a run.
 //
-// MEASURED under `node`, 30 runs, deterministic injected rng, phase durations sampled uniformly
-// inside §5.2's authored bands (aftermath 20-30, lifeSupport 45-60, lunar 60-80, deepSpace 60-90).
-// Per-puzzle bypass wall time is NOT arithmetic in the harness: it is produced by driving
-// engine/puzzles.js's submitAnswer() against a synthetic advancing clock until `bypassed` flips, so
-// the figures below measure the shipped cooldown clamp, the shipped counter and the shipped
-// Governor Bypass halving rather than the harness's own multiplication table.
+// HOW IT WAS MEASURED. A `node` harness, 30 runs, deterministic injected rng (mulberry32, seeded),
+// phase durations sampled uniformly inside §5.2's authored bands (aftermath 20-30, lifeSupport
+// 45-60, lunar 60-80, deepSpace 60-90 min). Per-puzzle bypass wall time is NOT arithmetic in the
+// harness: it mashes attemptBruteForce() against a synthetic clock advancing one second at a time
+// and reads the instant `bypassed` flips out of listPuzzles(), so the figures measure the shipped
+// cooldown clamp, the shipped counter and the shipped Governor Bypass halving. Sampled solver act:
+// median 223.4 min, range 206.5-246.0.
+//
+// THE FIRST ATTEMPT IS FREE, WHICH IS WHY THE WALL TIMES ARE (n-1) COOLDOWNS AND NOT n. A fresh
+// puzzle has no `nextAttemptAtClock`, so attempt 1 lands immediately and only the remaining n-1 are
+// governed. §8.7's table quotes n x cooldown (P1 as "4.5 min"); measured, P1 at 6 attempts is 3.75
+// min. Every §8.7 row is therefore ~one cooldown pessimistic, which is worth knowing before anyone
+// reconciles this block against that table and concludes something has drifted.
 //
 // TWO MODELS ARE REPORTED, AND WHICH ONE IS THE GATE MATTERS.
 //
-//   MEASURED RATIO (the metric §8.7 asks for) — 1.045x median, 1.055x worst of 30.
-//     §8.7 line 2720 states the requirement exactly: "the simulation must measure the BLOCKING
-//     fraction, not the total." No phase gate is a puzzle, so a bypass is on the critical path only
-//     while the capability it unlocks is a tax the player is currently paying. Each puzzle therefore
-//     carries a blocking coefficient — the fraction by which the run's progress is slowed while that
-//     puzzle is unresolved — and the brute-forcer's cost is coefficient x wall time, not wall time.
+//   MEASURED RATIO — the metric §8.7 asks for. Its line 2720 states the requirement exactly: "the
+//     simulation must measure the BLOCKING fraction, not the total." No phase gate is a puzzle, so a
+//     bypass is on the critical path only while the capability it unlocks is a tax the player is
+//     currently paying. Each puzzle carries a blocking coefficient and the cost is coefficient x
+//     wall time, capped at the duration of the phase whose tax it removes.
 //
-//   UPPER BOUND (adversarial) — 1.243x median, 1.292x worst of 30.
-//     Every graded-phase bypass minute counted as fully blocking, which no puzzle in §8.3 actually
-//     is. Reported because a coefficient is an estimate and a bound is not: the tuning below holds
-//     even if every coefficient were wrong in the same direction at once. P9 is excluded from both
-//     figures — it is in `majors`, which is past the finish line the ratio is measured to.
+//   UPPER BOUND — every graded-phase bypass minute counted as fully blocking, which no puzzle in
+//     §8.3 actually is. Reported because a coefficient is an estimate and a bound is not: it holds
+//     even if every coefficient below were wrong in the same direction at once.
 //
-// THE COUNTS CAME DOWN, AND THIS IS WHAT MOVED THEM. At §8.3's authored counts the graded-phase
-// bypass total is 70 min; against the sampled act (185-260 min, median 222.5) the upper bound is
-// 1.269x median but 1.378x on the fastest sampled act, and the median run is only 1.31x when the act
-// runs short. That fails R9 at the tail. At the counts in this file the graded total is 54 min and
-// BOTH figures clear 1.3 across all 30 runs, worst case included.
+// P9 is excluded from both figures. It is in `majors`, past the finish line the ratio is measured
+// to, and §8.3 is explicit that it gates nothing at all.
 //
-//   Puzzle  §8.3  now  cooldown  worst-case bypass  blocking coeff  source of the coefficient
-//   P1      6     5    45s       3.75 min           0.00            unlocks an index: information
-//   P2      6     5    45s       3.75 min           0.35            retry burn on out-of-band ins.
-//   P3      8     6    60s       6.00 min           0.50            +25% scrubber throughput
-//   P4      8     6    60s       6.00 min           0.00            forecast readout: information
-//   P5      8     6    90s       9.00 min           0.80            assist route Fuel premium
-//   P6      8     6    90s       9.00 min           0.70            launch-window Fuel discount
-//   P7      10    7    90s       10.50 min          0.60            +50% Salvage per hulk
-//   P8      4     4    90s       6.00 min           0.30            survey probe: commit blind
-//   P9      10    10   150s      25.00 min          n/a             gates nothing; `majors`
+//   Configuration                          MEASURED (median/worst)   UPPER BOUND (median/worst)
+//   shipped counts, no Bypass  [THE GATE]  1.096 / 1.104             1.199 / 1.215
+//   shipped counts, Bypass owned           1.048 / 1.052             1.100 / 1.108
+//   §8.3's authored counts, no Bypass      1.134 / 1.145             1.271 / 1.293
 //
-// THE COEFFICIENTS ARE ESTIMATES AND THEY ARE THE LOAD-BEARING INPUT, so they are itemised rather
-// than averaged. P1, P4 and P9 are 0 because §8.3's "if ignored" line for each is information only —
-// a feed announcement, a bar instead of a number, an ending string. P3 and P7 are rate taxes and
-// their coefficients are read off the rates §8.3 names (+25% of one module's throughput, +50% of one
-// Salvage source). P2, P5, P6 and P8 are FUEL taxes, and §7's launch ladder has not shipped, so
-// their magnitudes are estimated from §8.3's own language — "materially cheaper in Fuel", "a large
+// ALL THREE ROWS CLEAR 1.3, INCLUDING §8.3's AUTHORED COUNTS — SO STATE PLAINLY WHAT MOVED THEM.
+// The measurement did not force a reduction; R9 anticipated one and the run does not require it.
+// What the run does show is MARGIN: at the authored counts the upper bound reaches 1.293 on the
+// fastest sampled act, which is 0.007 from the ceiling, and four of the eight blocking coefficients
+// are estimates against a §7 that has not shipped. A tuning number that clears its limit by less
+// than a percent, on a model whose inputs are half estimated, is one re-measurement away from being
+// wrong. The shipped counts clear by 0.085 on the same adversarial bound. That is the whole
+// argument for the reduction and it is a margin argument, not a correction — anyone who restores
+// §8.3's counts after §7 lands and re-measures is not undoing an error.
+//
+// The reduction is also cheap by §8.3's own reasoning: `attemptsToBypass` is a CEILING ON THE WORST
+// CASE, not a pace. §8.3 says so about P5 directly ("deliberately above what a systematic player
+// needs" — with positional feedback, 24 permutations collapse in three or four submissions). A
+// player who deduces never reaches the counter at either value, so lowering it changes nothing they
+// experience. R9 permits no other dial: the cooldowns are also the anti-spam rate limit and they
+// set §8.2's binary-search price, so they were not touched.
+//
+//   Puzzle  §8.3  now  cooldown  measured wall  blocking coeff  source of the coefficient
+//   P1      6     5    45s        3.00 min      0.00            unlocks an index: information only
+//   P2      6     5    45s        3.00 min      0.35            retry burn on out-of-band insertion
+//   P3      8     6    60s        5.00 min      0.50            +25% scrubber throughput
+//   P4      8     6    60s        5.00 min      0.00            forecast readout: information only
+//   P5      8     6    90s        7.50 min      0.80            assist route Fuel premium
+//   P6      8     6    90s        7.50 min      0.70            launch-window Fuel discount
+//   P7      10    7    90s        9.00 min      0.60            +50% Salvage per hulk
+//   P8      4     4    90s        4.50 min      0.30            survey probe: you commit blind
+//   P9      10    10   150s      22.50 min      n/a             gates nothing; `majors`
+//                              graded total
+//                                 44.50 min     (was 60.50 min at §8.3's counts)
+//
+// THE COEFFICIENTS ARE THE LOAD-BEARING INPUT AND HALF OF THEM ARE ESTIMATES, so they are itemised
+// rather than averaged. P1, P4 and P9 are 0 because §8.3's "if ignored" line for each is information
+// only — a feed announcement, a bar instead of a number, an ending string. P3 and P7 are rate taxes
+// and their coefficients are read off the rates §8.3 names (+25% of one module's throughput, +50% of
+// one Salvage source). P2, P5, P6 and P8 are FUEL taxes, and §7's launch ladder has not shipped, so
+// their magnitudes are ESTIMATED from §8.3's own language — "materially cheaper in Fuel", "a large
 // Fuel premium", "a Fuel premium", "you commit blind". THE STORY THAT LANDS §7's LAUNCH LADDER MUST
-// RE-MEASURE with real Fuel costs rather than trust this line; the upper bound above is what makes
-// that safe to defer, because it holds whatever the four estimates turn out to be.
+// RE-MEASURE with real Fuel costs rather than trust this line. The upper bound is what makes that
+// safe to defer, because it holds whatever the four estimates turn out to be.
 //
-// WITH THE GOVERNOR BYPASS OWNED — bought at 20% into `deepSpace`, which is §8.7's specified run —
-// the graded total falls to 45.75 min and the upper bound to 1.206x median. The gate figures above
-// are the NO-BYPASS ones, deliberately: an anti-soft-lock guarantee that depends on the player
-// buying a 53,000-Salvage item is not a guarantee.
+// THE GATE FIGURE IS THE NO-BYPASS ONE, DELIBERATELY. §8.7 specifies the measured run as one where
+// the archetype buys the Attempt Governor Bypass as soon as `deepSpace` income allows, and that run
+// is reported above — but an anti-soft-lock guarantee that depends on the player affording a
+// 53,000-Salvage item is not a guarantee. Both are published so the gate does not rest on a
+// purchase, which is the same reason §8.7 gives for including it at all: leaving it out entirely
+// would make the ratio unfalsifiable in the other direction.
 //
-// THE PER-PHASE CONSTRAINT (§8.7: bypass wall time for all puzzles in a phase <= 50% of that phase's
-// authored duration) holds at these counts with more room than at §8.3's:
+// THE PER-PHASE CONSTRAINT (§8.7: bypass wall time for all puzzles in a phase <= 50% of that
+// phase's authored duration) holds with room at these counts:
 //
-//   aftermath   7.5 min / 20-30 min  = 25-38%   (was 30-45%)
-//   lifeSupport  12 min / 45-60 min  = 20-27%   (was 27-36%)
-//   lunar        18 min / 60-80 min  = 23-30%   (was 30-40%)
-//   deepSpace  16.5 min / 60-90 min  = 18-28%   (was 23-35%)
+//   aftermath     6.0 min / 20-30 min = 20-30%   (§8.7 quoted 30-45% at its own counts)
+//   lifeSupport  10.0 min / 45-60 min = 17-22%   (quoted 27-36%)
+//   lunar        15.0 min / 60-80 min = 19-25%   (quoted 30-40%)
+//   deepSpace    13.5 min / 60-90 min = 15-23%   (quoted 23-35%)
 //
-// SIMULATE DOES NOT DOMINATE SUBMIT (§8.7's last check). A SUBMIT costs 90s on a `deepSpace` puzzle
-// and returns direction, so a numeric search is logarithmic: 90 x log2(N). A SIMULATE costs 20s and
-// returns PASS/FAIL, which carries no ordering, so a simulate-driven search is linear: 20 x N/2.
-// Measured crossover is N = 48 candidates — below it SIMULATE is faster, above it SUBMIT is. Neither
-// strictly dominates on any numeric puzzle, which is the property §8.5 asks the 20s and the bare
-// PASS/FAIL to produce.
+// SIMULATE DOES NOT DOMINATE SUBMIT (§8.7's last check), MEASURED. A SUBMIT costs 90s on a
+// `deepSpace` puzzle and returns DIRECTION, so a numeric search is logarithmic: 90 x log2(N). A
+// SIMULATE costs 20s and returns a bare PASS/FAIL, which carries no ordering, so a simulate-driven
+// search is LINEAR: 20 x N/2. Crossover measured at N = 52 candidates — below it SIMULATE is
+// faster, above it SUBMIT is. Neither strictly dominates on any numeric puzzle, which is exactly the
+// property §8.5 asks the 20 seconds and the bare PASS/FAIL to produce. Do not "improve" the Plot
+// Table by shortening the run or adding direction to its result; either one collapses this.
 //
-// WHY THE MEASURED RATIO IS SO FAR UNDER THE CEILING, stated so nobody "fixes" it: cooldowns run
-// CONCURRENTLY with generators, modules and contracts. A player waiting out a 90-second governor is
-// not idle, they are playing the rest of the game. The 95 minutes in §8.7's table is wall time the
-// player spends inside the act, not wall time added to it. R9 also removed the offset §8.6 leaned
-// on — the brute-forcer's banked hint ladder is 135,634 against a lifetime earn of 2.81M, i.e. 4.8%,
-// which is real but not what makes the ratio small. What makes it small is that eight of the nine
-// unlocks are conveniences and only four of them touch Fuel.
+// WHY THE MEASURED RATIO IS SO FAR UNDER THE CEILING, stated so nobody "fixes" it upward: cooldowns
+// run CONCURRENTLY with generators, modules and contracts. A player waiting out a 90-second governor
+// is not idle, they are playing the rest of the game. The 95 minutes in §8.7's table is wall time
+// the player spends inside the act, not wall time added to it. R9 correctly removed the offset §8.6
+// leaned on — the brute-forcer's banked hint ladder is 135,634 against a lifetime earn of 2.81M,
+// i.e. 4.8%, real but not decisive. What actually keeps the ratio small is that five of the nine
+// unlocks are conveniences or information, and only four of them touch Fuel at all.
 // ---------------------------------------------------------------------------------------------
 
 // Lookup helpers. Finds, not logic — the same shape as getModuleDefinition() in
