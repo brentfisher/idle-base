@@ -25,6 +25,37 @@ function phaseRank(phaseId) {
   return EXPEDITION_PHASES.indexOf(phaseId);
 }
 
+// A prerequisite on OTHER modules, as `{ moduleId: count }`. This is a SPEND gate rather than a
+// price gate, and the distinction is the whole point (PRD §5.5).
+//
+// The first Fuel Bladder is the pacing control for the entire launch system: Fuel's base capacity
+// is 0, so until a tank exists Fuel cannot be banked at all. §7.5 requires it not be reachable
+// before ~minute 35 of `lifeSupport`. Price alone cannot hold that — 3,600 Salvage is about ninety
+// seconds of mid-phase income, so a player who simply waits arrives early no matter what the row
+// costs. Requiring seven Fission Piles and seven Hydroponics Bays cannot be waited out: it is
+// ~63,700 Salvage of cumulative spend on things that are individually worth buying.
+function meetsRequirements(definition, slice) {
+  const requires = definition.requires;
+  if (!requires) return true;
+  return Object.keys(requires).every((moduleId) => ownedCount(slice, moduleId) >= requires[moduleId]);
+}
+
+// A prerequisite on a colonized site declaring some capability — `vacuumSolar` for the Solar Wing,
+// `iceAvailable` for the Ice Harvester. §5.4 replaced the draft's per-site output multiplier with
+// this, because a multiplier was incoherent with the one-pool ruling: the colony sums a list and
+// does not know how many sites exist.
+//
+// FAILS CLOSED, unlike the phase gate, and the asymmetry is deliberate. An unrecognized phase is a
+// corrupt value one tick from self-repair, so revealing everything is the safe direction. A missing
+// site is not corruption — it is the accurate statement that the player has not colonized anything
+// yet, which is true for the whole game until STORY-027 lands. Failing open here would offer the
+// cheapest Power in the act from minute one and delete the `lunar` phase's central beat.
+function meetsSiteCapability(definition, slice) {
+  const capability = definition.requiresSiteCapability;
+  if (!capability) return true;
+  return slice.sites.some((site) => site && site[capability]);
+}
+
 function isAvailable(definition, currentPhase) {
   const required = phaseRank(definition.phase);
   if (required === -1) return true;
@@ -56,7 +87,11 @@ function listOffers(state) {
   const slice = expeditionSlice(state);
   const balance = balanceOf(state.wallet, MODULE_CURRENCY);
 
-  return ACT_SEVEN_MODULES.filter((definition) => isAvailable(definition, slice.phase)).map((definition) => {
+  return ACT_SEVEN_MODULES.filter((definition) => (
+    isAvailable(definition, slice.phase)
+    && meetsRequirements(definition, slice)
+    && meetsSiteCapability(definition, slice)
+  )).map((definition) => {
     const count = ownedCount(slice, definition.id);
     const cost = moduleCost(definition, count);
     return {
@@ -87,6 +122,11 @@ function describeEffect(definition) {
   Object.keys(definition.consumes || {}).forEach((resourceId) => {
     parts.push('-' + definition.consumes[resourceId] + ' ' + resourceId + '/s');
   });
+  // A storage grant is a flat capacity, not a rate, so it deliberately carries no "/s". A tank
+  // that read "+250 power/s" would be the single most misleading string in the act.
+  Object.keys(definition.capacity || {}).forEach((resourceId) => {
+    parts.push('+' + definition.capacity[resourceId] + ' max ' + resourceId);
+  });
   return parts.join(', ');
 }
 
@@ -103,6 +143,11 @@ function purchase(state, moduleId) {
 
   const slice = expeditionSlice(state);
   if (!isAvailable(definition, slice.phase)) return null;
+  // Re-checked here rather than trusted from the listing: purchase() is reachable from a dispatch,
+  // and an engine that only enforces a gate in the function that DRAWS the button is not enforcing
+  // it at all.
+  if (!meetsRequirements(definition, slice)) return null;
+  if (!meetsSiteCapability(definition, slice)) return null;
 
   const count = ownedCount(slice, moduleId);
   const cost = moduleCost(definition, count);

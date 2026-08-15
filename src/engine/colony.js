@@ -412,6 +412,52 @@ function actualDraw(owned, drawMult, throttles) {
 //   capacity       the ceiling, from the slice.
 //   passes         diagnostic only: how many solve passes this took. Not part of the contract;
 //                  it exists because the convergence bound above is a deliverable, not a claim.
+// EVERY CEILING IS DERIVED, NEVER STORED (ledger R1). This replaces reading
+// `slice.resources[id].capacity`, and the change is not a refactor — it is the difference between
+// a ceiling that can drift from the modules that justify it and one that cannot.
+//
+//   capacity[r] = base[r]  +  Σ owned storage grants  ( + Σ sites[].fuelCapacityOnArrival, for fuel )
+//
+// It is the rule getUnlockedFeatures() follows, for the same reason: a stored ceiling is a second
+// source of truth, and retuning a tank's grant would then require a migration on a save format
+// that has none. Derived, a balance edit takes effect on every existing save the next tick.
+//
+// THE STORED CAPACITY IS NOW IGNORED, and that is safe in the one direction that matters. A save
+// written before this change carries whatever ceiling it had; recomputing it can only ever produce
+// the same number (nobody owned storage, so the sum is base) or a larger one (they did). It cannot
+// silently shrink a ceiling under a stock that is already above it — and even if a hand-edited
+// save managed that, integrateColony() clamps to [0, capacity] unconditionally, so the surplus is
+// discarded rather than becoming an impossible state.
+//
+// THE FUEL SITE TERM IS 0 TODAY, on purpose and not as a stub. `slice.sites` is always empty until
+// STORY-027 lands colonization, so the sum is over nothing. The term is written now because §5.5's
+// whole point is that Fuel capacity has TWO sources and the draft that derived it from storage
+// alone was overruled — encoding one source now and discovering the second later is how the
+// overruled version gets rebuilt by accident.
+function colonyCapacity(slice, owned) {
+  const capacity = {};
+  EXPEDITION_RESOURCES.forEach((resource) => {
+    capacity[resource.id] = resource.baseCapacity;
+  });
+
+  owned.forEach(({ definition, count }) => {
+    const grants = definition.capacity || {};
+    Object.keys(grants).forEach((resourceId) => {
+      const grant = grants[resourceId];
+      if (!Number.isFinite(grant) || grant <= 0) return;
+      if (capacity[resourceId] === undefined) return;
+      capacity[resourceId] += grant * count;
+    });
+  });
+
+  slice.sites.forEach((site) => {
+    const granted = site && site.fuelCapacityOnArrival;
+    if (Number.isFinite(granted) && granted > 0) capacity.fuel += granted;
+  });
+
+  return capacity;
+}
+
 function colonyRates(state, modifiers) {
   const slice = expeditionSlice(state);
   const resolved = modifiers || computeModifiers(state);
@@ -419,11 +465,10 @@ function colonyRates(state, modifiers) {
   const drawMult = multiplierOf(resolved, DRAW_MULTIPLIER_KEY);
 
   const stocks = {};
-  const capacity = {};
   EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
     stocks[resourceId] = slice.resources[resourceId].amount;
-    capacity[resourceId] = slice.resources[resourceId].capacity;
   });
+  const capacity = colonyCapacity(slice, owned);
 
   const demand = demandAtFullOutput(owned, drawMult);
   const { satisfaction, passes } = solveSatisfaction(owned, stocks, demand, resolved);
