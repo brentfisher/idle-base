@@ -43,9 +43,14 @@ function listResources(state, modifiers) {
       amount,
       capacity,
       // The fill fraction, for a meter. Capacity 0 is a REAL value, not missing — Fuel has no tank
-      // until one is built — and a resource with nowhere to go reads as full rather than as a
-      // division by zero.
-      fraction: capacity > 0 ? Math.max(0, Math.min(1, amount / capacity)) : 1,
+      // until one is built.
+      //
+      // IT READS 0, NOT 1. The first version returned 1 on the theory that a resource with nowhere
+      // to go is "full", which drew a completely filled bar next to the text "0/0" — the meter
+      // saying full while the numbers said empty. Nothing is stored and nothing is storable, so
+      // an empty bar is the honest picture. `full` is guarded separately on capacity > 0, so no
+      // other state depends on this.
+      fraction: capacity > 0 ? Math.max(0, Math.min(1, amount / capacity)) : 0,
       net,
       // The SIGN, not the number, is what the chip colours on. Separated out so the component
       // never applies a threshold of its own: a component asking `net < 0` is a component deciding

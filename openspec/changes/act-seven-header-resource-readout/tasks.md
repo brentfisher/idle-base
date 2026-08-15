@@ -11,6 +11,9 @@
       same state.
 - [x] `secondsUntilEmpty` returns `Infinity` — not 0 — for a resource pinned at empty, because
       the engine pins its net rate to exactly 0.
+- [x] Fixed during review: `fraction` returned 1 for a zero capacity, so a fresh Act VII save
+      drew a completely filled Fuel meter beside the text "0/0" — the bar saying full while the
+      numbers said empty. It returns 0: nothing stored, nothing storable.
 - [x] Fixed during review: `starved` required a `capacity > 0` clause. Fuel starts at 0/0
       because no tank has been built, so without it every fresh Act VII save opened with an
       alarm-red chip describing the normal starting state.
