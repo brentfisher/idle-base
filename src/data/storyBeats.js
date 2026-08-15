@@ -114,6 +114,33 @@ const STORY_BEATS = [
       declineLabel: 'Not yet',
     },
   },
+
+  // --- Act VII: the teardown ---
+  //
+  // A `teardown` beat is the copy for the sequence that plays once, when the act flips and the
+  // baseball shell is retired. It is NOT recorded in storyBeatsSeen and nothing about the sequence
+  // is stored: the overlay is derived from the act transition the same way toasts are derived in
+  // components/common/ToastHost.js, so a reload is simply a new baseline and replays nothing.
+  //
+  // Three lines, and three is the budget rather than an accident. The sequence runs 4.6s; a fourth
+  // line either makes it longer than an idle game has any business being, or gives each line too
+  // little time to read on a phone.
+  //
+  // STORY-033 owns the final wording of the Act VII narrative and will rewrite the prose here.
+  // The beat id and the three-line shape are this story's and should survive that rewrite.
+  {
+    id: 'act-7-teardown',
+    kind: 'teardown',
+    actIndex: 6,
+    title: 'The lights go out over the infield',
+    prose: [
+      'They do not tear the stadium down. They simply stop coming to it.',
+      'The league plays on without you — the box scores still print, somewhere, in a town that '
+        + 'is no longer yours to manage.',
+      'What is waiting is not a ballpark.',
+    ],
+    skipLabel: 'Skip',
+  },
 ];
 
 function getStoryBeat(beatId) {

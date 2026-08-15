@@ -31,6 +31,7 @@ const ArtifactsPanel = require('../expedition/ArtifactsPanel');
 const ContractsPanel = require('../expedition/ContractsPanel');
 const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
+const TeardownOverlay = require('../expedition/TeardownOverlay');
 const { getActIntroBeat, getStoryBeat } = require('../../data/storyBeats');
 
 // Tab id === feature id in an act's `unlocks` array (data/acts.js). This is the single point of
@@ -195,6 +196,7 @@ function AppShell() {
         </div>
         {pendingBeat && <StoryCard beat={pendingBeat} />}
         <ToastHost />
+        <TeardownOverlay />
       </div>
     );
   }
@@ -242,6 +244,13 @@ function AppShell() {
 
       {pendingBeat && <StoryCard beat={pendingBeat} />}
       <ToastHost />
+      {/* Rendered in BOTH shells, and it has to be. AppShell early-returns a pre-season shell when
+          state.season is absent, so an overlay mounted only here would be missing for that whole
+          class of saves. Only one branch renders at a time, so only one instance ever exists;
+          switching branches remounts it and resets its baseline, which plays nothing — the safe
+          direction. The crossing this exists for does not switch branches: Act VII keeps
+          state.season, because seasonFrozen pauses the simulation without deleting it. */}
+      <TeardownOverlay />
 
       {/* The call-up rides inside the victory modal rather than arriving as a popup of its own,
           because the offer only makes sense in the moment the trophy is handed over — and because
