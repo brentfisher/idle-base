@@ -1,6 +1,7 @@
 const balanceConfig = require('../data/balanceConfig');
 const { computeModifiers, resolveRules } = require('./modifiers');
 const { totalIncomePerSecond } = require('./income');
+const { pendingFeedBeats } = require('./narrative');
 const { creditWallet } = require('./wallet');
 const { simulateGame } = require('./gameSim');
 const { playerOverall, getTeamStrength } = require('./strength');
@@ -548,6 +549,37 @@ function announceSponsorOffers(working) {
   );
 }
 
+// Act VII's feed beats: the terminology corrections and the seven Earth dispatches.
+//
+// EMITS EVERY DUE BEAT, IN ORDER, and does not collapse a burst. That is the opposite of what
+// ToastHost does with a run of games and it is deliberate — the dispatches are an arc about time
+// passing, so delivering only the newest tells the player the league moved on without ever
+// showing it move. See the note on pendingFeedBeats() in engine/narrative.js.
+//
+// No storm is possible and, as with announceSponsorOffers() above, not because of FEED_CAP: there
+// are sixteen feed beats in the entire act and each fires at most once ever against
+// progression.storyBeatsSeen, so the absolute ceiling across a whole playthrough is sixteen
+// entries against a cap of 50.
+//
+// The ledger write and the feed write are in the SAME returned object. Splitting them would leave
+// a window where a beat is on screen but not recorded, and an interrupted tick would replay it.
+function emitStoryFeedBeats(working) {
+  const due = pendingFeedBeats(working);
+  if (due.length === 0) return working;
+
+  const marked = {
+    ...working,
+    progression: {
+      ...working.progression,
+      storyBeatsSeen: [...working.progression.storyBeatsSeen, ...due.map((beat) => beat.id)],
+    },
+  };
+  return appendFeedEntries(
+    marked,
+    due.map((beat) => createFeedEntry(working.clock, beat.category || 'office', beat.prose[0]))
+  );
+}
+
 // The single place simulation happens. Called identically by the live 1s timer and by
 // offlineProgress.js's load-time catch-up — just with a different deltaSeconds.
 function advance(state, deltaSeconds) {
@@ -634,6 +666,7 @@ function advance(state, deltaSeconds) {
     // closes the tab mid-act returns having actually crossed the boundary.
     working = checkActTransition(working);
     working = announceSponsorOffers(working);
+    working = emitStoryFeedBeats(working);
   }
 
   return working;

@@ -18,10 +18,15 @@ function StoryCard({ beat }) {
         {beat.prose.map((paragraph, index) => (
           <p key={index}>{paragraph}</p>
         ))}
-        <div className="story-objective">
-          <span className="label">Objective</span>
-          <span>{beat.objective}</span>
-        </div>
+        {/* Guarded rather than unconditional: Act VII's feed beats carry no objective, and some
+            of its card beats deliberately do not either — an "Objective" header over an empty
+            span is the one way this component can look broken. */}
+        {beat.objective && (
+          <div className="story-objective">
+            <span className="label">Objective</span>
+            <span>{beat.objective}</span>
+          </div>
+        )}
       </div>
     </Modal>
   );
