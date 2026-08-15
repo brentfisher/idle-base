@@ -2530,6 +2530,88 @@ input[type='range']::-moz-range-thumb {
   font-style: italic;
 }
 
+/* --- Act VII: the header resource readout --- */
+/*
+ * PLACED HERE, ABOVE the file's last `@media (max-width: 640px)` block. global.css ends inside
+ * that block, so a rule appended at EOF is silently a mobile-only rule. These are unconditional
+ * and must stay above line ~2533.
+ *
+ * Colours are NOT set here. Every bg/ink pair comes from data/colonyReadoutConfig.js as an inline
+ * style, the same way the era pill reads data/eras.js — the state a chip is in is a rules
+ * question, and a CSS class per state would put six copies of that decision in a stylesheet where
+ * the contrast measurements cannot live beside them.
+ */
+.resource-chip {
+  /* Column, not row: the meter goes UNDER the text. At 390px there is no room for a fifth
+     column, and a bar the full width of the chip is easier to judge at a glance anyway. */
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 74px;
+  padding: 4px 7px;
+}
+
+.resource-chip .label {
+  /* The tone's ink is already high-contrast against its bg; the label rides at reduced opacity
+     rather than a different colour so it cannot drop below the measured ratio. */
+  opacity: 0.72;
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+}
+
+.resource-amount {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* The ceiling reads as secondary to the amount — it is context, not the number the player is
+   watching — but it is always present, including at 0, which is a real state (no tank yet). */
+.resource-capacity {
+  opacity: 0.66;
+  font-size: 0.68em;
+}
+
+.resource-net {
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.86;
+}
+
+.resource-track {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  /* Tinted from the chip's own ink rather than a fixed colour, so the track sits correctly under
+     all six tones without six rules. */
+  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.resource-fill {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  opacity: 0.75;
+  /* Matches the countdown bar's easing so the two moving elements in the header agree. */
+  transition: width 0.4s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resource-fill {
+    transition: none;
+  }
+}
+
+/* The phase pill borrows .era-chip's shape, so it needs no width or weight of its own — only the
+   colours the era pill gets from data/eras.js and this one does not have. Deep outfield blue with
+   a near-white ink: #dfe9f2 on #23405c is 8.71:1, computed the same way as the resource tones
+   (the harness is in the comment block of data/colonyReadoutConfig.js). */
+.phase-chip {
+  background: #23405c;
+  color: #dfe9f2;
+}
+
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
      description do not share 390px with a price button and stay readable. Stacked, the price
