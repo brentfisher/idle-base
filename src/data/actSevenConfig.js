@@ -24,6 +24,25 @@ const EXPEDITION_PHASES = ['aftermath', 'lifeSupport', 'lunar', 'deepSpace', 'ma
 // player has landed in the wreck and owns no generator yet.
 const INITIAL_PHASE = EXPEDITION_PHASES[0];
 
+// The rank of a phase in that ladder, and the ONLY way anything in the act should compare two
+// phases. Gating is "has the run reached at least `lunar`", never "is the run in `lunar`" — an
+// equality test against a phase is a rung that disappears from under a returning player the moment
+// they progress past it, which is how a ladder becomes unclimbable.
+//
+// -1 for an unrecognized phase, and every caller so far treats that as FAILING OPEN — the same
+// convention getUnlockedFeatures() uses against `unlockedBy` in engine/progression.js. That is the
+// safe direction here specifically because `expedition.phase` is self-healing: engine/sites.js
+// recomputes it from a pure predicate ladder every advance(), so an unrecognized value is a corrupt
+// save one tick from repair, and failing closed would hide the act's only Salvage sink for that
+// tick. Failing open shows a row early; failing closed can strand a save.
+//
+// Lives here rather than in each consumer because engine/actSevenModules.js, engine/sites.js and
+// §6's tab reveal all ask the same question, and three private copies of one indexOf is three
+// places for that convention to be got subtly wrong.
+function phaseRank(phaseId) {
+  return EXPEDITION_PHASES.indexOf(phaseId);
+}
+
 // The four consumables. These are NOT currencies and must never be added to data/currencies.js:
 // a currency is monotonic, spendable and a header chip, whereas these fill and drain against a
 // ceiling and carry signed net rates. Fuel is the clearest case — it is not a price, it is a
@@ -126,6 +145,7 @@ const DRAW_MULTIPLIER_KEY = 'lifeSupportDrawMult';
 module.exports = {
   EXPEDITION_PHASES,
   INITIAL_PHASE,
+  phaseRank,
   EXPEDITION_RESOURCES,
   EXPEDITION_RESOURCE_IDS,
   EXPEDITION_MODULES,
