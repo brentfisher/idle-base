@@ -1,8 +1,9 @@
 const React = require('react');
 const { useGame } = require('../../state/GameContext');
 const actionTypes = require('../../state/actionTypes');
-const { POWERUPS } = require('../../data/powerupsConfig');
-const { formatCash, formatDuration } = require('../../utils/formatNumber');
+const { listOffers } = require('../../engine/powerupShop');
+const { getCurrency } = require('../../data/currencies');
+const { formatNumber, formatDuration } = require('../../utils/formatNumber');
 
 const EFFECT_LABELS = {
   revenueMult: 'ticket revenue',
@@ -11,6 +12,15 @@ const EFFECT_LABELS = {
   campSpeedMult: 'camp speed',
   rookieQualityMult: 'rookie quality',
   upgradeCostMult: 'upgrade costs',
+  // Act VII. `lifeSupportDrawMult` is phrased as a REDUCTION because its values are negative and
+  // lower is better — rendering "-12% life-support draw" from a -0.12 requires the label to be the
+  // thing being reduced, not the thing being boosted. Getting this wrong would print "+-12%".
+  powerOutputMult: 'Power output',
+  oxygenOutputMult: 'Oxygen output',
+  provisionsOutputMult: 'Provisions output',
+  fuelOutputMult: 'Fuel output',
+  salvageOutputMult: 'passive Salvage',
+  lifeSupportDrawMult: 'life-support draw',
 };
 
 function PowerupShop() {
@@ -20,12 +30,17 @@ function PowerupShop() {
     <div>
       <h3>Powerups</h3>
       <div className="card-grid">
-        {POWERUPS.map((powerup) => {
-          const isPermanent = powerup.durationSeconds === null;
-          const owned = isPermanent && state.powerups.purchasedPermanentIds.includes(powerup.id);
-          const active = state.powerups.active.find((p) => p.id === powerup.id);
-          const disabled = owned || state.wallet.cash < powerup.cost;
+        {/* Rows come from engine/powerupShop.js already resolved — which catalogue is on offer,
+            the currency, ownership and affordability. This component decides none of it; before
+            this change it read POWERUPS directly with no filter, which would have shown Act VII's
+            Salvage-priced rows inside Act V's cash shop. */}
+        {listOffers(state).map((powerup) => {
+          const isPermanent = powerup.permanent;
+          const owned = powerup.owned;
+          const active = powerup.active;
+          const disabled = owned || !powerup.affordable;
           const sign = powerup.value >= 0 ? '+' : '';
+          const currency = getCurrency(powerup.currency);
 
           return (
             <div className="card" key={powerup.id}>
@@ -47,7 +62,7 @@ function PowerupShop() {
                 onClick={() => dispatch({ type: actionTypes.BUY_POWERUP, powerupId: powerup.id })}
                 style={{ marginTop: 6 }}
               >
-                {owned ? 'Owned' : `Buy — ${formatCash(powerup.cost)}`}
+                {owned ? 'Owned' : `Buy — ${currency.symbol}${formatNumber(powerup.cost)}`}
               </button>
             </div>
           );
