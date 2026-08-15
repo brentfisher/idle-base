@@ -6,6 +6,10 @@ const { concessionsPerSecond } = require('./concessions');
 const { sponsorshipsPerSecond } = require('./sponsorships');
 const { colonyRates, expeditionSlice } = require('./colony');
 const { getUnlockedFeatures } = require('./progression');
+const { computeModifiers } = require('./modifiers');
+
+// Named rather than inlined so data/modifierKeysConfig.js and this file cannot drift on the string.
+const SALVAGE_OUTPUT_KEY = 'salvageOutputMult';
 
 // The feature id the Salvage faucet is gated on. `ops` rather than `fab`: `ops` is the one Act VII
 // tab with no `unlockedBy` entry, so it is live from the act boundary — which is exactly when the
@@ -94,10 +98,30 @@ function respectCapsMultiplier(state) {
 // The solve costs one pass on a healthy colony and this file already sits inside the same tick as
 // integrateColony()'s call; see the measured convergence bound in engine/colony.js for why that is
 // not the expensive thing in advance().
+//
+// `salvageOutputMult` IS APPLIED HERE AND NOWHERE ELSE, and the placement is the design.
+//
+// PRD §5.9 scopes it to PASSIVE Salvage only — the click stays flat (§5.2), because the click's
+// whole purpose is to be identical for every player and a multiplier on it would reintroduce
+// exactly the spread `clickFlatValue` was added to remove. This function is the passive path and
+// engine/clicker.js is the click path, so scoping it correctly means applying it here rather than
+// inside colonyRates().
+//
+// It is therefore NOT one of OUTPUT_MULTIPLIER_KEYS, which are keyed by resource id and applied
+// inside the solve. Salvage is a wallet currency, not one of the four consumables — it has no
+// ration, no ceiling and no boundary clock — so it is a wallet-side income multiplier like
+// respectCapsMultiplier() below, and it belongs in this file with them.
+//
+// The other five output multipliers still reach Salvage, just indirectly and more interestingly: a
+// Power powerup raises the ration, which un-throttles the drones, which raises `rates.salvage`
+// before this line ever sees it. That is the composition the ordering in colony.js buys.
 function salvagePerSecond(state, modifiers) {
   if (!isSalvageUnlocked(state)) return 0;
   const rates = colonyRates(state, modifiers);
-  return Number.isFinite(rates.salvage) ? rates.salvage : 0;
+  if (!Number.isFinite(rates.salvage)) return 0;
+  const resolved = modifiers || computeModifiers(state);
+  const multiplier = resolved[SALVAGE_OUTPUT_KEY];
+  return rates.salvage * (Number.isFinite(multiplier) ? multiplier : 1);
 }
 
 function totalIncomePerSecond(state, modifiers) {
