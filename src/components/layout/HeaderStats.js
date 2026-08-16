@@ -12,6 +12,7 @@ const { PLAYER_TEAM_ID } = require('../../engine/schedule');
 const { formatNumber, formatDuration } = require('../../utils/formatNumber');
 const { getEraConfig } = require('../../data/eras');
 const { CURRENCIES } = require('../../data/currencies');
+const { getPhasePill } = require('../../data/actSevenPalette');
 
 const PHASE_LABELS = { regular: 'Regular Season', playoffs: 'Playoffs', offseason: 'Offseason' };
 
@@ -237,7 +238,20 @@ function HeaderStats() {
           self-healing and a corrupt value is one tick from repair, so showing the odd string for
           that tick is better than a pill that silently vanishes. */}
       {frozen && (
-        <span className="stat-chip era-chip phase-chip" title="How far into the odyssey this run has come">
+        <span
+          className="stat-chip era-chip phase-chip"
+          /* Coloured inline from data/actSevenPalette.js by exactly the path the era chip above
+             uses, because the two are one slot wearing two hats and a second mechanism here would
+             be a second thing to keep in sync. getPhasePill() returns null for an unrecognized id
+             and the spread then contributes nothing, leaving the chip its default ground — which
+             pairs with the raw-id fallback below: a corrupt phase is one tick from self-repair, so
+             showing it uncoloured is honest, and painting it as though it were a real phase is not. */
+          style={getPhasePill(expeditionSlice(state).phase) ? {
+            background: getPhasePill(expeditionSlice(state).phase).bg,
+            color: getPhasePill(expeditionSlice(state).phase).ink,
+          } : undefined}
+          title="How far into the odyssey this run has come"
+        >
           <span className="label">Phase</span>
           {EXPEDITION_PHASE_LABELS[expeditionSlice(state).phase] || expeditionSlice(state).phase}
         </span>
