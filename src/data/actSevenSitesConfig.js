@@ -329,9 +329,65 @@ function padUpkeepAt(definition, tier) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// MEASURED — see the block at the top of data/actSevenModulesConfig.js for the harness this
-// extends. Filled in by the simulation run, below the config so the numbers sit next to nothing
-// they could be mistaken for.
+// VERIFIED — under `node`, against this config and engine/sites.js. Below the config so the
+// numbers sit next to nothing they could be mistaken for.
+//
+// WHAT IS NOT HERE, AND WHY: THE MINUTES-OF-INCOME FIGURES ARE NOT MEASURED ON THIS BRANCH, and
+// that is a deferral with a reason rather than an omission. Every purchase this file prices happens
+// in `lunar` or later — colonizing On-Deck needs On-Deck REACHED, and a site is reached only by a
+// launch. engine/launch.js is STORY-028, so on this branch `listOffers()` correctly returns zero
+// rows for the whole of `aftermath` and `lifeSupport` (verified). A run that measured the cost
+// ladder here would have to synthesise the arrival times it was trying to price against, which is
+// inventing the input and reporting it as a result.
+//
+// The costs therefore stand on the re-derivation the header describes: §7.5's minutes-of-income
+// INTENT, recomputed against STORY-025's measurement of the module ladder (`lifeSupport` earning
+// 2.6x its §5.3 budget) rather than copied from ledger R2's estimate-derived table. THE FIRST
+// STORY THAT LANDS TRANSITS MUST RE-MEASURE — ledger R8 puts later stories on the measurement, and
+// STORY-028 is the first branch on which this ladder can be played at all.
+//
+// STRUCTURAL RULES, verified exhaustively across all five sites:
+//
+//   * LEDGER R1's TANK FLOOR HOLDS EVERYWHERE: every site's Fuel tank is exactly
+//     OVERSHOOT_TANK_MULT (1.6) x the threshold of the launch DEPARTING from it.
+//
+//       Home Plate            departs 1,200   tank  1,920
+//       The On-Deck Circle    departs 4,200   tank  6,720
+//       First Base            departs 13,500  tank 21,600
+//       Second Base           departs 21,000  tank 33,600
+//       The Warning Track     departs 42,000  tank 67,200
+//
+//     Derived, not authored, so §7.3's overshoot band cannot decay into a coincidence between two
+//     hand-typed tables the day either one is retuned.
+//
+//   * ONE PAD TIER PER RUNG, no gaps and no overlaps — rung 0 -> The Sandlot (exists at start),
+//     1 -> The Mound, 2 -> The Long Toss, 3 -> The Cutoff, 4 -> The Swing. Each tier reaches
+//     exactly rung+1, so the top pad reaches rung 5, which is past the end of the ladder and is
+//     §7.1's "beyond the wall is not a site".
+//
+//   * HOME PLATE'S FUEL GRANT IS WITHHELD UNTIL A TANK IS OWNED, which is R1's pacing control and
+//     the thing an ungated grant would silently break. Measured at act start: Fuel capacity is 0
+//     with no storage owned, and 2,320 the moment one 400-unit Fuel Bladder is bought — the
+//     Bladder's 400 plus Home Plate's 1,920 arriving together, exactly once, on the purchase that
+//     R1 says should carry it. Fuel cannot be banked at all before that, so L1's threshold cannot
+//     be crossed early and `lunar` keeps the time §7.5 budgets it.
+//
+// ENGINE BEHAVIOUR, verified against a synthetic Act VII save:
+//
+//   * `resolveBuilds()` is IDEMPOTENT BY IDENTITY — a completed colonization clears `buildingId`
+//     and `readyAtClock`, and a replayed call returns the same object by reference. This is the
+//     property an eight-hour offline return depends on; without it a long catch-up colonizes twice.
+//   * `nextBuildClock()` returns Infinity with nothing pending and on every pre-Act-VII save, and
+//     the pending build's clock otherwise. It never returns 0, which would pin advance()'s step.
+//   * THE PHASE WRITER SELF-HEALS: a save hand-edited to `majors` is rewritten to the highest
+//     phase its predicates actually support (`lunar`, with On-Deck reached) on the next tick, and
+//     returns state by identity when the stored phase is already right.
+//   * It ABSTAINS ENTIRELY OUTSIDE ACT VII — a fresh Act I save is returned by identity and gets no
+//     `expedition` slice materialised into it.
+//   * REACH IS A PURE FUNCTION OF THE STORED PAD TIER: `siteReach()` reads one integer and takes no
+//     resource, satisfaction or rate input, so a starved network cannot launch shorter.
+//   * `purchase()` refuses a site that is already building, an offer id naming a tier the rung may
+//     not build, and a malformed id — each with null rather than a partial write.
 // ---------------------------------------------------------------------------------------------
 
 module.exports = {
