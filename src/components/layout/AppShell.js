@@ -4,6 +4,7 @@ const actionTypes = require('../../state/actionTypes');
 const useGameTick = require('../../hooks/useGameTick');
 const { getUnlockedFeatures, isCallUpOffered } = require('../../engine/progression');
 const { expeditionSlice } = require('../../engine/colony');
+const { resolveRules } = require('../../engine/modifiers');
 const HeaderStats = require('./HeaderStats');
 const TabNav = require('./TabNav');
 const EventFeed = require('./EventFeed');
@@ -138,6 +139,31 @@ function AppShell() {
       dispatch({ type: actionTypes.MARK_TAB_SEEN, tabId: effectiveTab });
     }
   }, [effectiveTab, seenTabs, dispatch]);
+
+  // Act VII's palette (PRD §6.8). One class on <body>, and it has to be <body> rather than
+  // anything inside the tree: the ballpark ground is painted on `html, body`
+  // (styles/global.css:5-13) and `body` is the only element above the React root, so there is no
+  // way to reach it from in here. The alternatives — a second stylesheet, a second shell — are
+  // what Decision 3.1 forbids.
+  //
+  // KEYED ON `seasonFrozen` RATHER THAN ON THE ACT INDEX, matching HeaderStats.js:74. The rule is
+  // what the act declares about itself, so an era or a later act that also freezes the season gets
+  // the treatment without anyone remembering to add an index here.
+  //
+  // IT MUST APPLY ON MOUNT, NOT AFTER THE TEARDOWN. A player reloading directly into Act VII never
+  // sees the overlay — it plays once, on the act flip — so a palette that waited for it would
+  // leave that player on ballpark green permanently. Running it as a plain mount effect keyed on
+  // the flag is what covers both paths; during the crossing itself the ordering is moot, because
+  // the teardown overlay is an opaque `inset: 0`.
+  //
+  // The cleanup is not decorative either: prestige returns the player to Act VI with the same
+  // component tree mounted, and a class left behind would paint the ballpark in expedition black.
+  const frozen = !!resolveRules(state).seasonFrozen;
+  React.useEffect(() => {
+    if (!frozen) return undefined;
+    document.body.classList.add('expedition');
+    return () => document.body.classList.remove('expedition');
+  }, [frozen]);
 
   // Entering an act raises its story card once; dismissing records it in
   // progression.storyBeatsSeen, so it never returns on reload.
