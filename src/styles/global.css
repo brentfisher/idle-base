@@ -2762,7 +2762,14 @@ input[type='range']::-moz-range-thumb {
    — are what Decision 3.1 forbids.
    ============================================================================================ */
 
-body.expedition {
+/* DECLARED ON :root, APPLIED ON body.expedition, and the split is load-bearing rather than tidy.
+   Custom properties inherit DOWNWARD only, so a token defined on `body` cannot be read by the
+   `html` rule below it — `var(--v7-bg)` would silently fall through to its literal fallback, and
+   retuning the ground here would leave the html ground behind on exactly the pages where it shows.
+   Declared at the root, both resolve the same token and cannot drift apart. Declaring them costs
+   nothing: a custom property is inert until something references it, and everything that does is
+   scoped to `body.expedition`. */
+:root {
   /* Page ground. Replaces the ballpark's #0d1f14. */
   --v7-bg: #070b12;
   /* Panel and header ground. Replaces #143620. */
@@ -2785,16 +2792,23 @@ body.expedition {
   --v7-drain: #ff8a66;
   /* Starved / throttled — the clamp at zero (Decision 3.3).   6.5:1 */
   --v7-alert: #ff6b57;
+}
 
+body.expedition {
   background: var(--v7-bg);
   color: var(--v7-ink);
 }
 
-/* `html` also carries the ballpark ground, and body does not always cover the full viewport on a
-   short page — without this, a page shorter than the screen shows a strip of outfield green under
-   an otherwise black act. */
+/* `html` also carries the ballpark ground (line 5), and body does not always cover the full
+   viewport on a short page — without this, a page shorter than the screen shows a strip of
+   outfield green under an otherwise black act.
+
+   `:has()` is the only way to reach `html` from a class the React tree owns. Where it is
+   unsupported this rule simply does not apply and the strip returns, which is a cosmetic
+   degradation on a short page and not a broken act — the acceptable failure for the one selector
+   in this file with a support floor. */
 html:has(body.expedition) {
-  background: var(--v7-bg, #070b12);
+  background: var(--v7-bg);
 }
 
 body.expedition .app-shell,
