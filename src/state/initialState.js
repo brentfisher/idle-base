@@ -1,6 +1,7 @@
 const balanceConfig = require('../data/balanceConfig');
 const { CHALLENGERS } = require('../data/wallBallConfig');
 const { INITIAL_PHASE, EXPEDITION_RESOURCES } = require('../data/actSevenConfig');
+const { createContractBoard } = require('../data/actSevenContractsConfig');
 
 // A fresh game constructs only what Act I needs. Act transitions are the initializer boundary:
 // entering Act III is what first calls generateSeasonSchedule(), entering Act V is what first
@@ -112,6 +113,12 @@ function createInitialState() {
       sites: [],
       puzzles: {},
       contracts: [],
+      // The contract board's bookkeeping (PRD §9.3). Built from the ONE literal in
+      // data/actSevenContractsConfig.js rather than written out here, for the reason stated above
+      // and at the top of that file: engine/colony.js's expeditionSlice() has to produce the
+      // identical shape for every save that predates the slice, and a key one copy forgets is a key
+      // every later write silently deletes.
+      contractBoard: createContractBoard(),
       launches: [],
     },
     // Act IV state, and both are CONTENT rather than tick-loop collections, so both are null

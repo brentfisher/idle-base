@@ -351,6 +351,43 @@ function purchase(state, offerId) {
   return { ...spent, expedition: { ...slice, launches: [...slice.launches, record] } };
 }
 
+// THE THRESHOLD OF THE LAUNCH CURRENTLY BEING FILLED — ledger R3's multiplicand, exported for
+// engine/contracts.js.
+//
+// R3 rules that a contract's `payoutPct` resolves against "the threshold of the launch currently
+// being filled", superseding §9.2's per-phase table. That quantity is already computed here, by
+// currentLeg(), and it is exported rather than reimplemented for the reason
+// data/actSevenSitesConfig.js gives about thresholds generally: two copies of one number is a
+// retune that moves one and not the other. Worse here than there, because the two copies would not
+// even be of a number — they would be of the RULE for finding which burn is being filled, and a
+// contract paying a percentage of the wrong launch would look like a balance problem rather than a
+// bug.
+//
+// AT THE TOP OF THE LADDER currentLeg() returns null, because the fifth burn departs the Warning
+// Track for a place §7.1 refuses to call a site. That is not an error and must not read as a
+// threshold of zero: `majors` still has contracts (§9.5 #12) and they still have to pay something.
+// So the fallback is the departing threshold of the highest rung the player has reached, which is
+// the last threshold they actually filled — the honest answer to "what is a percentage of the
+// current burn worth" for a ladder that has run out of authored rungs.
+//
+// Returns 0 outside Act VII, where resolvedSites() is empty. Every caller treats a zero threshold
+// as "no Fuel payout can be sized yet", which is exactly right in `aftermath` too, where there is
+// no tank to put one in.
+function currentLaunchThreshold(state) {
+  const slice = expeditionSlice(state);
+  const leg = currentLeg(state, slice);
+  if (leg) return leg.threshold;
+
+  const sites = resolvedSites(state, slice);
+  let highest = 0;
+  sites.forEach((site) => {
+    if (!site.reached) return;
+    const threshold = site.departingThreshold;
+    if (Number.isFinite(threshold) && threshold > highest) highest = threshold;
+  });
+  return highest;
+}
+
 // ---------------------------------------------------------------------------------------------
 // ARRIVAL
 // ---------------------------------------------------------------------------------------------
@@ -449,4 +486,5 @@ module.exports = {
   resolveArrivals,
   nextArrivalClock,
   overshootFor,
+  currentLaunchThreshold,
 };
