@@ -24,6 +24,7 @@ const { settleWager, refundOpenWager } = require('./bookie');
 const { newlyAvailableSponsors, markSponsorsAnnounced } = require('./sponsorships');
 const { integrateColony, nextColonyThresholdClock } = require('./colony');
 const { resolveBuilds, nextBuildClock, writeExpeditionPhase } = require('./sites');
+const { resolveArrivals, nextArrivalClock } = require('./launch');
 const { nextPuzzleCooldownClock } = require('./puzzles');
 const { winPurseForAct, playoffPurseForAct } = require('../data/winPurseConfig');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
@@ -258,6 +259,20 @@ const EVENT_CLOCK_CONTRIBUTORS = [
   // nothing in advance() writes `expedition.puzzles`, so this boundary is read and never written
   // through — an eight-hour catch-up cannot advance an attempt count or resolve a puzzle.
   nextPuzzleCooldownClock,
+  // Act VII's transits (engine/launch.js), PRD §7.3. THE TRANSIT WAKE BOUNDARY: the instant a
+  // committed burn lands, which is when a site becomes reached, the Fuel ceiling rises and the
+  // overshoot's arrival grant is paid.
+  //
+  // Appended, exactly as this list's contract asks — nothing above this line was touched. It
+  // abstains on the cheapest possible test (`slice.launches.length === 0`), which is every save in
+  // every act until the player commits their first burn, and contributes AT MOST ONE boundary ever
+  // after that: only one launch may be in flight, because the ladder is strictly ordered and there
+  // is never a second legal destination.
+  //
+  // Paired with resolveArrivals() in the loop body below. A boundary with no resolver would step
+  // advance() to the arrival instant and then leave the record unresolved, which is the one failure
+  // mode this contributor exists to prevent rather than cause.
+  nextArrivalClock,
 ];
 
 // The Infinity seed is the empty-case answer, so there is no "nothing pending" branch to write.
@@ -691,6 +706,20 @@ function advance(state, deltaSeconds) {
     // finds nothing pending. That is what makes an offline return that crosses three build windows
     // resolve them once each rather than once per iteration.
     working = resolveBuilds(working);
+
+    // Act VII's transits (engine/launch.js), resolved in the same band as builds and before the
+    // phase is recomputed below — an arrival marks a site `reached`, which is the input to the
+    // `lunar` predicate, so resolving after the phase writer would leave a returning player one
+    // whole iteration behind the rung they are standing on.
+    //
+    // Order against resolveBuilds() is genuinely irrelevant and is stated rather than left to be
+    // rediscovered: a build is only ever committed by the player, so no arrival inside advance()
+    // can start one, and no completing build can land a burn. They share nothing but the clock.
+    //
+    // Idempotent by construction: a resolved launch is never resolved again, so replaying a step
+    // finds nothing due. That is what makes an eight-hour return that crosses an arrival mark the
+    // site reached ONCE and pay the arrival grant ONCE, rather than once per iteration.
+    working = resolveArrivals(working);
 
     // THE SINGLE WRITER OF `expedition.phase` (PRD §7.7, ledger R4), recomputed from a pure
     // predicate ladder every iteration and written only when it differs. Nothing else in the
