@@ -425,6 +425,145 @@ function padUpkeepAt(definition, tier) {
 //   * `purchase()` refuses a site that is already building, an offer id naming a tier the rung may
 //     not build, and a malformed id — each with null rather than a partial write.
 // ---------------------------------------------------------------------------------------------
+//
+// ===============================================================================================
+// STORY-031: CAN THE NETWORK ACTUALLY PAY FOR THE SWING? MEASURED. YES. NOTHING SCALED DOWN.
+//
+// §7.2 ends on a conditional that has been open since this file was authored: "the colonized
+// network must be able to produce roughly 300 Power/sec and 100 Provisions/sec by the time The
+// Swing is built, or the act stalls at its most dramatic moment. If §5's generator ceilings cannot
+// reach that, SCALE THIS TABLE DOWN and re-derive — do not raise the generator ceiling, because
+// the point is that the Track is expensive, not that it is impossible."
+//
+// THAT CONDITIONAL IS NOW CLOSED BY MEASUREMENT, AND THE ANSWER IS THAT NOTHING NEEDS TO MOVE.
+//
+// IMPORTANT: every figure below was taken AFTER the actualDraw() correction in engine/colony.js
+// (see the long block on that function). Before it, site upkeep was summed into `demand` and never
+// into the draw, so a colonized site raised ration pressure without spending a unit. An upkeep
+// ladder measured against that engine would have been measured against a fiction, which is why
+// the fix and this measurement are one story.
+//
+// WHAT THIS FILE ACTUALLY BILLS AT FULL BUILD-OUT, summed from the rows above:
+//
+//   site                       upkeepFactor   pad     Power/s   O2/s   Prov/s
+//   Home Plate                       1.0       T1         0.0    0.0      0.0
+//   The On-Deck Circle               1.2       T2         3.8    1.5      1.5
+//   First Base                       1.6       T3        14.0    4.0      5.4
+//   Second Base                      3.0       T4        56.0    9.0     18.0
+//   The Warning Track                6.0       T5       270.0   20.0     86.0
+//   TOTAL                                                343.8   34.5    110.9
+//
+// That is ~15% ABOVE §7.2's own "roughly 300 Power and 100 Provisions" target before a single
+// module's draw is counted — so the table was already asking for more than the paragraph that
+// sized it. It is affordable anyway.
+//
+// THE SUSTAINING BUILD-OUT, found by a greedy sizer under `node` (add whichever module best
+// relieves the tightest deficit; deterministic, no rng) against the real colonyRates():
+//
+//   11 Fusion Ring, 7 Spun Drum Farm, 13 Regolith Ice Harvester, 2 ISRU Plant, 2 Cryo Farm
+//   1,069,856 Salvage at the shop's geometric ladder
+//
+//     gross    Power 1540.0   O2 80.0   Prov 168.0   Fuel 28.0
+//     demand   Power 1429.8   O2 78.5   Prov 162.2
+//     net      Power  +110.2  O2  +1.5  Prov   +5.8  Fuel +28.0
+//     satisfaction 1.000 on all four resources
+//
+// CORROBORATED IN A FULL RUN through the real advance() loop rather than only in a fixture: a 30h
+// run with a competent buyer reached padTier5@thirdBase at minute 1,106.5 with satisfaction at
+// 1.000 on Power, Oxygen and Provisions at the moment of purchase and for the whole tail after The
+// Swing landed. The margin is not marginal.
+//
+// SO THE DECISION IS: THE UPKEEP TABLE IS NOT SCALED DOWN. §7.2's instruction was conditional on a
+// measurement that had never been taken, and taken, it does not fire. Scaling the table down now
+// would spend the Track's whole character — a 6.0 factor that makes the final pad cost six times
+// what the same machine costs in LEO — to solve a problem the simulation says does not exist.
+//
+// ===============================================================================================
+// WHAT ARRIVING AT THE WARNING TRACK ACTUALLY DOES, AND WHY IT IS NOT WHAT §7.6 EXPECTED
+//
+// VERIFIED STRUCTURALLY, ACROSS ALL FIVE SITES AND ALL FIVE TIERS: there is no `fuel` key in any
+// site's `baseUpkeep` and none in any pad tier's `upkeep`. Nothing on this ladder draws Fuel.
+//
+// That single fact rewrites the beat. §7.6 models the arrival as the Fuel rate degrading in two
+// steps — "roughly 32 -> 30 -> 26" — as upkeep is subtracted from the pool that feeds the
+// refineries. The engine does not subtract; it RATIONS. Upkeep lands on Power, Oxygen and
+// Provisions, and it reaches Fuel only by throttling the refineries through `satisfaction`, which
+// does not move at all while there is stock in the tanks (see solveSatisfaction: a resource with a
+// buffer is fully satisfied whatever its net rate).
+//
+// Measured with the pre-Track sustaining portfolio and the storage a full run actually held at
+// that point (ceilings 49,100 Power / 39,100 O2 / 39,100 Prov), Fuel tank mid-fill:
+//
+//   stage                        net Power   net O2   net Prov   net Fuel   satisfaction
+//   (a) pre-Track, T4 top pad          0.0      0.0        0.0      28.00   1.00 on all
+//   (b) Track colonized, T4          -42.0    -16.5        0.0      28.00   1.00 on all
+//       buffer runway                19.5m    39.5m      never
+//   (c) The Swing built, T5         -285.8    -16.5      -71.0      28.00   1.00 on all
+//       buffer runway                 2.9m    39.5m       9.2m
+//
+// NEITHER SATISFACTION NOR THE FUEL RATE MOVES. The stocks drain instead. That is a better beat
+// than the one §7.6 described and it is the one §7.1 actually asks for — "a player arriving there
+// watches every rate in the header go down and has to build anyway" — because the rates going
+// down are exactly what the player sees, while the bar they are watching keeps filling at the
+// same speed. The pressure is a 2.9-minute Power runway, not a slower bar.
+//
+// The repair costs 455,313 Salvage of additional modules, which is 3.6 minutes of income at the
+// 2,083 Salvage/s the full run measured at colonize@thirdBase — against that 2.9-minute runway.
+// Tight, affordable, and a decision rather than a formality.
+//
+// If the player does nothing until every buffer is exhausted, the ration finally collapses:
+// satisfaction 0.00 Power / 0.03 O2 / 0.00 Prov and Fuel 0.02/s, converging in 16 solve passes.
+// That is the floor of an UNATTENDED colony, not what colonizing the Track does, and Decision 3.3
+// still holds throughout — nothing is destroyed, and one generator starts the climb back.
+//
+// ===============================================================================================
+// WHAT THE actualDraw() CORRECTION DID TO THE PHASES WHOSE TUNING PREDATES IT (§7.5's tables)
+//
+// The correction charges exactly `drawMult x siteUpkeep`, and `drawMult` is 1 because
+// `lifeSupportDrawMult` is not in BONUS_KEYS (§7.0 decision C keeps this whole file outside the
+// modifier system). So the delta IS the upkeep table above. Where it bites, measured against a
+// minimum-sustaining portfolio at each rung:
+//
+//   stage                          upkeep P/O2/Prov      as a share of that stage's GROSS
+//   L2 fill (On-Deck, T2)            3.8 /  1.5 /  1.5    1.4% / 10.7% /  6.2%
+//   L3 fill (First Base, T3)        17.8 /  5.5 /  6.9    4.2% / 27.5% / 14.3%
+//   L4 fill (Second Base, T4)       73.8 / 14.5 / 24.9   13.2% / 45.3% / 51.8%
+//   L5 fill (Track colonized, T4)  103.8 / 34.5 / 38.9   14.8% / 61.6% / 54.0%
+//   L5 fill (The Swing built, T5)  343.8 / 34.5 /110.9   24.6% / 43.1% / 66.0%
+//
+// OXYGEN IS WHERE IT BITES, NOT POWER, and that is the part a reader will not guess from the
+// headline 343.8 Power figure. Oxygen is in every site's `baseUpkeep`, and the Oxygen ladder is
+// the thinnest in the catalogue — 0.35, then 1.2, then 6.0 per copy. At the Track-colonized stage
+// site upkeep takes 61.6% of gross Oxygen. It bites EARLY, too: Home Plate's free 2.0 O2/s against
+// On-Deck's 1.5 O2/s leaves +0.5, so the act's only free atmosphere is 75% smaller from the first
+// colonization onward. A story tuning Oxygen against pre-fix numbers was tuning against 2.0.
+//
+// END-TO-END, THOUGH, THE LADDER BARELY MOVES. The same buyer over a 30h horizon, fixed engine vs
+// pre-fix engine, minute at which each ladder row was bought:
+//
+//   launch@onDeck        221.6 / 221.6      colonize@secondBase   701.6 / 701.2
+//   colonize@onDeck      284.6 / 284.6      padTier4@secondBase   798.4 / 798.0
+//   padTier2@onDeck      437.4 / 437.4      launch@thirdBase      808.4 / 808.0
+//   launch@firstBase     442.4 / 442.4      colonize@thirdBase    816.1 / 815.7
+//   colonize@firstBase   521.9 / 521.9      padTier5@thirdBase   1106.5 /1106.1
+//   padTier3@firstBase   609.6 / 609.3
+//
+// 0.4 minutes of drift across 18.4 hours. That is a REAL FINDING RATHER THAN A NULL RESULT, and
+// the reason matters: this buyer keeps satisfaction at 1.000 by holding large generator margins,
+// and charging upkeep against a large margin changes nothing. The fix's magnitude lives in the
+// percentage table above, not in the ladder timings — it is nearly free for a colony with slack
+// and it is the difference between playing and stalling for one without.
+//
+// HARNESS BIAS, STATED SO NOTHING HERE READS AS AN UPPER BOUND. Competent, not optimal, which is
+// the bias STORY-028 recorded and this harness inherits. It reproduces STORY-028's ladder to
+// within ~2 minutes at every rung (onDeck 284.6 vs 286.6, padTier2 437.4 vs 437.3, firstBase 521.9
+// vs 523.1, padTier3 609.6 vs 607.4, secondBase 701.6 vs 699.2) — which is the cross-check that it
+// is the same class of player, driven through the same real advance(). It does NOT chase the
+// Fuel-tank gate, so its absolute clock is a lower bound on player speed and must not be read as
+// act length; §12's 5-hour ceiling is still owed an optimal-buyer run, and STORY-032 is where that
+// lands. What it measures reliably is the rate and the satisfaction AT each ladder state, which is
+// exactly what the two questions above needed.
+// ===============================================================================================
 
 module.exports = {
   ACT_SEVEN_SITES,

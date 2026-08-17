@@ -203,8 +203,131 @@ const launchCopy = {
 // engine/tickEngine.js's real advance() loop. The harness lives in /tmp and is deliberately not
 // committed; there is no test runner in this repo and adding one is its own change.
 //
-// [MEASUREMENT BLOCK FILLED IN BELOW ONCE THE HARNESS HAS RUN]
-// ---------------------------------------------------------------------------------------------
+// Taken by STORY-031, and taken AFTER the actualDraw() correction in engine/colony.js — site
+// upkeep was summed into `demand` and never into the draw until that story, so every rate below
+// would otherwise have been measured against a colony that never paid for its own sites.
+//
+// ===============================================================================================
+// L5's THRESHOLD IS SIZED AGAINST THE POST-TRACK RATE, AND THE POST-TRACK RATE IS 28.0/s
+//
+// §7.5 assumed 26.0 Fuel/s "net of the Warning Track's upkeep (~32 before it)" and warned that
+// sizing L5 against the pre-Track figure would put the final fill at 22 minutes on paper and 27 in
+// practice, breaking `deepSpace`'s budget at exactly the beat that must not drag.
+//
+// MEASURED, at the minimum build-out that sustains the network with The Swing built (the sizing
+// run is recorded in data/actSevenSitesConfig.js): net Fuel 28.00/s, satisfaction 1.000 on all
+// four resources. That is ABOVE the assumption, not below it, and §7.6's instruction for that case
+// is explicit — the safe direction is D-6 measuring shorter, and the recovered minutes are spent
+// on D-5 rather than on a bigger threshold. SO 42,000 IS HELD.
+//
+// AND THE PRE/POST DISTINCTION TURNS OUT TO BE A DISTINCTION WITHOUT A DIFFERENCE, which is worth
+// recording because it is the opposite of what the PRD expected. No site's `baseUpkeep` and no pad
+// tier's `upkeep` contains a `fuel` key — verified exhaustively across all five of each. The Track
+// therefore cannot lower the Fuel rate by subtraction at all. It reaches Fuel only by throttling
+// the refineries through `satisfaction`, and satisfaction does not move while there is stock in
+// the tanks. The pre-Track rate and the post-Track rate are the same 28.0/s for any player who
+// keeps the colony solvent; what changes is that the Power and Provisions stocks start draining.
+// §7.6's "32 -> 30 -> 26" describes subtraction; engine/colony.js implements rationing. A model
+// difference, not a PRD error.
+//
+// THE INTEGRAL, NOT THE QUOTIENT — §7.5 asks for this explicitly and asks that the comment record
+// which was measured. Both are here. Simulated at 1s resolution across the real D-4-commit -> D-6
+// window, with the rate stepping as the Track is colonized (t = 960s: 600s transit + 360s
+// colonization) and as The Swing lands (t = 1,680s: + a 720s build):
+//
+//   quotient   42,000 / 28.00                                    = 1,500s = 25.0 min
+//   integral, build-out completed  0 min after colonizing         =          25.0 min
+//   integral, build-out completed  3 min after colonizing         =          27.1 min   <-- actual
+//   integral, build-out completed  5 min after colonizing         =          28.4 min
+//   integral, build-out completed 10 min after colonizing         =          31.9 min
+//   integral, build-out completed 20 min after colonizing         =          41.2 min
+//
+// The 3-minute row is the real one: the marginal build-out costs 455,313 Salvage and the full run
+// measured 2,083 Salvage/s at colonize@thirdBase, which is 3.6 minutes of income. SO THE MEASURED
+// L5 FILL IS 27.1 MINUTES AGAINST §7.5's 27-MINUTE INTENT. The integral exceeds the quotient by
+// 8.4%, inside §7.5's stated 5-15% band for exactly this reason — the player is still building
+// while the tank fills, and the fill is an integral over a ramp rather than a division.
+//
+// ===============================================================================================
+// THE `deepSpace` BEATS: EACH FLAT POINT AND THE UNLOCK THAT RELIEVES IT (§7.6)
+//
+//   beat                     flat point                          relieving unlock       within
+//   D-1 The long transit     the entire 8-min beat, by design    the feed runs the      —
+//                            (§7.6: "designed absence")          league's season
+//   D-2 The drum             —                                   —                      —
+//   D-3 The Cutoff           ~min 28: three production sites,    per-site contribution  ~4 min
+//                            one satisfaction number, no way     readout (§6) + §8's
+//                            to tell which lever helps           routing puzzle
+//   D-4 The fourth burn      ~min 48                             §9 contract chain      ~5 min
+//                                                                + the warning-track
+//                                                                puzzle (§8)
+//   D-5 The Warning Track    ~min 64: the network is worse       The Swing appears in   ~1 min
+//                            than it was and the bar is slower   the pad list — the
+//                                                                first pad whose reach
+//                                                                column names no site
+//   D-6 The swing            THE WHOLE BEAT                      NOTHING, DELIBERATELY  n/a
+//
+// D-5's relieving unlock is measured rather than asserted: The Swing becomes offerable the instant
+// the Track's colonization completes, which in the full run was minute 816.1, and it is affordable
+// at 560,000 Salvage against the 2,814 Salvage/s measured there — under 200 seconds of income. The
+// relief lands well inside the ~5-minute rule.
+//
+// -----------------------------------------------------------------------------------------------
+// D-6 IS DELIBERATELY FLAT. DO NOT "FIX" THIS.
+//
+// This paragraph exists because §7.6 predicts, in as many words, that the next person to run the
+// dead-air check will read D-6's result as a bug and repair it. It is not a bug. It is the only
+// place in the odyssey where the flat point IS the point.
+//
+// The Swing is the last item on §7's ladder, so §7's shop is empty for the entire final beat BY
+// CONSTRUCTION — there is nothing left to sell, because there is nowhere left to go. §7.6 takes
+// the exception explicitly: the dead-air metric holds everywhere in the act EXCEPT D-6. Inventing
+// a sink to satisfy the rule would be inventing a distraction from the last threshold in the game,
+// at the one moment the design wants the player watching. A simulation run that reports dead air
+// at D-6 IS REPORTING INTENT.
+//
+// Measured, so the intent has a number attached: 7.33 minutes is the longest interval after The
+// Swing is bought in which no shop offers an affordable row and no event is pending. That figure
+// is expected to be large and it is expected to grow with §5's price ladder. It is not a finding.
+// -----------------------------------------------------------------------------------------------
+//
+// ===============================================================================================
+// THE DEAD-AIR METRIC (§7.6): "at no point may more than 2 minutes pass in which the player has no
+// affordable purchase available and no event pending"
+//
+// Measured exactly as §7.6 specifies: drive advance() at 1s resolution and record every interval
+// in which listOffers() across the module shop, the site shop AND the launch shop returns zero
+// affordable rows while findNextEventClock() is more than 120 seconds out.
+//
+//   window                                            intervals > 2 min    worst
+//   D-1 .. D-4  (min 617.7 -> 808.4, to the L4 commit)          0          —          PASS
+//   D-5         (min 808.4 -> 1,106.5)                         91          3.32 min   MISS by 1.3
+//   D-6         (min 1,106.5 onward)                          136          7.33 min   EXCEPTED
+//   (`lifeSupport` worst 3.05 min at min 218.3; `lunar` worst 2.20 min at min 247.8)
+//
+// D-1 THROUGH D-4 PASS CLEANLY — zero intervals over two minutes across the whole first half of
+// the phase, which is the half §7.6 was most worried about, because that is where the 21,000 fill
+// runs underneath everything else.
+//
+// D-5 MISSES BY 1.3 MINUTES, AND THE DIAGNOSIS IS NOT IN THIS SECTION. At that point in the run
+// the buyer holds 30 to 50 copies of every module in the catalogue, so the next copy of the
+// CHEAPEST row costs ~530,000 Salvage against 2,814 Salvage/s — 188 seconds, or 3.1 minutes,
+// between purchases. The binding term is §5's 1.14 growth exponent compounding on a uniformly
+// levelled portfolio; nothing §7 authors appears in that arithmetic. §7.6's own remedy points the
+// same way: "If simulation shows dead air, the fix is a cheaper Salvage sink, never a smaller
+// threshold." NOTHING IN THIS FILE OR IN actSevenSitesConfig.js WAS RETUNED FOR IT.
+//
+// Two reasons the 3.32 figure is an upper bound rather than an estimate, both properties of the
+// harness rather than of the act. The buyer SPENDS TO ZERO every second, and a player who banks
+// has strictly more affordable rows at every instant. And it LEVELS EVERY MODULE UNIFORMLY, which
+// is precisely what makes every row cost ~530,000 at the same time; a player who specialises keeps
+// cheap rows in the categories they skipped. The metric is maximised by doing both, so 3.32 min
+// bounds a player who does neither.
+//
+// AND §9 IS NOT ON THIS BRANCH. §7.6 schedules a contract chain across exactly the D-4/D-5 window
+// and states that the no-contract case is the upper bound the band must hold for — "the band must
+// hold for a player who ignores §9 entirely." This is that case, measured.
+// ===============================================================================================
 
 module.exports = {
   LAUNCH_FUEL_RESOURCE,

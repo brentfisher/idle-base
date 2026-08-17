@@ -585,7 +585,51 @@ function loadFollowOf(definition, throttles) {
 // that its producers have backed off. Rationing throughput is deliberately NOT applied here — a
 // throttled consumer still demands its full share, and that unmet demand is exactly what holds a
 // starved resource pinned at zero.
-function actualDraw(owned, drawMult, throttles) {
+//
+// ---------------------------------------------------------------------------------------------
+// THE SITE TERM WAS MISSING HERE UNTIL STORY-031, AND ITS ABSENCE WAS A REAL DEFECT RATHER THAN A
+// MODELLING CHOICE. STORY-027 added `siteUpkeepPerSecond()` to demandAtFullOutput() and stopped
+// there, so from that story until this one a colonized site RAISED THE RATION PRESSURE WITHOUT EVER
+// DRAWING A SINGLE UNIT. `demand` went up, `satisfaction` went down, and `net` was untouched —
+// which is not "upkeep is free", it is worse: the colony was billed in the denominator of the
+// ration and refunded in the numerator of the stock.
+//
+// MEASURED BY STORY-030, and quoted because it is the shortest statement of the bug: 10 RTGs plus a
+// colonized On-Deck plus a tier-2 pad reported `demand.power 3.8` against `net.power 30.0`, and
+// 30.0 is exactly `gross` — the draw was identically zero. PRD §5.7's own eight-hour trace debits
+// site upkeep from the stocks, so the intent was never in doubt; the two halves of one term had
+// simply been written a story apart.
+//
+// IT IS FIXED HERE RATHER THAN IN ITS OWN STORY BECAUSE THIS STORY'S CENTRAL MEASUREMENT IS
+// MEANINGLESS WITHOUT IT. STORY-031 has to prove the network can sustain The Swing's 240 Power/s
+// and 72 Provisions/s at the moment it becomes buildable. An upkeep ladder tuned against a colony
+// that never pays site upkeep is tuned against a fiction, and every number it shipped would have
+// been measured on the wrong engine. See the delta block at the foot of this file for what the
+// correction did to the phases whose tuning predates it.
+//
+// TWO PROPERTIES, MATCHED DELIBERATELY TO HOW demandAtFullOutput() ALREADY TREATS THE SAME TERM:
+//
+//   * MULTIPLIED BY `drawMult` (§5.6). Life support is life support wherever it is drawn — a
+//     permanent that makes the colony frugal makes the pads frugal too. This is the asymmetry with
+//     site PRODUCTION, which takes no output multiplier because a planet has no equipment to
+//     upgrade (see siteProductionPerSecond).
+//   * NOT LOAD-FOLLOWED, and this is the one an implementer is likely to "fix". `loadFollowOf()`
+//     reads a definition's `produces` map; a site record has no such shape and a pad is not a
+//     producer at all. More to the point, load-follow is the rule that stops a PRODUCER overfilling
+//     a ceiling by backing off. A pad does not back off because the Provisions silo is full — it is
+//     a machine being kept alive, and it draws the same rate at every stock level. Applying a
+//     throttle here would make the network cheapest exactly when it is richest, which is backwards.
+//
+// MERGE NOTE, WRITTEN IN ADVANCE. PR #34 (STORY-030) widens this same function to
+// `actualDraw(owned, drawMult, throttles, contractDraw)` and appends a contract-draw loop after the
+// module loop. NEITHER CHANGE SUPERSEDES THE OTHER AND THE RESOLUTION IS TO TAKE BOTH TERMS — a
+// contract drawing Power and a pad drawing Power are both real consumers, and their sum is the
+// draw. The merged signature is `actualDraw(owned, drawMult, throttles, sites, contractDraw)`, with
+// the site sum below and the contract sum beside it, both scaled by `drawMult` and neither
+// load-followed. This is the same class of conflict MERGE-NOTES records for the tickEngine.js
+// event-clock contributors (029 vs 027) and it resolves the same way: two contributors to one sum.
+// ---------------------------------------------------------------------------------------------
+function actualDraw(owned, drawMult, throttles, sites) {
   const draw = zeroedByResource();
   owned.forEach(({ definition, count }) => {
     const consumes = definition.consumes || {};
@@ -594,6 +638,11 @@ function actualDraw(owned, drawMult, throttles) {
       const rate = consumes[resourceId];
       if (Number.isFinite(rate) && rate > 0) draw[resourceId] += drawMult * count * rate * followed;
     });
+  });
+
+  const upkeep = siteUpkeepPerSecond(sites || []);
+  EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
+    draw[resourceId] += drawMult * upkeep[resourceId];
   });
   return draw;
 }
@@ -709,7 +758,7 @@ function colonyRates(state, modifiers) {
     (definition) => loadFollowOf(definition, supplyThrottle),
     sites
   );
-  const draw = actualDraw(owned, drawMult, supplyThrottle);
+  const draw = actualDraw(owned, drawMult, supplyThrottle, sites);
 
   // THE PIN, AT BOTH ENDS. A resource held against a boundary it cannot cross has net exactly 0 BY
   // ASSIGNMENT, not by arithmetic. At the empty end this is §5.6's rule and it is what makes the
@@ -987,6 +1036,42 @@ function isLifeSupportPhase(state) {
 function isAftermathPhase(state) {
   return !isLifeSupportPhase(state);
 }
+
+// ---------------------------------------------------------------------------------------------
+// THE AFFORDABILITY DELTA THE actualDraw() CORRECTION CAUSED — the block that function's comment
+// forward-references. Measured under `node` by STORY-031, running the same competent buyer through
+// the real advance() loop twice: once against this file, once against the pre-fix version.
+//
+// THE DELTA IS EXACTLY THE SITE UPKEEP TABLE, and that is provable rather than measured: the site
+// term is `drawMult x siteUpkeepPerSecond(sites)`, and `drawMult` is 1 because
+// `lifeSupportDrawMult` is not registered in BONUS_KEYS (PRD §7.0's decision C deliberately keeps
+// the whole site ladder outside the modifier system). So the colony is now poorer by precisely
+// what data/actSevenSitesConfig.js bills, which at full build-out is 343.8 Power/s, 34.5 O2/s and
+// 110.9 Provisions/s.
+//
+// WHERE IT BITES IS OXYGEN, NOT POWER, which is not what the headline Power figure suggests.
+// Oxygen appears in every site's `baseUpkeep` and the Oxygen ladder is the thinnest in the module
+// catalogue — 0.35, then 1.2, then 6.0 per copy. As a share of gross at a minimum-sustaining
+// portfolio: 10.7% at the L2 fill, 27.5% at L3, 45.3% at L4, and 61.6% once the Warning Track is
+// colonized. It bites from the very first colonization, too — Home Plate's free 2.0 O2/s against
+// On-Deck's 1.5 O2/s leaves +0.5, so the act's only free atmosphere is 75% smaller than any
+// pre-fix tuning assumed. The full per-rung table is in data/actSevenSitesConfig.js beside the
+// upkeep rows it is derived from.
+//
+// END TO END THE LADDER MOVES BY 0.4 MINUTES ACROSS 18.4 HOURS (padTier5@thirdBase at minute
+// 1,106.5 fixed against 1,106.1 pre-fix; every earlier rung within 0.4 min likewise). That is a
+// finding, not a null result, and the reason is the one worth carrying forward: a buyer that holds
+// large generator margins keeps `satisfaction` at 1.000, and charging upkeep against a large
+// margin changes nothing at all. The correction is nearly free for a colony with slack and it is
+// the difference between playing and stalling for one without — with the pre-Track portfolio and
+// The Swing built, Power runs -285.8/s against a 2.9-minute buffer where the pre-fix engine
+// reported it comfortably positive.
+//
+// NOTHING WAS RETUNED IN RESPONSE. The phases whose tuning predates the fix (STORY-025's
+// `aftermath`/`lifeSupport` work, STORY-027's cost ladder) are unaffected at the resolution their
+// own measurements were taken at, and the one number the fix genuinely changes — the free Oxygen
+// margin — is recorded here so the next story to tune Oxygen starts from 0.5 rather than 2.0.
+// ---------------------------------------------------------------------------------------------
 
 module.exports = {
   expeditionSlice,
