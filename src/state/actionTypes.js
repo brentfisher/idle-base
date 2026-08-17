@@ -36,6 +36,20 @@ module.exports = {
   PRESTIGE_RESET: 'PRESTIGE_RESET',
   BUY_PERK: 'BUY_PERK',
 
+  // Act VII's contract board. THREE ACTIONS AND NOT ONE WITH A MODE, because they are three
+  // different decisions made through three different controls and they refuse for different
+  // reasons: accepting is bounded by the two-slot ceiling, claiming is bounded by what fits in the
+  // tank, and abandoning is never refused for anything but "there is nothing there". Folding them
+  // into one action would mean one reducer branch that has to re-derive which of the three the
+  // player meant. See engine/contracts.js.
+  //
+  // There is deliberately no CLICK-side action here. Innings Limit detects the click by comparing
+  // `clicker.totalClicks` at the window boundary against the value sealed at accept, so the click
+  // reducer needs no knowledge of contracts at all.
+  ACCEPT_CONTRACT: 'ACCEPT_CONTRACT',
+  CLAIM_CONTRACT: 'CLAIM_CONTRACT',
+  ABANDON_CONTRACT: 'ABANDON_CONTRACT',
+
   MARK_TAB_SEEN: 'MARK_TAB_SEEN',
   SET_TEAM_NAME: 'SET_TEAM_NAME',
 
