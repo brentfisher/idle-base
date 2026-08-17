@@ -35,7 +35,7 @@
 // serving each launch has capacity 1.6x the threshold"), so a retune of the band has to move both
 // or the overshoot decision decays into a coincidence between two hand-typed numbers. Imported, it
 // cannot.
-const { OVERSHOOT_TANK_MULT } = require('./actSevenSitesConfig');
+const { OVERSHOOT_TANK_MULT, OVER_THE_WALL_DESTINATION_ID } = require('./actSevenSitesConfig');
 
 // The consumable a launch spends, named here so engine/launch.js contains no resource-id literal.
 //
@@ -134,16 +134,32 @@ function transitSecondsFrom(originSiteId) {
 // Per-leg flavour, keyed by DESTINATION because this is the one place the player is being told
 // where they are going rather than what they are leaving.
 //
-// There is no entry for the fifth burn, and its absence is load-bearing rather than an oversight:
-// L5 departs the Warning Track for a place §7.1 refuses to call a site. It has no record, no rung
-// and no arrival, so engine/launch.js emits no offer for it and STORY-032 owns what happens
-// instead. A description here would be the only part of that ending that existed.
+// THE FIFTH ENTRY LANDED WITH STORY-032, AND UNTIL THEN ITS ABSENCE WAS LOAD-BEARING. What this
+// comment used to say is worth keeping, because it is the reason the entry reads the way it does:
+// L5 departs the Warning Track for a place §7.1 refuses to call a site — no rung, no record, no
+// arrival — so a description written before the ending existed would have been the only part of
+// that ending that did. The ending exists now, so the description does.
+//
+// It is keyed by `OVER_THE_WALL_DESTINATION_ID` rather than by a typed 'beyondTheWall', so the one
+// place that string is authored is data/actSevenSitesConfig.js and a rename cannot leave this map
+// silently answering '' for the last burn in the game.
 const LEG_DESCRIPTIONS = {
   onDeck: 'Straight up, and then around. A hundred and fifty years of other people’s equipment is up there going the same way you will be.',
   firstBase: 'Out to the ice. Nobody has touched it, which after this long stops being remarkable and starts being the point.',
   secondBase: 'Eight minutes of nothing at all. Ceres does not come out to meet you and there is no reason it should.',
   thirdBase: 'Out to a place that makes nothing, so that you have somewhere to throw from. That is the whole reason and it is enough.',
+  [OVER_THE_WALL_DESTINATION_ID]: 'No arrival on this one. The Office files it as a departure and closes the ticket, and twelve minutes later somebody at the other end files it as an arrival, and those are two different pieces of paper in two different buildings. You are the part in between.',
 };
+
+// The fifth burn's destination, as a name. Not a site and therefore not a `label` in
+// data/actSevenSitesConfig.js's ladder — the ladder holds places, and §7.1 is explicit that this is
+// not one. It is a display string, so it lives with the other display strings.
+//
+// Lower-case "the Wall" deliberately. Every site on the ladder is a Proper Noun the Office has
+// assigned paperwork to; this is the only destination in the act that is a feature of a ballpark
+// rather than a place anyone has been, and capitalising it into a location would be the one moment
+// the act's flat operational voice reached for awe.
+const OVER_THE_WALL_LABEL = 'the Wall';
 
 // The house formatters, rather than an ad-hoc one written here. utils/formatNumber.js is a pure
 // CommonJS module with no React and no DOM, so requiring it from a data file breaks no layer, and
@@ -344,6 +360,7 @@ module.exports = {
   LAUNCH_FUEL_RESOURCE,
   ARRIVAL_GRANT_CURRENCY,
   TRANSIT_SECONDS_BY_ORIGIN,
+  OVER_THE_WALL_LABEL,
   OVERSHOOT_TANK_MULT,
   OVERSHOOT_FLOOR,
   OVERSHOOT_STEP,

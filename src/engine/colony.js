@@ -147,6 +147,29 @@ function expeditionSlice(state) {
     // `resolved: false` and an `arrivesAtClock`, which is what makes arrival resolution idempotent
     // by construction rather than needing a separate slot to reconcile.
     launches: Array.isArray(slice.launches) ? slice.launches : [],
+    // ---------------------------------------------------------------------------------------
+    // THE RUN RECORD (PRD §7.8, STORY-032). Two scalars the ending reads and nothing else does.
+    //
+    // Earth's placement on the majors board is computed from the run, deterministically, and one of
+    // its inputs is a quantity no other part of the act had a reason to remember: THE BEST NET FUEL
+    // RATE THE NETWORK EVER REACHED, written by integrateColony() below. `standingOrders` is the
+    // post-game ladder's counter.
+    //
+    // NOTE WHAT IS DELIBERATELY *NOT* HERE. The board also needs the clock at which Act VII began,
+    // and this story nearly added a third field for it before finding that
+    // `progression.actEnteredAtClock` has carried exactly that since STORY-004 — written by
+    // enterAct() on every act boundary and already read by engine/narrative.js for the same kind of
+    // question. Two clocks answering one question is the drift the header of
+    // data/actSevenConfig.js exists to forbid, so engine/board.js reads the one that exists.
+    //
+    // BOTH DEFAULT WITH Number.isFinite AND NEVER WITH `|| default`, which is the rule this whole
+    // accessor exists to hold and it bites on each. `peakFuelRate: 0` is the correct reading of a
+    // colony that has never made a drop of Fuel and `standingOrders: 0` is every run that has not
+    // won — the `||` idiom cannot tell either from an absent key.
+    peakFuelRate: Number.isFinite(slice.peakFuelRate) && slice.peakFuelRate > 0 ? slice.peakFuelRate : 0,
+    standingOrders: Number.isFinite(slice.standingOrders) && slice.standingOrders > 0
+      ? Math.floor(slice.standingOrders)
+      : 0,
   };
 }
 
@@ -1014,12 +1037,38 @@ function integrateColony(state, modifiers, step) {
     resources[resourceId] = { amount: after, capacity: capacity[resourceId] };
   });
 
-  if (!moved) return state;
+  // THE PEAK NET FUEL RATE, SAMPLED WHERE THE SOLVE ALREADY HAPPENED (PRD §7.8's placement inputs).
+  //
+  // IT COSTS NOTHING, AND THAT IS THE ENTIRE REASON IT IS HERE RATHER THAN IN engine/board.js.
+  // colonyRates() is a 16-pass Kleene fixed point, and the tick loop is careful enough about it
+  // that advanceContracts() is handed the solve from the top of the iteration rather than being
+  // allowed to take its own. Adding an unconditional second solve per tick to record one number for
+  // one screen at the end of the act would be the most expensive line in the loop. `net` is four
+  // lines above; the peak is a comparison.
+  //
+  // MONOTONE, WHICH IS WHAT MAKES IT REPLAY-SAFE. A maximum cannot be double-counted, so an
+  // eight-hour offline catch-up that crosses the same rate regime forty times records it once and
+  // the fortieth pass is a no-op. That is a stronger property than idempotence and it is why this
+  // needs no boundary, no resolver and no entry on EVENT_CLOCK_CONTRIBUTORS.
+  //
+  // AND IT CANNOT MATERIALISE A SLICE INTO THE SIX ACTS BEFORE THIS ONE, by the same structural
+  // argument the Home Plate note above makes rather than by an act check: the only thing in the
+  // game that produces Fuel is an Act VII module, so `net.fuel` is 0 for every save that owns none,
+  // 0 is never greater than the stored 0, and the write never fires. `> 0` on the stored side is
+  // belt and braces on a corrupt negative.
+  //
+  // THE RATE, NOT THE STOCK. §7.8 asks for "peak network Fuel/sec" — what the network was capable
+  // of at its best, which is a statement about how well it was built. The tank's high-water mark
+  // would be a statement about the largest threshold the ladder happened to ask for.
+  const netFuel = Number.isFinite(net.fuel) ? net.fuel : 0;
+  const peakFuelRate = netFuel > slice.peakFuelRate ? netFuel : slice.peakFuelRate;
+
+  if (!moved && peakFuelRate === slice.peakFuelRate) return state;
 
   // Spreads the FULL accessor return, never a partial object. engine/concessions.js records the
   // near-miss this convention exists to prevent: the accessor's result is what gets written back,
   // so a key the accessor forgets is a key every later write silently deletes.
-  return { ...state, expedition: { ...slice, resources } };
+  return { ...state, expedition: { ...slice, resources, peakFuelRate } };
 }
 
 // The earliest clock at which any resource reaches 0 or its capacity at the CURRENT net rate;

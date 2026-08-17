@@ -3025,6 +3025,116 @@ body.expedition .v7-row.is-unaffordable .v7-row-cost {
   color: var(--v7-muted);
 }
 
+/* The row's left half — the name and whatever the engine's `effect` string says it does. Declared
+   with the row rather than with the panel that first used it, because the row IS the shop contract
+   made visible and every Act VII shop renders it. */
+body.expedition .v7-row-main {
+  min-width: 0;
+}
+
+body.expedition .v7-row-effect {
+  color: var(--v7-muted);
+  font-size: 0.85rem;
+}
+
+/* The price when it is a BUTTON rather than a label. `.v7-row-cost` above styles the text; a
+   <button> arrives with a user-agent background, border and font that none of the act's other
+   surfaces have, so it is reset onto the chip surface here. Amber ink on the chip, because amber is
+   what the player buys with, and the border is what makes it read as pressable at all. */
+body.expedition button.v7-row-cost {
+  background: var(--v7-chip);
+  border: 1px solid var(--v7-accent);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Disabled rather than hidden, because engine/board.js returns the row with `affordable: false`
+   rather than omitting it — the standing-order shop has exactly one row, and a shop that hides its
+   only row leaves the last screen of the game with nothing on it. Same argument the launch shop
+   makes for returning a blocked row with a reason. */
+body.expedition button.v7-row-cost:disabled {
+  border-color: var(--v7-border);
+  color: var(--v7-muted);
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   THE MAJORS BOARD (PRD §7.8) — the last screen of the game.
+
+   `table.standings` is styled once near the top of this file for the ballpark: a green rule under
+   every cell and a GOLD highlight on the player's row. That is the little league's table and it is
+   deliberately the same component here (components/league/StandingsTable.js), so the only thing
+   this section does is re-colour it into the act's palette — blue-grey rules, amber highlight.
+
+   RE-COLOURED AND NOT RE-LAID-OUT, which is the entire point of §7.8's last sentence. Nothing here
+   touches padding, alignment, font size or border-collapse; a board that changed the table's SHAPE
+   would be a second standings layout wearing the first one's class name, which is the thing the
+   shared component exists to prevent. Only the two colours that are the ballpark's move.
+   --------------------------------------------------------------------------------------------- */
+body.expedition table.standings th,
+body.expedition table.standings td {
+  border-bottom-color: var(--v7-border);
+}
+
+body.expedition table.standings th {
+  color: var(--v7-muted);
+}
+
+/* Earth's row. Amber at the same 0.12 alpha the ballpark uses for gold, so the emphasis reads
+   identically strong — it is the same row, in the same table, in a colder room. */
+body.expedition table.standings tr.me {
+  background: rgba(255, 179, 64, 0.12);
+}
+
+/* The line the run earned. Amber because it is the one sentence on this screen the player did
+   something to deserve, and everything the act says in amber is something the player caused. */
+body.expedition .v7-board-line-earned {
+  color: var(--v7-accent);
+  margin: 14px 0 4px;
+}
+
+/* The itemized account. A <ul> because it is a list of facts about the run, not a table — it has
+   no columns worth aligning across rows on a phone, and the wins figure is the only number. */
+body.expedition .v7-board-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+body.expedition .v7-board-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--v7-border);
+}
+
+body.expedition .v7-board-line:last-child {
+  border-bottom: 0;
+}
+
+body.expedition .v7-board-line-label {
+  color: var(--v7-ink);
+  font-weight: 600;
+}
+
+/* Takes the slack so the wins figure is pushed to the right edge on a desktop and wraps to its own
+   line on a phone, which is what `flex-wrap` plus a growing middle buys with no media query. */
+body.expedition .v7-board-line-detail {
+  color: var(--v7-muted);
+  font-size: 0.85rem;
+  flex: 1 1 12ch;
+}
+
+body.expedition .v7-board-line-wins {
+  color: var(--v7-accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
      description do not share 390px with a price button and stay readable. Stacked, the price

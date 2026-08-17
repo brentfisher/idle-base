@@ -15,6 +15,8 @@
 //   nextArrivalClock(state)    the transit wake boundary, on tickEngine's contributor list
 const {
   OVERSHOOT_TANK_MULT,
+  OVER_THE_WALL_RUNG,
+  OVER_THE_WALL_DESTINATION_ID,
   getSiteDefinition,
   padTierForRung,
 } = require('../data/actSevenSitesConfig');
@@ -25,9 +27,14 @@ const {
   OVERSHOOT_STEP,
   TRANSIT_REDUCTION_PER_STEP,
   ARRIVAL_GRANT_PER_STEP,
+  OVER_THE_WALL_LABEL,
   transitSecondsFrom,
   launchCopy,
 } = require('../data/actSevenLaunchConfig');
+// The win condition's milestone key (PRD §7.8). Named in data/ rather than typed here, and read by
+// engine/sites.js's phase ladder from the same constant, so the write below and the read there
+// cannot drift apart into a run that has won and a phase that never notices.
+const { OVER_THE_WALL_MILESTONE } = require('../data/actSevenConfig');
 const { expeditionSlice, resolvedSites, spendResource } = require('./colony');
 const { markSiteReached, siteReach } = require('./sites');
 const { creditWallet } = require('./wallet');
@@ -192,6 +199,45 @@ function arrivalGrantFor(launch) {
 // THE SHOP
 // ---------------------------------------------------------------------------------------------
 
+// THE FIFTH BURN'S DESTINATION, AS A ROW SHAPED LIKE A SITE AND DELIBERATELY NOT ONE (§7.1, §7.8).
+// Returns null once that burn has been committed, which is what ends the shop for good.
+//
+// FOUR FIELDS, AND EVERY ONE OF THEM IS THERE SO THAT NOTHING DOWNSTREAM NEEDS A BRANCH. The rest
+// of this file asks a destination for exactly these: `rung` to find the origin one below it and to
+// compare against reach, `id` for the offer id and the stored record, `label` for the row's name,
+// and `colonizeCost` for the overshoot's arrival grant. Supply all four and currentLeg(),
+// blockedReasonFor(), listOffers() and purchase() run the last burn in the game through the
+// identical path as the first, with no `isWall` test anywhere. That is the payoff of
+// data/actSevenSitesConfig.js's refusal of a `reachesWall: true` flag: reach stayed ONE COMPARISON,
+// `siteReach(origin) < destination.rung`, and the top pad's `reachesRung: 5` satisfies it here for
+// the same reason The Mound's 2 satisfies it at On-Deck.
+//
+// `colonizeCost: 0` IS THE CORRECT VALUE AND NOT A PLACEHOLDER. The arrival grant is a percentage
+// of what it costs to colonize where you are going, and nobody colonizes the Wall — §7.1 is
+// explicit that beyond it is not a place. So overshoot on the final burn buys the shorter transit
+// and no Salvage, which is right twice over: there is no colony left to spend it on, and the
+// overshoot ratio is instead read by engine/board.js as an input to Earth's placement. The last
+// burn's margin is worth something; it is just not worth money.
+//
+// GUARDED ON THE LAUNCH LOG RATHER THAN ON THE MILESTONE, even though purchase() sets both in the
+// same call. The log is this file's own state and the milestone is progression's, and a shop that
+// asked progression whether it may still sell something would be a second place that knows what
+// winning means. The record's id is unique by construction (see the offer-id note above), so "has
+// this burn been committed" is a lookup with no counter and no clock in it.
+function beyondTheWall(slice) {
+  const committed = slice.launches.some((launch) => (
+    !!launch && launch.destinationSiteId === OVER_THE_WALL_DESTINATION_ID
+  ));
+  if (committed) return null;
+
+  return {
+    id: OVER_THE_WALL_DESTINATION_ID,
+    rung: OVER_THE_WALL_RUNG,
+    label: OVER_THE_WALL_LABEL,
+    colonizeCost: 0,
+  };
+}
+
 // The one burn that could be committed next, fully resolved, or null. Everything listOffers() and
 // purchase() both need to know, computed once so the two cannot disagree about a single field.
 //
@@ -205,12 +251,11 @@ function currentLeg(state, slice) {
   // needs no act check of its own.
   if (sites.length === 0) return null;
 
-  const destination = sites.find((site) => !site.reached);
-  // EVERY RUNG REACHED IS NOT AN ERROR, IT IS THE ENDING. The fifth burn departs the Warning Track
-  // for a place §7.1 refuses to call a site — no rung, no record, no arrival — so there is no
-  // destination row for it here and STORY-032 owns the win condition instead. Returning null means
-  // the launch shop correctly empties at the top of the ladder rather than offering a burn to
-  // nowhere.
+  // EVERY RUNG REACHED IS NOT AN ERROR, IT IS THE ENDING (§7.8, STORY-032). The fifth burn departs
+  // the Warning Track for a place §7.1 refuses to call a site, so once the ladder is exhausted the
+  // destination is the pseudo-row below rather than a site record — and `null` after that, which is
+  // what keeps the launch shop from offering the last burn in the game twice.
+  const destination = sites.find((site) => !site.reached) || beyondTheWall(slice);
   if (!destination) return null;
 
   const origin = sites.find((site) => site.rung === destination.rung - 1);
@@ -348,7 +393,46 @@ function purchase(state, offerId) {
   // Spread the accessor's return value when writing the slice back — engine/concessions.js records
   // the near-miss in full: a key one copy of the shape forgets is a key every later write silently
   // deletes.
-  return { ...spent, expedition: { ...slice, launches: [...slice.launches, record] } };
+  const committed = { ...spent, expedition: { ...slice, launches: [...slice.launches, record] } };
+
+  // THE WIN CONDITION (§7.8). Committing the fifth burn is winning Act VII — a COMMIT and not an
+  // arrival, for the same reason the crossing into the act is offered rather than imposed (Decision
+  // 3.2): the game's last act should be the player's, not a timer's. The last thing the player does
+  // in this game is press a button, and the twelve minutes afterwards are the game's, not theirs.
+  //
+  // The milestone is set HERE, in the only function a player can reach it through, rather than by
+  // anything inside advance(). That is the same argument the no-rng block at the top of this file
+  // makes: a win resolved during an offline catch-up is a win resolved in front of nobody.
+  return offer.destinationSiteId === OVER_THE_WALL_DESTINATION_ID
+    ? withOverTheWallMilestone(committed)
+    : committed;
+}
+
+// Sets `progression.milestones.overTheWall`, idempotently, returning state by identity when it is
+// already set.
+//
+// GUARDED TO THE LEAF ON THE WAY IN, and the reason is not symmetry with the readers. This is a
+// WRITE into `progression`, and a `{ ...state.progression }` over an absent slice would materialise
+// a progression object with nothing in it but a milestones bag — which is not a crash today and is
+// the kind of thing that becomes one the first time something reads `progression.act` off the
+// result. Every save in existence has a progression slice; the guard costs nothing and states that
+// this function does not create one.
+//
+// IT IS NOT A PARALLEL PHASE FLAG, which ledger R4 forbids. `expedition.phase` remains the act's
+// single progression signal and this milestone is an INPUT to the predicate that computes it, in
+// exactly the way `expedition.launches` is an input to the `deepSpace` predicate. The distinction
+// R4 draws is between a second SOURCE OF TRUTH for how far the run has got and a fact the one
+// source reads; this is the second kind, and engine/sites.js's overTheWallGrants() is where it is
+// read.
+function withOverTheWallMilestone(state) {
+  const progression = state && state.progression;
+  if (!progression) return state;
+  const milestones = progression.milestones || {};
+  if (milestones[OVER_THE_WALL_MILESTONE] === true) return state;
+  return {
+    ...state,
+    progression: { ...progression, milestones: { ...milestones, [OVER_THE_WALL_MILESTONE]: true } },
+  };
 }
 
 // THE THRESHOLD OF THE LAUNCH CURRENTLY BEING FILLED — ledger R3's multiplicand, exported for
@@ -363,12 +447,24 @@ function purchase(state, offerId) {
 // contract paying a percentage of the wrong launch would look like a balance problem rather than a
 // bug.
 //
-// AT THE TOP OF THE LADDER currentLeg() returns null, because the fifth burn departs the Warning
-// Track for a place §7.1 refuses to call a site. That is not an error and must not read as a
-// threshold of zero: `majors` still has contracts (§9.5 #12) and they still have to pay something.
-// So the fallback is the departing threshold of the highest rung the player has reached, which is
-// the last threshold they actually filled — the honest answer to "what is a percentage of the
-// current burn worth" for a ladder that has run out of authored rungs.
+// THE FALLBACK'S PREMISE MOVED WITH STORY-032 AND THE FALLBACK DID NOT, which is worth recording
+// because the answer is unchanged and the route to it is not. This comment used to say that
+// currentLeg() returns null at the top of the ladder; it now returns the over-the-wall leg instead,
+// so between The Swing being built and the fifth burn being committed this function takes the FIRST
+// branch and answers `leg.threshold`.
+//
+// That is the same number. The wall leg departs the Warning Track, so its threshold is the Track's
+// `departingThreshold` — 42,000 — and the fallback below, "the departing threshold of the highest
+// rung the player has reached", resolves to the Track's 42,000 as well. VERIFIED under `node` rather
+// than reasoned about, because engine/contracts.js multiplies `payoutPct` against this value and a
+// contract paying a percentage of the wrong burn would look like a balance problem rather than a
+// bug.
+//
+// AFTER the fifth burn is committed, currentLeg() returns null for good and the fallback carries
+// the whole of `majors`. That is not an error and must not read as a threshold of zero: `majors`
+// still has contracts (§9.5 #12) and they still have to pay something. The last threshold the
+// player actually filled is the honest answer to "what is a percentage of the current burn worth"
+// for a run that has no burns left.
 //
 // Returns 0 outside Act VII, where resolvedSites() is empty. Every caller treats a zero threshold
 // as "no Fuel payout can be sized yet", which is exactly right in `aftermath` too, where there is
@@ -413,6 +509,20 @@ function currentLaunchThreshold(state) {
 // arrivals in save order, which is commit order, which is NOT necessarily arrival order once
 // overshoot can shorten a transit. Ordering by the clock costs a comparison and means the log reads
 // in the order the player lived it.
+//
+// THE FIFTH BURN RESOLVES THROUGH THIS FUNCTION UNCHANGED, AND THAT IS THE FINDING RATHER THAN AN
+// OMISSION (§7.8, STORY-032). Its record sits in `launches` like any other, so it is due at its own
+// `arrivesAtClock`, it flips `resolved` in the same pass, and it is never resolved twice. The two
+// grants it would otherwise pay both abstain on guards that already existed: markSiteReached()
+// looks for a site with the id `beyondTheWall`, finds none, and returns state BY IDENTITY; and
+// arrivalGrantFor() looks for a colonization cost it has no definition for and returns 0. Nothing
+// was added here to make the win land on nothing — not being a site is already what that means.
+//
+// What the resolution DOES do is move `expedition.phase` to `majors`, and it does that from
+// somewhere else entirely: engine/sites.js's overTheWallGrants() reads this same list for an
+// unresolved wall record, so flipping `resolved` here is what lets the phase writer promote the run
+// on the very next line of the tick loop. The milestone was set twelve minutes earlier at commit;
+// this is the arrival the phase has been waiting on.
 //
 // The grant is a SALVAGE CREDIT through engine/wallet.js, and that is not in tension with the Fuel
 // debit above refusing to go near the wallet. Fuel is not a wallet currency; Salvage is. Guarded on

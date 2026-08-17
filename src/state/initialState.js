@@ -120,6 +120,16 @@ function createInitialState() {
       // every later write silently deletes.
       contractBoard: createContractBoard(),
       launches: [],
+      // The run record the ending reads (PRD §7.8). Two counters, both starting at zero, which is
+      // what they mean rather than a placeholder: a colony that has made no Fuel has a peak rate of
+      // 0, and a run that has not won has filled no standing orders. The act's START clock is
+      // deliberately not here — `progression.actEnteredAtClock` above already carries it.
+      //
+      // Adding a key here means adding it to expeditionSlice() in engine/colony.js in the same
+      // edit, for the reason the comment above spells out: a key one copy forgets is a key every
+      // later write silently deletes.
+      peakFuelRate: 0,
+      standingOrders: 0,
     },
     // Act IV state, and both are CONTENT rather than tick-loop collections, so both are null
     // until engine/travelBall.js's initializer creates them: `travelBall` is the record the

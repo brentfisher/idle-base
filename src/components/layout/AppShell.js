@@ -30,6 +30,7 @@ const LaunchPanel = require('../expedition/LaunchPanel');
 const SitesPanel = require('../expedition/SitesPanel');
 const ArtifactsPanel = require('../expedition/ArtifactsPanel');
 const ContractsPanel = require('../expedition/ContractsPanel');
+const BoardPanel = require('../expedition/BoardPanel');
 const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
 const TeardownOverlay = require('../expedition/TeardownOverlay');
@@ -62,8 +63,8 @@ const PANELS = {
   camp: TrainingCampPanel,
   trade: TradeDeadlinePanel,
   prestige: PrestigePanel,
-  // Act VII. Every key above is retired by that act's `hides` (data/acts.js), so these six are
-  // never on screen beside them: the map holds eighteen entries and no act ever shows more than
+  // Act VII. Every key above is retired by that act's `hides` (data/acts.js), so these seven are
+  // never on screen beside them: the map holds nineteen entries and no act ever shows more than
   // twelve of them. Order matters twice over — it is the tab order, and `visibleTabs[0]` is the
   // fallback tab, so `ops` being the first Act VII key is what makes the teardown land on the
   // terminal rather than nowhere.
@@ -73,6 +74,14 @@ const PANELS = {
   sites: SitesPanel,
   artifacts: ArtifactsPanel,
   contracts: ContractsPanel,
+  // The ending (PRD §7.8), held back by `unlockedBy: { board: 'majors' }` until the fifth burn has
+  // both been committed and landed. LAST, and the placement is load-bearing for the same reason
+  // `ops` being first is: this map's key order is the tab order AND the fallback order, so a `board`
+  // declared any earlier would put the screen that says the act is over in among the screens the
+  // player uses to play it. It is also why the NEW badge lands correctly — `seenTabs` is
+  // append-only across the act boundary, so the board gets its badge at the instant it is revealed,
+  // which is the one tab in the game where that badge is the announcement.
+  board: BoardPanel,
 };
 
 function AppShell() {

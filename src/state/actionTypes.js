@@ -50,6 +50,15 @@ module.exports = {
   CLAIM_CONTRACT: 'CLAIM_CONTRACT',
   ABANDON_CONTRACT: 'ABANDON_CONTRACT',
 
+  // Act VII's post-game (PRD §7.8). The endless ladder of standing orders that moves Earth up the
+  // majors board — the last purchase in the game, and the only one that spends two currencies at
+  // once (Salvage through the wallet, Fuel through engine/colony.js). See engine/board.js.
+  //
+  // A PURCHASE AND NOT A TIMED COMMITMENT, which is why there is one action here and not the
+  // accept/claim/abandon trio the contract board needs: there is no window to open, nothing to
+  // hold, and nothing to walk away from. It resolves entirely inside the dispatch.
+  FILL_STANDING_ORDER: 'FILL_STANDING_ORDER',
+
   MARK_TAB_SEEN: 'MARK_TAB_SEEN',
   SET_TEAM_NAME: 'SET_TEAM_NAME',
 
