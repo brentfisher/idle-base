@@ -272,6 +272,39 @@ const LAUNCH_PAD_TIERS = [
   },
 ];
 
+// ---------------------------------------------------------------------------------------------
+// BEYOND THE WALL — THE FIFTH BURN'S DESTINATION, WHICH IS NOT A SITE (§7.1, §7.8; STORY-032)
+//
+// `padTier5.reachesRung` is 5 and there is no rung 5. The note on that field says, in as many
+// words, that "engine/launch.js resolves a destination rung with no site as the win condition,
+// which is why this is a number and not a `reachesWall: true` flag — a flag would be a second kind
+// of reach, and reach is meant to be one comparison." These two constants are that sentence made
+// usable WITHOUT adding the flag it forbids.
+//
+// THE RUNG IS DERIVED FROM THE LADDER'S LENGTH RATHER THAN TYPED AS 5, and the derivation is the
+// whole reason it is a constant at all. `ACT_SEVEN_SITES.length` is one past the top rung because
+// rungs are 0-indexed and dense, which is the same fact `padTier5.reachesRung: 5` states from the
+// pad's side. Typed as a literal, the two would be a pair of hand-written numbers that a sixth site
+// silently splits — the ladder would grow a rung, the top pad would keep reaching past it, and the
+// win condition would fire one site early with no error anywhere. Derived, adding a site moves the
+// wall out with it and the only edit left is the pad table, which is where it belongs.
+//
+// THE DESTINATION ID IS A LAUNCH-RECORD KEY AND DELIBERATELY NOT A SITE ID. `expedition.launches`
+// stores `destinationSiteId` on every record, and the fifth burn needs one for the same reason
+// every other burn does: engine/sites.js's phase ladder reads that field off the log. It is not in
+// ACT_SEVEN_SITES, so `getSiteDefinition()` answers null for it and every site-shaped consumer
+// abstains on its own existing guard — markSiteReached() finds no record and returns state by
+// identity, arrivalGrantFor() finds no colonization cost and pays 0. Nothing needed a special case
+// to make the fifth burn land on nothing; not being a site is already what "beyond the wall" means.
+//
+// It is NOT the string `OVER_THE_WALL_MILESTONE` holds ('overTheWall', data/actSevenConfig.js),
+// even though both name the same beat. Those are two namespaces — a destination id and a
+// `progression.milestones` key — and engine/puzzles.js's colon-namespacing note explains what a
+// collision between a milestone key and something else costs. One string in two namespaces is a
+// collision waiting for the day somebody indexes one bag by the other.
+const OVER_THE_WALL_RUNG = ACT_SEVEN_SITES.length;
+const OVER_THE_WALL_DESTINATION_ID = 'beyondTheWall';
+
 // THE COLONIZE BUILD ID. `buildingId` on a site record is either this constant or a pad tier's id,
 // because a site's crew can only do ONE thing at a time (§7.7) — which is a design constraint as
 // much as a simplification. Owning four sites means four builds can run in parallel, so the
@@ -563,6 +596,52 @@ function padUpkeepAt(definition, tier) {
 // act length; §12's 5-hour ceiling is still owed an optimal-buyer run, and STORY-032 is where that
 // lands. What it measures reliably is the rate and the satisfaction AT each ladder state, which is
 // exactly what the two questions above needed.
+//
+// ===============================================================================================
+// STORY-032: §12's FIVE-HOUR CEILING, MEASURED WITH AN OPTIMAL BUYER. IT HOLDS, BY EIGHT MINUTES.
+//
+// This is the run STORY-028 deferred and STORY-031 re-confirmed as owed. Both were explicit that
+// their buyers were COMPETENT, NOT OPTIMAL — 031's reached `deepSpace` at ~489 minutes and
+// `padTier5@thirdBase` at 1,106.5, and said in as many words that those clocks are a lower bound on
+// player speed rather than a finding against the budget, because the buyer did not chase the
+// Fuel-tank gate. This run chases it.
+//
+//   THE ACT IS WON — the fifth burn COMMITTED, which is §7.8's win condition — AT 291.8 MINUTES.
+//   That is 4.86 hours against §12 criterion 8's 5.00-hour ceiling. THE CEILING HOLDS.
+//
+// THE LADDER, in minutes from `progression.actEnteredAtClock`:
+//
+//     90.8  launch@onDeck            198.2  launch@secondBase
+//    104.2  colonize@onDeck          241.8  colonize@secondBase
+//    134.9  padTier2@onDeck          256.2  padTier4@secondBase
+//    139.9  launch@firstBase         266.2  launch@thirdBase
+//    184.2  colonize@firstBase       273.8  colonize@thirdBase
+//    190.2  padTier3@firstBase       279.8  padTier5@thirdBase
+//                                    291.8  launch@beyondTheWall   <-- the win
+//
+// THE POLICY, stated so the number can be argued with. Commit every burn the instant its threshold
+// is met and never hold for overshoot — the band buys at most 24% off a window of 12 minutes or
+// less and costs 60% more fill, so holding is never faster. Buy every affordable site row at once.
+// Repair satisfaction before anything else. Keep the Fuel ceiling at or above the current
+// threshold. AND CHASE THE FUEL-TANK GATE: while no Fuel storage exists, buy toward the Fuel
+// Bladder's seven Fission Piles and seven Hydroponics Bays ahead of everything else. That last rule
+// is the entire difference from 028 and 031, and it is worth 814 minutes.
+//
+// THE BIAS, STATED SO NOBODY READS 4.86 HOURS AS THE PLAYER EXPERIENCE. This buyer is a LIMIT, not
+// a person. It re-evaluates the whole catalogue every second, spends to zero, buys with zero
+// reaction time, never misreads a gate and never stops to look at anything. A REAL PLAYER WILL
+// EXCEED FIVE HOURS. What has been established is the correct reading of §12's criterion — the act
+// IS completable inside the ceiling, and the ceiling is not structurally out of reach — and the
+// margin is 2.7%, which is thin enough that any future retune that lengthens a fill should re-run
+// this before shipping.
+//
+// AND IT IGNORES §8 AND §9 ENTIRELY. No puzzle is solved and no contract is filed, so no Fuel
+// arrives from the contract board. §7.6 takes exactly this case as the bound that matters ("the
+// band must hold for a player who ignores §9 entirely"), and here it makes 291.8 minutes an UPPER
+// bound on the optimal clock rather than a best case: a player who works the board arrives sooner.
+// It also has a consequence worth knowing, measured on the same run — this speedrunner finishes
+// SIXTH on the majors board, because engine/board.js scores artifacts and contracts and this buyer
+// engaged with neither. The board measures the run, not the clock.
 // ===============================================================================================
 
 module.exports = {
@@ -570,6 +649,8 @@ module.exports = {
   LAUNCH_PAD_TIERS,
   COLONIZE_BUILD_ID,
   OVERSHOOT_TANK_MULT,
+  OVER_THE_WALL_RUNG,
+  OVER_THE_WALL_DESTINATION_ID,
   getSiteDefinition,
   getPadTier,
   padTierForRung,

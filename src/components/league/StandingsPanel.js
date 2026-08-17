@@ -1,11 +1,18 @@
 const React = require('react');
 const { useGame } = require('../../state/GameContext');
-const { sortStandings, winPct } = require('../../engine/standings');
+// `winPct` moved with the six columns into StandingsTable — the percentage is a property of the
+// table, not of this panel, and the file that sorts by it is now the file that prints it.
+const { sortStandings } = require('../../engine/standings');
 const { PLAYER_TEAM_ID } = require('../../engine/schedule');
 const { resolveRules } = require('../../engine/modifiers');
 const { resolveTeamName } = require('../../engine/identity');
 const SeasonSchedulePanel = require('./SeasonSchedulePanel');
 const TeamNameEditor = require('./TeamNameEditor');
+// The six columns, extracted by STORY-032 so Act VII's ending renders the SAME table rather than a
+// second one that resembles it (PRD §7.8). It takes resolved rows and decides nothing, so the two
+// lookups below — the display name and which row is the player's — stay here, in the file that
+// knows what a team is. See the long note at its definition.
+const StandingsTable = require('./StandingsTable');
 
 // Last season's result, in one line. Deliberately POSITIVE-ONLY — it prints what happened and
 // says nothing when nothing did.
@@ -55,32 +62,21 @@ function StandingsPanel() {
         /{state.season.gamesPerSeason} ·{' '}
         {playoffTeams >= 2 ? `Top ${playoffTeams} make the playoffs` : 'First place takes the title'}
       </p>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="standings">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Team</th>
-              <th>W</th>
-              <th>L</th>
-              <th>Pct</th>
-              <th>Run Diff</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((row, i) => (
-              <tr key={row.teamId} className={row.teamId === PLAYER_TEAM_ID ? 'me' : undefined}>
-                <td>{i + 1}</td>
-                <td>{resolveTeamName(state, row.teamId)}</td>
-                <td>{row.wins}</td>
-                <td>{row.losses}</td>
-                <td>{winPct(row).toFixed(3)}</td>
-                <td>{row.runsFor - row.runsAgainst}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* The league's rows, translated into the shared table's vocabulary: a display `id` and a
+          resolved `name`. Both lookups stay on this side because both are facts about a baseball
+          league — `teamId` is engine/schedule.js's identifier and resolveTeamName() is the player's
+          own naming — and the table renders farm systems that are not teams at all. */}
+      <StandingsTable
+        rows={sorted.map((row) => ({
+          id: row.teamId,
+          name: resolveTeamName(state, row.teamId),
+          wins: row.wins,
+          losses: row.losses,
+          runsFor: row.runsFor,
+          runsAgainst: row.runsAgainst,
+        }))}
+        highlightId={PLAYER_TEAM_ID}
+      />
       <SeasonSchedulePanel />
     </div>
   );

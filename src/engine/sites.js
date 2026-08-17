@@ -20,6 +20,7 @@ const {
 const {
   LAUNCH_PAD_TIERS,
   COLONIZE_BUILD_ID,
+  OVER_THE_WALL_DESTINATION_ID,
   getSiteDefinition,
   getPadTier,
   padTierForRung,
@@ -448,19 +449,54 @@ function launchCommitGrants(phaseId, slice, sites) {
   return slice.launches.some((launch) => launch && granting.indexOf(launch.destinationSiteId) !== -1);
 }
 
-// PRD §7.8's ending. Read through two defaulted lookups because STORY-032 has not landed the
-// milestone yet and, more durably, because `progression.milestones` is a bag of ids rather than a
-// fixed shape — an absent key is the normal case for every milestone the run has not hit.
-function overTheWallGrants(state) {
+// PRD §7.8's ending, and the ONE predicate in this ladder with two clauses.
+//
+// THE ACT IS WON AT COMMIT AND THE PHASE TURNS OVER AT ARRIVAL, and those are deliberately not the
+// same instant. §7.8 states both in consecutive sentences: "`launch.purchase` on the over-the-wall
+// offer sets `progression.milestones.overTheWall`. That is the win condition" — and then "Twelve
+// minutes later the transit resolves and `phase` becomes `majors`." Winning is the player's
+// decision and belongs to the second they take it; being in the majors is a place the run arrives
+// at. A predicate reading the milestone alone would collapse the two and delete the last transit in
+// the game, which is the one the whole act has been building a pad for.
+//
+// SO THE SECOND CLAUSE IS "AND NOTHING IS STILL IN THE AIR", expressed as the ABSENCE of an
+// unresolved wall record rather than the presence of a resolved one. That direction is the whole
+// design of the clause and it is chosen to FAIL OPEN, matching every other defaulted read in the
+// act:
+//
+//   commit          milestone set, record present and unresolved   ->  false, phase holds
+//   arrival         the same record, now resolved                  ->  true,  phase promotes
+//   hand-edited     milestone set, no record at all                ->  true,  promotes at once
+//
+// The third row is why. `resolved === true` would read a save carrying the milestone and no launch
+// log as still in flight FOREVER — a run that has won and can never be told so, with no play that
+// repairs it. Absence-of-in-flight strands nothing: the worst it can do is promote a corrupt save
+// one transit early, and this ladder self-heals in the other direction anyway.
+//
+// THIS IS STILL ONE PHASE PATH. Ledger R4 forbids parallel milestone flags MIRRORING the phase —
+// `phaseLunar`, `phaseDeepSpace` — because two sources of truth for how far the run has got is a
+// race that surfaces on somebody's real save. A milestone the single writer READS is the opposite
+// arrangement, and it is the same one `launchCommitGrants()` above makes against the launch log.
+// `expedition.phase` still has exactly one author and is still recomputed from scratch every tick.
+//
+// Both lookups are defaulted because `progression.milestones` is a bag of ids rather than a fixed
+// shape: an absent key is the normal case for every milestone a run has not hit.
+function overTheWallGrants(state, slice) {
   const progression = state && state.progression;
   const milestones = (progression && progression.milestones) || {};
-  return milestones[OVER_THE_WALL_MILESTONE] === true;
+  if (milestones[OVER_THE_WALL_MILESTONE] !== true) return false;
+
+  return !slice.launches.some((launch) => (
+    !!launch
+    && launch.destinationSiteId === OVER_THE_WALL_DESTINATION_ID
+    && launch.resolved !== true
+  ));
 }
 
 function isPhaseReached(phaseId, state, slice, sites) {
   if (phaseId === INITIAL_PHASE) return true;
   if (phaseId === LIFE_SUPPORT_PHASE) return isLifeSupportPhase(state);
-  if (phaseId === MAJORS_PHASE) return overTheWallGrants(state);
+  if (phaseId === MAJORS_PHASE) return overTheWallGrants(state, slice);
   return siteArrivalGrants(phaseId, sites) || launchCommitGrants(phaseId, slice, sites);
 }
 

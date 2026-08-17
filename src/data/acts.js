@@ -395,7 +395,7 @@ const ACTS = [
     // filter matches, and the caps and cash chips would vanish from the header as a side effect of
     // a routing change. The Salvage chip appears on its own the moment the click credits any, and
     // the header's Act VII re-fit is PRD §6.7's story.
-    unlocks: ['ops', 'fab', 'launch', 'sites', 'artifacts', 'contracts'],
+    unlocks: ['ops', 'fab', 'launch', 'sites', 'artifacts', 'contracts', 'board'],
     // The intra-act reveal. `ops` is absent on purpose: the act opens on exactly one tab and
     // nothing else for 20-30 minutes, which is the deliberate echo of Act I, where the whole game
     // was one button on one screen. One screen is not a punishment; it is the only state a reveal
@@ -416,6 +416,16 @@ const ACTS = [
       sites: 'lifeSupport',
       artifacts: 'lunar',
       contracts: 'deepSpace',
+      // The ending (PRD §7.8), and the only `unlockedBy` entry in the game that names the TOP rung
+      // of a phase ladder. Everything above reveals a tab the player is about to need; this one
+      // reveals the tab that says the act is over, and it must not appear a second early.
+      //
+      // `majors` is reached on the ARRIVAL of the fifth burn, not its commit — engine/sites.js's
+      // overTheWallGrants() requires the milestone AND no wall record still in the air, and the
+      // long note there explains why the two are twelve minutes apart. So this entry is also what
+      // keeps that transit meaningful: during the burn the player has won and the board is not yet
+      // there to look at, which is the last wait in the game and the one it has been earning.
+      board: 'majors',
     },
     // The teardown. Twelve ids, every one of them a key of AppShell's PANELS map — that is the
     // whole ballpark, and nothing survives it.

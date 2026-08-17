@@ -19,6 +19,14 @@
 // screen you watch and a screen you spend on), `launch` is split from `sites` because they answer
 // different questions — *can I go?* against *where am I?* — and `contracts` is last because it is
 // the only purely optional tab in the act.
+//
+// SEVEN NOW, NOT SIX. §6.4 authored six tabs and STORY-032 appended `board`, which is the act's
+// ending (§7.8) and is revealed only in the `majors` phase — after the fifth burn has been
+// committed and has landed. It is deliberately LAST in this list rather than beside the other
+// read-only screen: AppShell's `visibleTabs[0]` is the fallback tab, so anything declared before
+// `ops` would change which screen the teardown lands on, and anything declared before `contracts`
+// would move the ending in among the tabs the player uses to play. It is the last tab because it is
+// the last thing.
 const ACT_SEVEN_PANELS = [
   {
     id: 'ops',
@@ -57,6 +65,16 @@ const ACT_SEVEN_PANELS = [
     label: 'Contracts',
     title: 'Contracts',
     blurb: 'Organisational paperwork, paid in Fuel. The board is empty.',
+  },
+  {
+    id: 'board',
+    label: 'Board',
+    title: 'Standings',
+    // Carries a `blurb` like every other row even though components/expedition/BoardPanel.js is a
+    // real panel and never renders PlaceholderPanel. The field is part of this list's shape and a
+    // row missing it would be the one row a future reader had to check the panel for — and the tab
+    // is unreachable before `majors`, so the line is only ever read by whoever is editing this file.
+    blurb: 'Farm systems, current season. You are in it.',
   },
 ];
 
