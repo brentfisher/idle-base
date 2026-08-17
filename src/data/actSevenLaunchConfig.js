@@ -251,26 +251,37 @@ const launchCopy = {
 // ===============================================================================================
 // THE `deepSpace` BEATS: EACH FLAT POINT AND THE UNLOCK THAT RELIEVES IT (§7.6)
 //
-//   beat                     flat point                          relieving unlock       within
-//   D-1 The long transit     the entire 8-min beat, by design    the feed runs the      —
-//                            (§7.6: "designed absence")          league's season
-//   D-2 The drum             —                                   —                      —
-//   D-3 The Cutoff           ~min 28: three production sites,    per-site contribution  ~4 min
-//                            one satisfaction number, no way     readout (§6) + §8's
+//   beat                     flat point                          relieving unlock       verified?
+//   D-1 The long transit     the entire 8-min beat, by design    NONE — designed        n/a
+//                            (§7.6: "designed absence")          absence, and none
+//                                                                is wanted
+//   D-2 The drum             —                                   —                      n/a
+//   D-3 The Cutoff           ~min 28: three production sites,    per-site contribution  NOT ON
+//                            one satisfaction number, no way     readout (§6) + §8's    THIS BRANCH
 //                            to tell which lever helps           routing puzzle
-//   D-4 The fourth burn      ~min 48                             §9 contract chain      ~5 min
-//                                                                + the warning-track
+//   D-4 The fourth burn      ~min 48                             §9 contract chain      NOT ON
+//                                                                + the warning-track    THIS BRANCH
 //                                                                puzzle (§8)
-//   D-5 The Warning Track    ~min 64: the network is worse       The Swing appears in   ~1 min
-//                            than it was and the bar is slower   the pad list — the
+//   D-5 The Warning Track    ~min 64: the network is worse       The Swing appears in   MEASURED,
+//                            than it was and the bar is slower   the pad list — the     <200s
 //                                                                first pad whose reach
 //                                                                column names no site
 //   D-6 The swing            THE WHOLE BEAT                      NOTHING, DELIBERATELY  n/a
 //
-// D-5's relieving unlock is measured rather than asserted: The Swing becomes offerable the instant
+// D-5's relieving unlock is MEASURED rather than asserted: The Swing becomes offerable the instant
 // the Track's colonization completes, which in the full run was minute 816.1, and it is affordable
 // at 560,000 Salvage against the 2,814 Salvage/s measured there — under 200 seconds of income. The
 // relief lands well inside the ~5-minute rule.
+//
+// D-3's AND D-4's NAMED UNLOCKS ARE §6, §8 AND §9 CONTENT THAT DOES NOT EXIST ON THIS BRANCH, and
+// the column above says so rather than implying a verification that was not performed. The relief
+// claim for those two beats therefore rests on something better than the schedule: the dead-air
+// run below records ZERO intervals longer than two minutes across D-1 through D-4. A beat with no
+// dead air has been relieved by whatever was actually available, which is a measurement of the
+// property the rule cares about rather than of the mechanism §7.6 expected to supply it. When §6's
+// readout, §8's puzzles and §9's contracts land, they can only improve that figure — but the beats
+// already pass without them, which is the stronger result and the one §7.6 asks for ("the band must
+// hold for a player who ignores §9 entirely").
 //
 // -----------------------------------------------------------------------------------------------
 // D-6 IS DELIBERATELY FLAT. DO NOT "FIX" THIS.

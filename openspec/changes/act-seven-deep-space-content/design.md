@@ -151,18 +151,27 @@ fills.
 
 `deepSpace`'s beats, each with its flat point and the unlock that relieves it:
 
-| beat | flat point | relieving unlock | within |
+| beat | flat point | relieving unlock | verified? |
 |---|---|---|---|
-| D-1 The long transit | the entire 8-min beat, by design | the feed runs the league's season without you | — |
-| D-2 The drum | — | — | — |
-| D-3 The Cutoff | ~min 28: three sites, one satisfaction number, no way to tell which lever helps | per-site contribution readout (§6) + §8's routing puzzle | ~4 min |
-| D-4 The fourth burn | ~min 48 | §9 contract chain + the warning-track puzzle | ~5 min |
-| D-5 The Warning Track | ~min 64: the network is worse and the bar is slower | **The Swing** appears in the pad list | ~1 min |
+| D-1 The long transit | the entire 8-min beat, by design | **none** — designed absence, and none is wanted | n/a |
+| D-2 The drum | — | — | n/a |
+| D-3 The Cutoff | ~min 28: three sites, one satisfaction number, no way to tell which lever helps | per-site contribution readout (§6) + §8's routing puzzle | **not on this branch** |
+| D-4 The fourth burn | ~min 48 | §9 contract chain + the warning-track puzzle (§8) | **not on this branch** |
+| D-5 The Warning Track | ~min 64: the network is worse and the bar is slower | **The Swing** appears in the pad list | **measured, <200 s** |
 | D-6 The swing | **the whole beat** | **nothing, deliberately** | n/a |
 
 D-5's relief is measured rather than asserted: The Swing becomes offerable the instant the Track's
 colonization completes (minute 816.1 in the full run) and costs 560,000 Salvage against the 2,814
 Salvage/s measured there — under 200 seconds of income, well inside the ~5-minute rule.
+
+**D-3's and D-4's named unlocks are §6, §8 and §9 content that does not exist on this branch**, and
+the table says so rather than implying a verification that was not performed. The relief claim for
+those two beats rests instead on something stronger than the schedule: the dead-air run below
+records **zero** intervals longer than two minutes across D-1 through D-4. A beat with no dead air
+has been relieved by whatever was actually available — a measurement of the property the rule cares
+about, rather than of the mechanism §7.6 expected to supply it. When those three systems land they
+can only improve the figure, and §7.6 asks for exactly this bound ("the band must hold for a player
+who ignores §9 entirely").
 
 **D-6 takes the exception, and this is why.** The Swing is the last item on §7's ladder, so §7's shop
 is empty for the entire final beat *by construction* — there is nothing left to sell because there is
