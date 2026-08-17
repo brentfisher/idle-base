@@ -332,19 +332,55 @@ function padUpkeepAt(definition, tier) {
 // VERIFIED — under `node`, against this config and engine/sites.js. Below the config so the
 // numbers sit next to nothing they could be mistaken for.
 //
-// WHAT IS NOT HERE, AND WHY: THE MINUTES-OF-INCOME FIGURES ARE NOT MEASURED ON THIS BRANCH, and
-// that is a deferral with a reason rather than an omission. Every purchase this file prices happens
-// in `lunar` or later — colonizing On-Deck needs On-Deck REACHED, and a site is reached only by a
-// launch. engine/launch.js is STORY-028, so on this branch `listOffers()` correctly returns zero
-// rows for the whole of `aftermath` and `lifeSupport` (verified). A run that measured the cost
-// ladder here would have to synthesise the arrival times it was trying to price against, which is
-// inventing the input and reporting it as a result.
+// THE MINUTES-OF-INCOME MEASUREMENT, TAKEN BY STORY-028 (which is where STORY-027 deferred it to,
+// because a site is reached only by a launch and until transits existed `listOffers()` correctly
+// returned zero rows for every phase the branch could reach).
 //
-// The costs therefore stand on the re-derivation the header describes: §7.5's minutes-of-income
-// INTENT, recomputed against STORY-025's measurement of the module ladder (`lifeSupport` earning
-// 2.6x its §5.3 budget) rather than copied from ledger R2's estimate-derived table. THE FIRST
-// STORY THAT LANDS TRANSITS MUST RE-MEASURE — ledger R8 puts later stories on the measurement, and
-// STORY-028 is the first branch on which this ladder can be played at all.
+// HARNESS: 1s resolution through the real advance(), clicking every cooldown, driving the module
+// shop, this shop and engine/launch.js — so the buyer is subject to every gate a player is. Salvage
+// rate is sampled with buying suspended so purchases do not read as negative income. Run to 16h;
+// the run reached `deepSpace` with all five sites reached.
+//
+//   purchase              bought at    cost    Salvage/s   MEASURED    §7.5 INTENT
+//   colonize@onDeck          286.6m    9,000        74.7    2.01 min       3.3 min
+//   colonize@firstBase       523.1m   47,000       886.7    0.88 min       6.0 min
+//   colonize@secondBase      699.2m  134,000     1,635.7    1.37 min       8.0 min
+//   colonize@thirdBase       819.1m  223,000     2,215.7    1.68 min       6.0 min
+//   padTier2@onDeck          437.3m   21,000       155.7    2.25 min       5.0 min
+//   padTier3@firstBase       607.4m   86,000       669.3    2.14 min       8.0 min
+//   padTier4@secondBase      801.2m  216,000     2,067.7    1.74 min      10.0 min
+//   padTier5@thirdBase       not reached inside the 16h horizon
+//
+// EVERY RUNG COMES IN CHEAP, and not by a little: 0.88 to 2.25 measured minutes against 3.3 to 10.0
+// intended. NOT RETUNED, for the reason 024 and 025 both recorded divergence rather than correcting
+// it — but this one has a diagnosis, and it is the same error one layer further down.
+//
+// R2 was a reconciliation against §5's UNSIMULATED estimates; STORY-027 corrected that by
+// re-deriving against STORY-025's measurement. But 025 measured `aftermath` and `lifeSupport`, and
+// every row in this file is bought in `lunar` or later. Income between those points compounds by
+// roughly thirty-fold (74.7/s at minute 287 to 2,215.7/s at minute 819), so a cost fixed in
+// absolute Salvage against an early-phase rate is trivially cheap by the time it is actually
+// payable. Holding "minutes of income" requires the rate AT THAT BEAT, and this table is the first
+// time those rates have existed.
+//
+// THE BIAS DIRECTION, STATED SO NOBODY READS THESE AS UPPER BOUNDS. This buyer is COMPETENT, NOT
+// OPTIMAL — it takes the best marginal Salvage-per-Salvage row, unblocks on the worst net rate, and
+// falls back to the cheapest affordable. STORY-025's buyer was optimal and this one is not, so a
+// faster player reaches each rung EARLIER, with LOWER income, and therefore sees MORE minutes of
+// income than the table above. **These figures are a lower bound on minutes-of-income, not an upper
+// one.** The gap to intent is real but its size is not settled; settling it needs an optimal buyer.
+//
+// WHAT MUST SURVIVE ANY RETUNE, and does today: the Warning Track's inversion. It is the cheapest
+// of the four colonizations to establish relative to its neighbours (1.68 measured minutes) against
+// a 6.0 `upkeepFactor` that makes it the most ruinous in the act to sustain. §7.5 asks explicitly
+// that cheap-to-establish/ruinous-to-sustain survive retuning; if anything the measurement sharpens
+// it. Do not "fix" the establish cost without re-reading that requirement.
+//
+// ALSO WORTH KNOWING: padTier5 was not reached inside 16h, and the run was still in `deepSpace` at
+// the horizon. §12 criterion 8 sets a 5-hour ceiling for the act. That is NOT a finding against the
+// ceiling, because this buyer is not optimal and the horizon is not a completion time — but an
+// optimal-buyer run to the win condition is owed before anyone claims the ceiling holds, and
+// STORY-032 (the win condition) is where that lands.
 //
 // STRUCTURAL RULES, verified exhaustively across all five sites:
 //
