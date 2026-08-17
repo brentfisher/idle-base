@@ -25,6 +25,16 @@ const {
   padUpkeepAt,
   siteFuelCapacity,
 } = require('../data/actSevenSitesConfig');
+// THE CONTRACT DRAW ARRIVES AS A CONFIG TABLE AND NOT AS AN ENGINE IMPORT, AND THAT IS FORCED.
+//
+// engine/contracts.js needs expeditionSlice, colonyRates, spendResource and creditResource from
+// this file — it cannot not. If this file required contracts.js back for the upkeep term, CommonJS
+// would resolve the cycle by handing whichever module loaded second a half-built exports object:
+// invisible at require time, an undefined function on the first tick. That is the identical hazard
+// written up at length over resolvedSites() below, and it is resolved the identical way — the
+// SHAPE lives with the gatekeeper, the TABLE lives in config, and contracts.js re-exports the
+// result so its published surface is the one PRD §9.6 specifies.
+const { createContractBoard, contractDrawFor } = require('../data/actSevenContractsConfig');
 const { computeModifiers } = require('./modifiers');
 const { getUnlockedFeatures } = require('./progression');
 
@@ -69,6 +79,22 @@ function isPuzzleMap(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+// The contract board, normalized against the ONE base literal in data/actSevenContractsConfig.js.
+// The literal is called rather than spread from a shared constant because the two ids arrays are
+// mutable: a shared constant would give a brand new game and a defaulted old save the same array
+// object, and one stray push would write one run's ledger into another's slice.
+function normalizeContractBoard(stored) {
+  const base = createContractBoard();
+  const record = stored || {};
+  return {
+    nextOfferAtClock: Number.isFinite(record.nextOfferAtClock)
+      ? record.nextOfferAtClock
+      : base.nextOfferAtClock,
+    completedIds: Array.isArray(record.completedIds) ? record.completedIds : base.completedIds,
+    missedIds: Array.isArray(record.missedIds) ? record.missedIds : base.missedIds,
+  };
+}
+
 // Every read of the Act VII slice goes through this. It is the pattern engine/concessions.js,
 // engine/wallBall.js and engine/walkupSongs.js all use, and it is what makes this codebase's
 // no-migration rule survivable: persistence/saveLoad.js DISCARDS a save whose meta.version differs
@@ -103,6 +129,20 @@ function expeditionSlice(state) {
     // An object, not an array: keyed by puzzle id, so an absent puzzle is simply an absent key.
     puzzles: isPuzzleMap(slice.puzzles) ? slice.puzzles : {},
     contracts: Array.isArray(slice.contracts) ? slice.contracts : [],
+    // The board's bookkeeping (PRD §9.3): when a refresh may next place an offer, the payout-once
+    // ledger, and the lapsed ids eligible to return as Makeup Games.
+    //
+    // DEFAULTED FIELD BY FIELD, NEVER AS `slice.contractBoard || {}`. The whole-object form leaves
+    // `completedIds` undefined on a save written one version before this shipped, and the first
+    // `completedIds.indexOf(...)` in engine/contracts.js throws inside advance() — which is the tick
+    // loop, so the game stops rather than misbehaves.
+    //
+    // `nextOfferAtClock` uses Number.isFinite and NOT `|| 0`, and 0 is exactly why: a fresh board
+    // stores 0 to mean "a refresh may happen now", so the `||` idiom cannot tell a legitimate zero
+    // from an absent key. It is also what keeps a corrupt `nextOfferAtClock: 'soon'` out of the
+    // event-clock contributor — a non-numeric boundary becomes a NaN step and a NaN step freezes
+    // the game permanently. See normalizeResource() above for the full account of that failure.
+    contractBoard: normalizeContractBoard(slice.contractBoard),
     // In-flight AND completed launches share one list (PRD §4). An in-flight record is one with
     // `resolved: false` and an `arrivesAtClock`, which is what makes arrival resolution idempotent
     // by construction rather than needing a separate slot to reconcile.
@@ -401,16 +441,25 @@ function throughputOf(definition, satisfaction) {
 // A pinned resource un-pins on an EVENT — the player buys a generator, or a downstream module
 // load-follows off — never on continuous drift.
 //
-// THE SITE TERM IS NOW HERE, WHICH IS THE POINT OF THIS STORY. engine/contracts.js's
-// `+ drawMult * contractUpkeepPerSecond(state)[r]` still goes in the same place, and for the same
-// reason: a contract drawing 3 Power/s is a consumer like any other, and folded in after the solve
-// it can push a resource through zero inside a step, which is the precise failure this whole file
-// prevents.
+// THE SITE TERM IS HERE, AND SO — AS OF THIS STORY — IS THE CONTRACT TERM. STORY-027 named this
+// landing site in advance and the reason it gave is the reason it is honoured: a contract drawing 3
+// Power/s is a consumer like any other, and folded in AFTER the solve it can push a resource
+// through zero inside a step, which is the precise failure this whole file prevents. Ledger R5
+// states the same rule from the other end — "an expedition contract that draws 3 Power/sec is a
+// consumer like any other; if it is added after the solve, a contract can push a resource through
+// zero inside a step."
 //
-// Site upkeep IS multiplied by `drawMult` (§5.6), unlike site production which takes no output
-// multiplier. Life support is life support wherever it is being drawn — a permanent that makes the
-// colony frugal makes the whole network frugal, including the pads.
-function demandAtFullOutput(owned, drawMult, sites) {
+// Concretely, what folding it in later would cost: the ration would be solved against a demand the
+// colony does not actually face, `net` would be computed from that wrong ration, and
+// nextColonyThresholdClock() would report the resource's boundary at the wrong instant — or not at
+// all. During an eight-hour catch-up that means the pre-crossing rate applied across the whole
+// absence, with nothing thrown and nobody told.
+//
+// Site upkeep AND contract upkeep are both multiplied by `drawMult` (§5.6), unlike site production
+// which takes no output multiplier. Life support is life support wherever it is being drawn — a
+// permanent that makes the colony frugal makes the whole network frugal, including the pads and
+// including a crew that is currently off the board.
+function demandAtFullOutput(owned, drawMult, sites, contractDraw) {
   const demand = zeroedByResource();
   owned.forEach(({ definition, count }) => {
     const consumes = definition.consumes || {};
@@ -423,8 +472,97 @@ function demandAtFullOutput(owned, drawMult, sites) {
   const upkeep = siteUpkeepPerSecond(sites);
   EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
     demand[resourceId] += drawMult * upkeep[resourceId];
+    const contracted = contractDraw ? contractDraw[resourceId] : 0;
+    if (Number.isFinite(contracted) && contracted > 0) demand[resourceId] += drawMult * contracted;
   });
   return demand;
+}
+
+// An instance is drawing only while it is `active`. An offer sitting on the board costs nothing and
+// a claimable one has already finished — the crew is home, the drill is over.
+//
+// `=== 'active'` rather than a truthiness test on some flag, matching the `=== true` discipline
+// resolveSiteRecord() applies to every save-borne field: these records come off disk and the values
+// that are not the authored ones are all corruption.
+function isActiveContract(instance) {
+  return !!instance && instance.status === 'active';
+}
+
+// Which row in data/actSevenContractsConfig.js's draw table an instance answers to. The config id
+// for the eleven authored contracts; the drawn template id for a rotating `majors` one, so
+// Organizational Depth's crew template draws the same crew Waiver Claim does without either row
+// restating the numbers.
+function contractDrawSourceId(instance) {
+  return (instance && instance.templateId) || (instance && instance.id) || null;
+}
+
+// THE SUM OVER ACTIVE CONTRACTS, in the same shape and with the same guards as siteUpkeepPerSecond.
+// It lives here rather than in engine/contracts.js because of the cycle argued at the top of this
+// file, and because this file is the slice's declared gatekeeper — "nothing outside this file may
+// reach into state.expedition directly", and a contract's draw is a read of state.expedition.
+//
+// TWO KINDS OF DRAW, and the second is the interesting one.
+//
+//   flat           a constant per-second bundle. Waiver Claim's crew: 3 Power, 1 Provision.
+//   grossFraction  a fraction of production AT FULL OUTPUT. Rain Delay's 40% Power drill.
+//
+// The fraction is evaluated against `grossProduction(owned, ALL_SATISFIED, ...)` and NOT against
+// the solved gross, and that distinction is what keeps this safe to put inside `demand`. Gross at
+// full output depends only on owned modules, sites and modifiers — every one of them constant
+// within a step — so `demand` stays constant across the whole solve exactly as solveSatisfaction()
+// requires, and the monotonicity argument the convergence proof rests on is untouched. Evaluated
+// against the SOLVED gross it would be a term that moves as the ration moves, the fixed point would
+// no longer be monotone, and the iteration could oscillate forever.
+//
+// The full-output gross is computed LAZILY and at most once, because the overwhelmingly common case
+// is no proportional draw at all: eleven of the twelve contracts have none, and for every act
+// before Act VII the active list is empty and this function returns on its first line.
+function contractDrawPerSecond(slice, owned, modifiers, sites) {
+  const draw = zeroedByResource();
+  const active = slice.contracts.filter(isActiveContract);
+  if (active.length === 0) return draw;
+
+  let fullOutput = null;
+  active.forEach((instance) => {
+    const spec = contractDrawFor(contractDrawSourceId(instance));
+    if (!spec) return;
+    addRates(draw, spec.flat);
+    if (!spec.grossFraction) return;
+    if (!fullOutput) {
+      const allSatisfied = EXPEDITION_RESOURCE_IDS.reduce((acc, id) => {
+        acc[id] = 1;
+        return acc;
+      }, {});
+      fullOutput = grossProduction(owned, allSatisfied, modifiers, null, sites);
+    }
+    Object.keys(spec.grossFraction).forEach((resourceId) => {
+      const fraction = spec.grossFraction[resourceId];
+      if (!Number.isFinite(fraction) || fraction <= 0) return;
+      if (draw[resourceId] === undefined) return;
+      const produced = fullOutput[resourceId];
+      if (!Number.isFinite(produced) || produced <= 0) return;
+      draw[resourceId] += fraction * produced;
+    });
+  });
+  return draw;
+}
+
+// PRD §9.6's `contractUpkeepPerSecond(state)`, and the function ledger R5 names. Re-exported by
+// engine/contracts.js so that module's published surface is the one §9.6 specifies; implemented
+// here because of the cycle argued at the top of this file.
+//
+// Returns all four resource ids rather than §9.6's `{ power, oxygen, provisions }`. A superset is
+// the safe direction — every caller indexes by id — and it means a future contract that draws Fuel
+// needs no signature change and no second guard at the one call site that matters.
+//
+// `modifiers` is optional for the same reason colonyRates()'s is: the display path and a headless
+// harness can call this with state alone, and when it is absent they are computed here rather than
+// defaulted to an empty object, so two callers cannot disagree about a multiplier.
+function contractUpkeepPerSecond(state, modifiers) {
+  const slice = expeditionSlice(state);
+  if (!slice.contracts.some(isActiveContract)) return zeroedByResource();
+  const resolved = modifiers || computeModifiers(state);
+  return contractDrawPerSecond(slice, ownedModules(slice), resolved, resolvedSites(state, slice));
 }
 
 // gross[r] at a given ration. The only quantity in the solve that depends on `satisfaction`, which
@@ -620,16 +758,27 @@ function loadFollowOf(definition, throttles) {
 //     a machine being kept alive, and it draws the same rate at every stock level. Applying a
 //     throttle here would make the network cheapest exactly when it is richest, which is backwards.
 //
-// MERGE NOTE, WRITTEN IN ADVANCE. PR #34 (STORY-030) widens this same function to
-// `actualDraw(owned, drawMult, throttles, contractDraw)` and appends a contract-draw loop after the
-// module loop. NEITHER CHANGE SUPERSEDES THE OTHER AND THE RESOLUTION IS TO TAKE BOTH TERMS — a
-// contract drawing Power and a pad drawing Power are both real consumers, and their sum is the
-// draw. The merged signature is `actualDraw(owned, drawMult, throttles, sites, contractDraw)`, with
-// the site sum below and the contract sum beside it, both scaled by `drawMult` and neither
-// load-followed. This is the same class of conflict MERGE-NOTES records for the tickEngine.js
-// event-clock contributors (029 vs 027) and it resolves the same way: two contributors to one sum.
+// THE CONTRACT TERM (STORY-030) IS ADDED HERE AS WELL AS TO `demand`, AND IT TAKES NO LOAD-FOLLOW,
+// for the same reason the site term above does not. A crew in the field and a Power drill are not
+// producers; there is no output for them to back off. So the term goes in flat, scaled only by
+// `drawMult`, and it is what actually moves the stock: `demand` decides the RATION, `draw` decides
+// the NET RATE, and a contract that appeared in only the first of those would cost the player
+// nothing at all. That is the whole mechanical content of §9.5's Waiver Claim and Rain Delay.
+//
+// MERGE NOTE, RESOLVED. STORY-030 (PR #34) and STORY-031 widened this function concurrently — #34
+// for `contractDraw`, 031 for `sites` — and both wrote the resolution down in advance because
+// neither supersedes the other: a contract drawing Power and a pad drawing Power are both real
+// consumers, and their sum is the draw. BOTH TERMS WERE TAKEN. The signature carries both, each is
+// scaled by `drawMult`, and neither is load-followed. Same class of conflict MERGE-NOTES records
+// for the tickEngine.js event-clock contributors (029 vs 027), resolved the same way: two
+// contributors to one sum.
+//
+// STORY-030's block here previously recorded the missing site term as a suspected defect it was
+// leaving alone, since fixing it was a balance change it could not re-measure. That block is gone
+// rather than preserved: 031 fixed it and re-took the measurements, so keeping a note that says
+// site upkeep is not in this sum would now be describing the opposite of what the code does.
 // ---------------------------------------------------------------------------------------------
-function actualDraw(owned, drawMult, throttles, sites) {
+function actualDraw(owned, drawMult, throttles, sites, contractDraw) {
   const draw = zeroedByResource();
   owned.forEach(({ definition, count }) => {
     const consumes = definition.consumes || {};
@@ -643,6 +792,11 @@ function actualDraw(owned, drawMult, throttles, sites) {
   const upkeep = siteUpkeepPerSecond(sites || []);
   EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
     draw[resourceId] += drawMult * upkeep[resourceId];
+  });
+
+  EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
+    const contracted = contractDraw ? contractDraw[resourceId] : 0;
+    if (Number.isFinite(contracted) && contracted > 0) draw[resourceId] += drawMult * contracted;
   });
   return draw;
 }
@@ -746,7 +900,11 @@ function colonyRates(state, modifiers) {
   });
   const capacity = colonyCapacity(sites, owned);
 
-  const demand = demandAtFullOutput(owned, drawMult, sites);
+  // The contract draw is computed BEFORE the solve and folded into `demand`, which is ledger R5's
+  // ordering requirement stated as code. See the note over demandAtFullOutput().
+  const contractDraw = contractDrawPerSecond(slice, owned, resolved, sites);
+
+  const demand = demandAtFullOutput(owned, drawMult, sites, contractDraw);
   const { satisfaction, passes } = solveSatisfaction(owned, stocks, demand, resolved, sites);
 
   const rationed = grossProduction(owned, satisfaction, resolved, null, sites);
@@ -758,7 +916,7 @@ function colonyRates(state, modifiers) {
     (definition) => loadFollowOf(definition, supplyThrottle),
     sites
   );
-  const draw = actualDraw(owned, drawMult, supplyThrottle, sites);
+  const draw = actualDraw(owned, drawMult, supplyThrottle, sites, contractDraw);
 
   // THE PIN, AT BOTH ENDS. A resource held against a boundary it cannot cross has net exactly 0 BY
   // ASSIGNMENT, not by arithmetic. At the empty end this is §5.6's rule and it is what makes the
@@ -1016,6 +1174,56 @@ function spendResource(state, resourceId, amount) {
   };
 }
 
+// THE ONLY CREDIT PATH INTO expedition.resources, and the mirror image of spendResource() above.
+// Fuel is the case that makes it necessary for the same reason: it lives in the expedition slice
+// rather than in the wallet, so engine/wallet.js's creditWallet() is structurally not how it is
+// paid, and a contract that pays Fuel has to come through here.
+//
+// IT REFUSES WITH `null` RATHER THAN CLAMPING, WHICH IS THE OPPOSITE OF WHAT integrateColony() DOES
+// TWENTY LINES ABOVE, AND THE ASYMMETRY IS THE POINT. integrateColony() is a RATE being integrated:
+// production that overflows a full tank is production the colony simply did not need, and
+// discarding it is the load-follow model working correctly. This is a LUMP being handed over. PRD
+// §9.6 states the failure in terms: a 1,300-Fuel payout into a tank with 200 units of headroom
+// would silently destroy 1,100 Fuel — "the single worst bug this section can ship" — at the exact
+// moment the player earned it, invisibly, with nothing thrown and nobody told.
+//
+// Refusing is not punitive and nothing is lost: the caller's contract stays claimable forever and
+// becomes claimable the instant the player launches (emptying the tank) or reaches another site
+// (raising the ceiling). "You cannot bank a payout you have nowhere to put" is a real decision in a
+// game whose entire economy is a threshold.
+//
+// THE CEILING COMPARED AGAINST IS THE DERIVED ONE, NEVER `resource.capacity`. This file states in
+// terms that the stored ceiling is ignored — every capacity is recomputed from the modules and
+// sites that justify it, every read (ledger R1). The stored figure is whatever it happened to be
+// when the save was written, so comparing against it would refuse payouts that fit and admit
+// payouts that do not.
+//
+// `amount <= 0` returns the state unchanged BY IDENTITY rather than refusing, matching
+// spendResource(): a zero-value credit is a no-op, not an error, which is what lets a caller pay a
+// Fuel-and-Salvage contract and a Salvage-only one through the same two lines.
+function creditResource(state, resourceId, amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return state;
+  const slice = expeditionSlice(state);
+  const resource = slice.resources[resourceId];
+  if (!resource) return null;
+
+  const { capacity } = colonyRates(state);
+  const ceiling = capacity[resourceId];
+  if (!Number.isFinite(ceiling)) return null;
+  if (resource.amount + amount > ceiling) return null;
+
+  return {
+    ...state,
+    expedition: {
+      ...slice,
+      resources: {
+        ...slice.resources,
+        [resourceId]: { ...resource, amount: resource.amount + amount },
+      },
+    },
+  };
+}
+
 // The two early phase predicates (PRD R4), as pure functions of state.
 //
 // THESE WRITE NOTHING. `expedition.phase` has exactly one writer — engine/sites.js — and this file
@@ -1080,6 +1288,17 @@ module.exports = {
   integrateColony,
   nextColonyThresholdClock,
   spendResource,
+  creditResource,
+  // Exported for engine/contracts.js, which re-exports it under PRD §9.6's name. See the cycle
+  // argument at the top of this file for why the arithmetic lives here rather than there.
+  contractUpkeepPerSecond,
+  // Exported for engine/contracts.js's act gate. The contract board's `nextOfferAtClock` defaults
+  // to 0 — a legitimate value meaning "a refresh may happen now" — which is also, unguarded, a
+  // boundary in the PAST for every save in every earlier act. Without this gate the event-clock
+  // contributor would propose it, advance() would step to it, refreshBoard() would run, and an
+  // `expedition` slice would be materialised into Act I saves. This is the identical failure the
+  // Home Plate note above describes and it is refused by the identical test.
+  isExpeditionLive,
   isAftermathPhase,
   isLifeSupportPhase,
 };

@@ -13,6 +13,7 @@ const concessionsActions = require('./actions/concessionsActions');
 const capsShopActions = require('./actions/capsShopActions');
 const travelBallActions = require('./actions/travelBallActions');
 const identityActions = require('./actions/identityActions');
+const contractActions = require('./actions/contractActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -38,6 +39,13 @@ function gameReducer(state, action) {
 
     case actionTypes.BUY_CONCESSION:
       return concessionsActions.buyConcession(state, action);
+
+    case actionTypes.ACCEPT_CONTRACT:
+      return contractActions.acceptContract(state, action);
+    case actionTypes.CLAIM_CONTRACT:
+      return contractActions.claimContract(state, action);
+    case actionTypes.ABANDON_CONTRACT:
+      return contractActions.abandonContract(state, action);
 
     case actionTypes.BUY_CAPS_UPGRADE:
       return capsShopActions.buyCapsUpgrade(state, action);

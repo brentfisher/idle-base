@@ -22,10 +22,16 @@ const { checkActTransition, getUnlockedFeatures } = require('./progression');
 const { recordTravelSeason } = require('./travelBall');
 const { settleWager, refundOpenWager } = require('./bookie');
 const { newlyAvailableSponsors, markSponsorsAnnounced } = require('./sponsorships');
-const { integrateColony, nextColonyThresholdClock } = require('./colony');
+const { integrateColony, nextColonyThresholdClock, colonyRates } = require('./colony');
 const { resolveBuilds, nextBuildClock, writeExpeditionPhase } = require('./sites');
 const { resolveArrivals, nextArrivalClock } = require('./launch');
 const { nextPuzzleCooldownClock } = require('./puzzles');
+const {
+  advanceContracts,
+  refreshBoard,
+  nextContractEventClock,
+  hasActiveContracts,
+} = require('./contracts');
 const { winPurseForAct, playoffPurseForAct } = require('../data/winPurseConfig');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
 const { effectiveSecondsPerGame, effectiveSecondsPerPlayoffRound } = require('./pacing');
@@ -273,6 +279,25 @@ const EVENT_CLOCK_CONTRIBUTORS = [
   // advance() to the arrival instant and then leave the record unresolved, which is the one failure
   // mode this contributor exists to prevent rather than cause.
   nextArrivalClock,
+  // Act VII's contract board (engine/contracts.js), PRD §9.4. Four kinds of boundary: an unaccepted
+  // offer's deadline, an accepted window's end, a segmented hold's next segment join, and the
+  // instant the board may next fill an empty slot.
+  //
+  // Appended, exactly as this list's contract asks — nothing above this line was touched. It
+  // abstains for every act before Act VII on the same `ops` feature gate the colony's site terms
+  // take, which matters more here than anywhere else on this list: the board's `nextOfferAtClock`
+  // defaults to 0, so WITHOUT that gate this contributor would propose a boundary in the past for
+  // every save in every act, and advance() would step to it and materialise an expedition slice
+  // into an Act I game.
+  //
+  // It also abstains when the board is FULL. A refresh only fills empty slots, so a full board has
+  // no rotation to do — and proposing one anyway would put an event every 300 seconds in front of
+  // an idle eight-hour return, ~96 iterations resolving nothing.
+  //
+  // Paired with advanceContracts() in the loop body below, the way nextArrivalClock is paired with
+  // resolveArrivals(). A boundary with no resolver would step advance() to a contract's window end
+  // and leave it unresolved.
+  nextContractEventClock,
 ];
 
 // The Infinity seed is the empty-case answer, so there is no "nothing pending" branch to write.
@@ -632,6 +657,22 @@ function advance(state, deltaSeconds) {
     // Rate-integrated, never event-driven: one pass covers the whole step, so an 8h
     // offline return never approaches safetyCapIterations. Each contributor owns its own
     // gating — the offseason suspension now lives inside ticketing (see engine/income.js).
+    // THE COLONY SOLVE AS IT STANDS BEFORE THIS STEP IS INTEGRATED, kept for advanceContracts()
+    // below and for nothing else.
+    //
+    // A sustain contract's rule is "if the condition held at the START of the step it held for all
+    // of it" (PRD §9.4), which is exact only because engine/colony.js guarantees rates are linear
+    // in time within a step and change only at the boundaries findNextEventClock() reports. The
+    // rates AFTER integrateColony() are the regime that takes effect AT the boundary this step
+    // lands on — a different question. Letting advanceContracts() solve for itself would credit or
+    // reset a hold against a rate that was not in force for a single second of the span it is
+    // being judged on.
+    //
+    // Sampled only when a contract is actually drawing on it, so the six acts before Act VII and
+    // every Act VII run with an idle board pay one array `.some()` and no solve. advanceContracts()
+    // falls back to solving for itself when handed null, which keeps it usable from a harness.
+    const contractRates = step > 0 && hasActiveContracts(working) ? colonyRates(working, modifiers) : null;
+
     if (step > 0) {
       working = creditIncome(working, totalIncomePerSecond(working, modifiers), step);
       // TWO INTEGRATION PATHS, DELIBERATELY, SHARING THE STEP AND NOTHING ELSE. The line above is
@@ -732,6 +773,25 @@ function advance(state, deltaSeconds) {
     //
     // Last of the three because it reads what the other two just did.
     working = writeExpeditionPhase(working);
+
+    // Act VII's contract board (engine/contracts.js), PRD §9. THE RESOLVER PAIRED WITH
+    // nextContractEventClock ABOVE — a boundary with no resolver steps advance() to a window's end
+    // and then leaves it open, which is the failure the pairing exists to prevent.
+    //
+    // AFTER writeExpeditionPhase() and not before it, which is the opposite of where builds and
+    // arrivals sit, and for a reason that is specific to this pair: refreshBoard() draws from the
+    // pool of the CURRENT phase, so running it before the phase writer would offer a player who
+    // just crossed into `lunar` one more round of `lifeSupport` paperwork. Nothing a contract does
+    // can move the phase, so there is no dependency in the other direction to trade off against.
+    //
+    // advanceContracts() takes the pre-integration rates captured at the top of the loop; see the
+    // note there for why it may not solve for itself. refreshBoard() runs AFTER it, so a lapse or a
+    // void frees its slot and the board refills on the same iteration rather than a rotation later.
+    //
+    // Both return `working` by identity when there is nothing to do, and both abstain on the `ops`
+    // feature gate, so the six acts before Act VII pay two cheap guards and nothing else.
+    working = advanceContracts(working, step, contractRates);
+    working = refreshBoard(working);
 
     working = updatePeakRating(working);
     // Inside the loop, so act transitions fire during offline catch-up too — a player who
