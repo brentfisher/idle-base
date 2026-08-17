@@ -117,4 +117,11 @@
       5.00-hour ceiling. **It holds, by eight minutes.** Recorded in full in
       `data/actSevenSitesConfig.js` with the policy, the ladder and the bias direction; nothing was
       retuned to produce it.
+- [x] **The panels were rendered, not merely compiled.** `npm run build` transforms JSX without
+      mounting it, so `BoardPanel` and the extracted `StandingsTable` were put through
+      `react-dom/server`'s `renderToString` against the finished optimal-buyer save, and
+      `StandingsPanel` — the Act III-VI League tab this story rewrote — against an Act III save.
+- [x] **AC #5's other two clauses asserted rather than argued**: in `majors` all five sites still
+      resolve reached and colonized with their upkeep still in `demand`, the fabrication shop still
+      returns 26 rows, `hustle` is still unlocked and `applyClick()` still credits Salvage.
 - [x] `npm run build` passes.
