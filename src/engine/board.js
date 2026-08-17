@@ -446,11 +446,29 @@ function purchase(state, offerId) {
 // committed; there is no test runner in this repo and adding one is its own change.
 //
 // DETERMINISM. The same save produces the same board twice, by deep equality across all ten rows,
-// the rank, the line and every breakdown row. Ten separate saves spanning the input space were each
-// evaluated twice; zero differences. There is no rng in this file, nothing here reads the clock
-// except `elapsedMinutes`'s fallback for a save with no committed win, and the placement is
-// measured to the COMMIT rather than to now — so a run's board is frozen at the instant it was won
-// and only the standing orders move it afterwards.
+// the rank, the line and every breakdown row. THE SAMPLE, STATED EXACTLY: the three archetypes
+// below evaluated twice each, an eight-point sweep of the standing-order ladder, the
+// no-recorded-start case, and the board of the real optimal-buyer run recorded in
+// data/actSevenSitesConfig.js. Zero differences. There is no rng in this file, nothing here reads
+// the clock except `elapsedMinutes`'s fallback for a save with no committed win, and the placement
+// is measured to the COMMIT rather than to now — so a run's board is frozen at the instant it was
+// won and only the standing orders move it afterwards.
+//
+// THE PANEL WAS RENDERED, not merely compiled. `npm run build` transforms JSX and never mounts it,
+// so components/expedition/BoardPanel.js and the extracted
+// components/league/StandingsTable.js were both put through react-dom/server's renderToString
+// against a GameContext holding the finished optimal-buyer save: the shared `table.standings`
+// renders, Earth's row carries the `me` class exactly once, the breakdown and the order row are
+// present. components/league/StandingsPanel.js — Acts III-VI's League tab, whose table body this
+// story rewrote — was rendered the same way against an Act III save and is structurally unchanged,
+// one highlighted row and the same six columns.
+//
+// AC #5 HAS THREE CLAUSES AND ALL THREE ARE ASSERTED, not reasoned about. In `majors`: all five
+// sites still resolve as reached and colonized and their upkeep is still summed into `demand`
+// (1,998 Power/s, 72.9 O2/s, 197.6 Provisions/s on the measured run); the fabrication shop still
+// returns 26 rows, because every gate in the act is a rank comparison rather than an equality test;
+// `hustle` is still in getUnlockedFeatures(6, 'majors') and applyClick() still credits Salvage; and
+// the standing-order ladder offers and is affordable.
 //
 // THE SPREAD, measured across three archetypes:
 //

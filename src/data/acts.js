@@ -383,10 +383,11 @@ const ACTS = [
       clickCooldownSeconds: 3,
     },
     modifierBonuses: {},
-    // Six tabs replace twelve (PRD §6.4). All six are listed here because `unlocks` fires once, at
-    // the boundary; five of them are then held back by `unlockedBy` below until the run reaches
-    // the phase that gives them something to show. Declaration order here is not tab order —
-    // AppShell's PANELS map owns that.
+    // Seven tabs replace twelve — §6.4's six, plus §7.8's `board` appended by STORY-032. All seven
+    // are listed here because `unlocks` fires once, at the boundary; SIX of them are then held back
+    // by `unlockedBy` below until the run reaches the phase that gives them something to show, and
+    // `board` is held back the longest, until the act has been won. Declaration order here is not
+    // tab order — AppShell's PANELS map owns that.
     //
     // Deliberately NOT listed: `salvage`. Currency ids are not feature ids anywhere in this file,
     // and adding one would not be cosmetic — HeaderStats.js:61 filters CURRENCIES by the unlocked

@@ -1,6 +1,9 @@
-// The six Act VII tabs: their ids, their tab-bar labels, and the copy their panels render while
-// they are still placeholders (PRD §6.4). Player-facing prose lives here and never in a component,
-// which is the rule that put every other string in this directory.
+// The SEVEN Act VII tabs: their ids, their tab-bar labels, and the copy their panels render while
+// they are still placeholders (PRD §6.4, plus §7.8's ending). Player-facing prose lives here and
+// never in a component, which is the rule that put every other string in this directory.
+//
+// §6.4 authored six. STORY-032 appended `board`, which is not a placeholder — see the note on that
+// row and on the tab ORDER below, where the reason it is last is argued.
 //
 // WHY THIS IS A SEPARATE FILE FROM data/actSevenConfig.js. That file is the act's SHAPE — the phase
 // ladder and the resource records the engine and the save format are built on. This is the act's
