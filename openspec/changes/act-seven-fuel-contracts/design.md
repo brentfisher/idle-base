@@ -279,3 +279,39 @@ STORY-027's territory rather than a correctness change to this one: every site's
 draining stock for the first time, which moves the affordability tables §7.5 measured, and this
 change cannot re-take those measurements. It is recorded in a comment at the call site and in the
 story's report so that whoever owns it next finds the measurement already taken.
+
+## Decision 13: The 40% ceiling is enforced structurally for four phases and only recorded for `majors`
+
+The four authored phases hold §7's ceiling by construction rather than by arithmetic: each has a
+fixed trio of contracts, and `contractBoard.completedIds` is a payout-once ledger, so "the most Fuel
+this phase can pay" is a number somebody chose. Measured worst case is 26.0%, `deepSpace` with PTBNL
+drawing at its band maximum.
+
+`majors` has neither property. *Organizational Depth* is `repeatable` — it must be, or §9.5's
+endless assignment ends after one — so its id never enters the ledger, and nothing bounds how many
+times it may be completed against one threshold. **Measured:** at the top of the ladder (42,000),
+six successive claims pay 8 / 16 / 24 / 32 / 40 / 48% of that threshold.
+
+It is not capped here. §7.8's endless ladder decides how fast a `majors` threshold arrives and
+therefore how many 300–600 second assignments fit inside one, and that ladder does not exist yet —
+STORY-032 owns it. Adding claims-per-threshold bookkeeping now would mean inventing state for a
+phase whose pacing is undecided, and it would be the wrong lever regardless: rung spacing bounds
+this, not a counter on the board. The constraint is recorded in `data/actSevenContractsConfig.js`
+beside `MAJORS_PAYOUT_PCT`, which is the knob that comes down if a rung ever gets short enough for
+five assignments to fit inside it.
+
+## Decision 14: A "throughout" constraint is sampled once per step, and that is exact
+
+*Rain Delay* requires Oxygen above 50% of capacity throughout its window, and the predicate is
+evaluated once per `advance()` iteration. A 300-second step looks like it could hide a dip — and
+cannot. 50%-of-capacity is not a boundary `nextColonyThresholdClock()` reports, so the argument has
+to come from somewhere else, and it comes from the same place the sustain accumulator's does:
+`colony.js` guarantees the net rate is constant within a step, so the stock is linear in time, and a
+linear function on a closed interval attains its minimum at an endpoint. Both endpoints are checked
+— this step's end now, this step's start on the previous iteration. Sampling more finely would find
+nothing and would cost iterations.
+
+The constraint is therefore never evaluated at *accept* time, because `accept()` runs in a reducer
+rather than in `advance()`. Accepting Rain Delay while Oxygen is already below half voids it on the
+next step, which is the honest reading of the terms and costs nothing — a void is the same code path
+as never having accepted it.

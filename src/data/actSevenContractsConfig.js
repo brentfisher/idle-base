@@ -52,12 +52,37 @@
 //   aftermath    0.0%   (pays Salvage — there is no tank yet, see below)
 //   lifeSupport 23.5%
 //   lunar       23.5%
-//   deepSpace   26.0%   <- worst case in the act, PTBNL at its ceiling
-//   majors       8.0%   (one contract at a time, MAJORS_PAYOUT_PCT)
+//   deepSpace   26.0%   <- worst case among the AUTHORED phases, PTBNL at its ceiling
+//   majors       8.0% PER CLAIM, and the per-threshold total is UNBOUNDED — see below
 //
 // 26.0% against a ceiling of 40%. The margin is 14 points, which is deliberate headroom rather than
 // slack: it is what lets a later story add a fourth contract to a phase, or widen PTBNL's band,
 // without reopening §7's pacing tables.
+//
+// ---------------------------------------------------------------------------------------------
+// THE CEILING IS A STATEMENT ABOUT FOUR PHASES, NOT FIVE, AND SAYING SO IS THE POINT.
+//
+// The four authored phases hold the ceiling STRUCTURALLY rather than arithmetically: the pool is a
+// fixed trio, and `contractBoard.completedIds` is a payout-once ledger, so "the most Fuel this
+// phase can pay" is a number somebody chose and cannot be exceeded by playing well.
+//
+// `majors` has neither. Organizational Depth is `repeatable` (below), so its id never enters the
+// ledger, and nothing here bounds how many times it may be completed against ONE threshold.
+// MEASURED: at the top of the ladder (42,000), claiming it six times in succession pays
+// 8 / 16 / 24 / 32 / 40 / 48% of that threshold — the ceiling is crossed on the fifth claim and
+// exceeded on the sixth.
+//
+// That is NOT capped here, and the omission is deliberate rather than an oversight. §7.8's endless
+// ladder is the thing that decides how fast a `majors` threshold arrives and how many 300-600
+// second assignments fit inside one, and it does not exist yet — STORY-032 owns it. Adding
+// claims-per-threshold bookkeeping now would mean inventing state for a phase whose pacing is
+// undecided, and it would be the wrong lever anyway: the ladder's rung spacing is what bounds this,
+// not a counter on the board.
+//
+// So the constraint is recorded rather than enforced, and it is recorded HERE because this is the
+// file whoever ships that ladder will open. If a `majors` rung ever gets short enough that five
+// assignments fit inside it, MAJORS_PAYOUT_PCT is the knob, and it must come down.
+// ---------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------
 
 // The three rungs, named so no contract row contains a bare decimal. An escalating shape rather

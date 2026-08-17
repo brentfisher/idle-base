@@ -379,6 +379,31 @@ function refreshBoard(state) {
 // `rates` in particular is the colony solve taken BEFORE the step was integrated — see the note on
 // advanceContracts() — so a predicate that reached for colonyRates(state) itself would silently
 // read the post-step regime and answer a different question than the one it was asked.
+//
+// ---------------------------------------------------------------------------------------------
+// WHY SAMPLING ONCE PER STEP IS EXACT FOR A "THROUGHOUT" CONSTRAINT, AND NOT AN APPROXIMATION.
+//
+// Rain Delay's terms are "keep Oxygen above 50% of capacity THROUGHOUT", and this file checks the
+// fraction once per advance() iteration. A 300-second step therefore looks like it could hide a dip
+// — and it cannot, for a reason that is worth writing down because it is not obvious and because
+// 50%-of-capacity is NOT a boundary nextColonyThresholdClock() reports.
+//
+// engine/colony.js guarantees the net rate is constant within a step. A stock under a constant rate
+// is a LINEAR function of time, and a linear function on a closed interval attains its minimum at
+// an endpoint. Both endpoints are checked: this step's end is checked now, and this step's START is
+// the previous iteration's end, which was checked then. So an unbroken run of "held at every
+// sampled instant" is an unbroken run of "held at every instant", and the only way a dip can be
+// missed is a rate change inside the step — which the boundary contributors exist to make
+// impossible. Sampling more finely would find nothing and cost iterations.
+//
+// The same argument is what makes stagedFraction's two thresholds exact, and it is the mirror of
+// the closed-form add sustain progress uses.
+//
+// ONE CONSEQUENCE, STATED BECAUSE IT IS A CONSEQUENCE AND NOT AN OVERSIGHT: the constraint is never
+// evaluated at ACCEPT time, because accept() runs in a reducer and not in advance(). Accepting Rain
+// Delay while Oxygen is already below 50% therefore voids it on the very next step. That is the
+// honest reading — the terms say keep it above half, and it is not above half — and it costs the
+// player nothing, because a void is the same code path as never having accepted it.
 // ---------------------------------------------------------------------------------------------
 function fractionOf(rates, slice, resourceId) {
   const capacity = rates.capacity[resourceId];
