@@ -458,6 +458,16 @@ const ACT_SEVEN_MODULES = [
     growth: 1.45,
     capacity: { fuel: 400 },
     requires: { fissionPile: 7, hydroponicsBay: 7 },
+    // `firstNote` — shown only while none are owned, and read by engine/actSevenModules.js, which
+    // decides "none owned" because that is a fact about the save. THE ONLY ROW IN THE LADDER THAT
+    // CARRIES ONE, and the reason is the paragraph above: this row's effect string reads
+    // "+400 max fuel", which is true, complete, and completely fails to say what is actually being
+    // bought. Every other capacity row raises a ceiling that already exists; this one raises it off
+    // zero, so what 3,600 Salvage buys is Fuel EXISTING — the whole launch system switching on —
+    // and a player who reads "+400" as headroom has misread the most important purchase in the act.
+    // The sentence lives here beside the 0 it explains rather than in the panel, because it is the
+    // number's meaning and not the screen's.
+    firstNote: 'Nothing on the wreck can hold propellant yet, so Fuel is discarded as fast as it is made. This is the tank that lets it start counting.',
   },
   {
     id: 'cryoTank',

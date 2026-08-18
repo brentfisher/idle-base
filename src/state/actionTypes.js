@@ -36,6 +36,16 @@ module.exports = {
   PRESTIGE_RESET: 'PRESTIGE_RESET',
   BUY_PERK: 'BUY_PERK',
 
+  // Act VII's fabrication shop (PRD §6.4) — the act's one Salvage sink. ONE action, because a
+  // module is only ever bought: nothing in this act sells, scraps or refunds one, and the colony is
+  // a throttle rather than a ratchet (data/actSevenModulesConfig.js measures that no module is ever
+  // removed even under total starvation). A SELL_MODULE that had to exist would change the shape of
+  // engine/colony.js's solve, not just add a branch here.
+  //
+  // Carries `offerId` and not `moduleId`, matching BUY_LOT_ITEM and FILL_STANDING_ORDER: it is the
+  // id of a row the shop offered, and every shop in this game names it the same way.
+  BUY_MODULE: 'BUY_MODULE',
+
   // Act VII's contract board. THREE ACTIONS AND NOT ONE WITH A MODE, because they are three
   // different decisions made through three different controls and they refuse for different
   // reasons: accepting is bounded by the two-slot ceiling, claiming is bounded by what fits in the
