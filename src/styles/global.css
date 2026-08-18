@@ -3320,6 +3320,104 @@ body.expedition .v7-ops-tile-help {
    END OPS PANEL (STORY-035)
    -------------------------------------------------------------------------------------------- */
 
+   STORY-036 — THE FAB PANEL (PRD §6.4), the act's one Salvage sink.
+
+   EXTENSIONS TO STORY-034's `.v7-row`, NOT A SECOND ROW. That block above already carries the row
+   frame, the name, the effect line, the amber price and the `.is-unaffordable` dim, and its own
+   comment asks the panel stories to extend rather than fork. Everything here is a thing the shop
+   row needs that the standing-order row did not: a repeat-purchase count, a first-purchase note,
+   and the withheld-row treatment.
+
+   INSIDE THE `body.expedition` SECTION AND ABOVE THE MOBILE MEDIA QUERY THAT FOLLOWS, deliberately
+   and with a note on it, because this file ENDS inside `@media (max-width: 640px)` and a rule
+   appended at EOF is silently mobile-only. It builds clean and it reads correctly in the diff.
+   STORY-022 and STORY-023 both shipped that bug. One contiguous block so that the parallel Ops
+   story's block merges by taking both rather than by anyone reading two interleaved sets of rules.
+
+   The palette rule this section established: everything the player BUYS or READS is amber, and
+   everything else is blue-grey. A shop is the buying surface, so the price is the only amber on a
+   buyable row and a withheld row has none at all.
+   --------------------------------------------------------------------------------------------- */
+
+/* How many are built. A CHIP BESIDE THE NAME AND NOT A PREFIX ON IT, because every module in this
+   act is repeatable and the count is a fact about the player rather than part of the module's name
+   — "Reclaimer Drone" stays the thing on the row no matter how many there are. Blue-grey: an owned
+   count is something the player reads about the past, and only the price is what they act on. */
+body.expedition .v7-row-owned {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--v7-border);
+  border-radius: 999px;
+  background: var(--v7-chip);
+  color: var(--v7-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The one-off sentence a row carries the first time only — today, the Fuel Bladder saying that
+   until it exists Fuel is discarded as fast as it is made. Amber, and it is the only prose in the
+   act's amber: it is not a description of hardware, it is the game telling the player that this
+   particular purchase is a switch rather than an increment, which is exactly the "something the
+   player caused" register the accent is reserved for. It disappears once one is owned, so it can
+   afford to be loud. */
+body.expedition .v7-row-note {
+  margin-top: 4px;
+  color: var(--v7-accent);
+  font-size: 0.85rem;
+}
+
+/* A row the SPEND gate is holding (`requires`, PRD §5.5). Not a disabled offer and styled so it
+   cannot be mistaken for one: no button, a left rule instead of the row's own bottom rule doing all
+   the work, and a price in blue-grey rather than amber, because amber on this screen means "press
+   this" and there is nothing here to press.
+
+   It is deliberately NOT dimmed the way `.is-unaffordable` is. An unaffordable row is faded because
+   it is temporarily out of reach; this row is fully legible because it is a PLAN — the player is
+   meant to read it, and read it repeatedly, and go and buy the things it names. */
+body.expedition .v7-row.is-locked {
+  border-left: 2px solid var(--v7-border);
+  padding-left: 10px;
+}
+
+body.expedition .v7-row.is-locked .v7-row-cost {
+  color: var(--v7-muted);
+}
+
+/* The prerequisites, as chips rather than a list. They wrap on a narrow screen with no media query,
+   and side by side they read as a checklist — which is what they are. */
+body.expedition .v7-row-needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+body.expedition .v7-row-need {
+  padding: 2px 8px;
+  border: 1px solid var(--v7-border);
+  border-radius: 999px;
+  background: var(--v7-chip);
+  color: var(--v7-ink);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Satisfied. Green rather than amber — this is the "surplus / it is fine" colour the resource
+   meters already use, so a met prerequisite reads the same way a fed resource does, and the unmet
+   ones stay the plain ones because the plain ones are the remaining work.
+
+   MEASURED, because `--v7-good` is documented above as a rate and a fill and this is the first
+   place in the act it is used as TEXT, on the chip ground rather than the panel: #5ad1a0 on
+   #0a1018 is 10.05:1, in line with the 7.4:1 this section measured for `--v7-muted` on the same
+   ground. The token comments give ratios for the pairings they were chosen for and a new pairing
+   is a new measurement, which is the lesson the `.stat-chip .label` regression above taught. */
+body.expedition .v7-row-need.is-met {
+  border-color: var(--v7-good);
+  color: var(--v7-good);
+}
+
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
      description do not share 390px with a price button and stay readable. Stacked, the price

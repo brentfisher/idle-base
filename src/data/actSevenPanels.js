@@ -43,6 +43,11 @@ const ACT_SEVEN_PANELS = [
     id: 'fab',
     label: 'Fab',
     title: 'Fabrication',
+    // Keeps its `blurb` for the reason the `board` row below states: the field is part of this
+    // list's shape, and a row missing it would be the one row a future reader had to open a panel
+    // to check. components/expedition/FabPanel.js is a real panel as of STORY-036 and never renders
+    // PlaceholderPanel, so this line is now read only by whoever is editing this file — the shop's
+    // own heading and subtitle are authored in data/actSevenFabConfig.js.
     blurb: 'Where Salvage becomes hardware — generators, scrubbers, farms, tanks. The bench is bare.',
   },
   {

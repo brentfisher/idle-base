@@ -13,6 +13,12 @@ const { balanceOf, debitWallet, canAfford } = require('./wallet');
 // null for refused. engine/lotShop.js <-> components/lot/LotShop.js is the reference pair and this
 // is the same shape, so the panel renders rows verbatim and recomputes nothing.
 //
+// listGoals(state) is a THIRD export and a later addition (STORY-036, the panel), not part of the
+// house contract. It exists because the spend gate below removes rows from listOffers() entirely,
+// and a panel that must show the player what the Fuel Bladder is still waiting on cannot get that
+// from a list the row is missing from — and may not derive it, because counting owned modules is a
+// fact about the save. The argument for a separate list rather than a flag is at its definition.
+//
 // The currency is Salvage for every row, and it is read from the definition rather than assumed,
 // so a later row priced in something else is a data edit and not a change here.
 const MODULE_CURRENCY = 'salvage';
@@ -74,6 +80,20 @@ function isAvailable(definition, currentPhase) {
   return current >= required;
 }
 
+// The two gates that decide whether a row EXISTS on the player's board at all, as opposed to
+// whether it can be bought today. Extracted so listOffers() and listGoals() below cannot drift
+// apart, and the drift that would matter is a live spoiler rather than a cosmetic one: both
+// `requires` rows are `lifeSupport`, so a goal listing that filtered on the spend gate ALONE would
+// tell an `aftermath` player about the Fuel Bladder — naming two modules that are themselves three
+// phases from being revealed — which is precisely the reveal these gates exist to hold back.
+//
+// The spend gate is deliberately NOT in here. It is the one gate a row can fail while still being
+// something the player should see, because it is a target they can work toward; the other two are
+// facts about how far the run has got, and a row they withhold is not yet the player's business.
+function isRevealed(definition, state, slice) {
+  return isAvailable(definition, slice.phase) && meetsSiteCapability(definition, state);
+}
+
 function ownedCount(slice, moduleId) {
   const entry = slice.modules.find((module) => module.id === moduleId);
   if (!entry || typeof entry.count !== 'number' || !Number.isFinite(entry.count)) return 0;
@@ -93,9 +113,8 @@ function listOffers(state) {
   const balance = balanceOf(state.wallet, MODULE_CURRENCY);
 
   return ACT_SEVEN_MODULES.filter((definition) => (
-    isAvailable(definition, slice.phase)
+    isRevealed(definition, state, slice)
     && meetsRequirements(definition, slice)
-    && meetsSiteCapability(definition, state)
   )).map((definition) => {
     const count = ownedCount(slice, definition.id);
     const cost = moduleCost(definition, count);
@@ -104,11 +123,81 @@ function listOffers(state) {
       name: definition.label,
       description: definition.description,
       effect: describeEffect(definition),
+      // The one-off sentence a row needs the FIRST time only, and null forever after. `capacity`
+      // rows are the reason it exists: a tank's effect string is honest about the number and silent
+      // about the stakes, and for the Fuel Bladder the stakes are the whole launch system (Fuel's
+      // base capacity is 0, so the first one buys Fuel EXISTING, not 400 units of headroom). The
+      // sentence is authored in data/actSevenModulesConfig.js beside the number it explains, and
+      // whether it applies is decided here, because "have they got one yet" is a fact about the
+      // save and no component may answer it.
+      note: count === 0 && definition.firstNote ? definition.firstNote : null,
       cost,
       currency: MODULE_CURRENCY,
       count,
       owned: count > 0,
       affordable: balance >= cost,
+    };
+  });
+}
+
+// The rows the SPEND gate is holding back, resolved into progress the player can read: for each
+// prerequisite, the module's own label and how many of it they have against how many it wants.
+//
+// A SECOND EXPORT RATHER THAN A FLAG ON listOffers(), and the reason is what listOffers() means to
+// everything that already reads it. It returns rows that can be ACTED ON — the measurement harness
+// in data/actSevenModulesConfig.js drives a greedy buyer straight off it, and a row in that list
+// carrying `affordable: true` that purchase() then refuses would corrupt every pacing figure in the
+// act's tuning record. Keeping the two lists disjoint keeps that contract exactly as it was.
+//
+// THESE ROWS ARE NOT BUYABLE AND CARRY NO `affordable` FIELD, deliberately. There is nothing to
+// press, so there is no refusal path, so there is no error surface — the row is a target, not an
+// offer, and giving it a price button would be the one thing a shop row may never do: refuse on
+// press. `cost` is still emitted, because knowing what it will cost is part of aiming at it.
+//
+// Why a spend gate deserves this at all, when an unavailable row is simply omitted: the phase and
+// site gates are answered by PROGRESSING — the player cannot do anything about them today except
+// keep playing, so naming them is a spoiler with no action attached. A `requires` gate names things
+// that are already on the board and already worth buying, so stating it converts a locked row into
+// a plan. §5.5's pacing control only reads as pacing rather than as an arbitrary wall if the player
+// can see the seven-and-seven they are climbing toward.
+function listGoals(state) {
+  const slice = expeditionSlice(state);
+
+  return ACT_SEVEN_MODULES.filter((definition) => (
+    isRevealed(definition, state, slice)
+    && definition.requires
+    && !meetsRequirements(definition, slice)
+  )).map((definition) => {
+    const count = ownedCount(slice, definition.id);
+    return {
+      id: definition.id,
+      name: definition.label,
+      description: definition.description,
+      effect: describeEffect(definition),
+      note: count === 0 && definition.firstNote ? definition.firstNote : null,
+      cost: moduleCost(definition, count),
+      currency: MODULE_CURRENCY,
+      count,
+      // EVERY prerequisite, met ones included, each already marked. A list that dropped the
+      // satisfied half would shrink as the player got closer, so the goal would look like it was
+      // getting smaller and then vanish — the opposite of the progress it is there to show. The
+      // required module's own label is resolved here rather than in the panel, because an id is not
+      // a name and turning one into the other is a data lookup, not a rendering decision.
+      requirements: Object.keys(definition.requires).map((moduleId) => {
+        const required = getModuleDefinition(moduleId);
+        const owned = ownedCount(slice, moduleId);
+        const needed = definition.requires[moduleId];
+        return {
+          id: moduleId,
+          // Falls back to the id for a prerequisite naming a module that no longer exists. That is
+          // a config error rather than a save error, and the useful failure is a legible row with a
+          // strange word in it, not a throw inside the act's only Salvage sink.
+          name: required ? required.label : moduleId,
+          owned,
+          needed,
+          met: owned >= needed,
+        };
+      }),
     };
   });
 }
@@ -172,4 +261,4 @@ function purchase(state, moduleId) {
   };
 }
 
-module.exports = { listOffers, purchase, MODULE_CURRENCY };
+module.exports = { listOffers, listGoals, purchase, MODULE_CURRENCY };
