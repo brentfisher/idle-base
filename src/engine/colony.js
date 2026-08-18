@@ -842,6 +842,9 @@ function actualDraw(owned, drawMult, throttles, sites, contractDraw) {
 //   demand         required draw per second at FULL output. Constant, and not what is being drawn.
 //   net            signed rate per second, pinned to exactly 0 against a boundary it cannot cross.
 //   capacity       the ceiling, from the slice.
+//   pinned         'empty' | 'capacity' | null — WHICH end that pin was taken against, if any.
+//                  Part of the contract, not a diagnostic: it is unrecoverable from the other
+//                  fields (see THE PIN below) and §6.4's Ops panel is built on the distinction.
 //   passes         diagnostic only: how many solve passes this took. Not part of the contract;
 //                  it exists because the convergence bound above is a deliverable, not a claim.
 // EVERY CEILING IS DERIVED, NEVER STORED (ledger R1). This replaces reading
@@ -951,15 +954,42 @@ function colonyRates(state, modifiers) {
   // argument applies verbatim: a resource at capacity with an unabsorbable surplus (a site
   // production term, which does not load-follow) would otherwise report a cap boundary it is
   // already standing on, every iteration, forever.
+  //
+  // `pinned` RECORDS WHICH BRANCH FIRED, AND IT IS ADDED HERE RATHER THAN RE-DERIVED BY A CALLER
+  // (STORY-035). The Ops panel's whole reason to exist is to make Decision 3.3's
+  // throttle-rather-than-fail visible: a resource reading 0/s because it is clamped against a
+  // boundary is a completely different fact from one reading 0/s because nothing is happening to
+  // it, and the player has to be able to tell them apart — the first is a colony being rationed,
+  // the second is a colony at rest.
+  //
+  // NOTHING OUTSIDE THIS BLOCK CAN RECONSTRUCT IT. `raw` is `gross - draw`, and `draw` is not in
+  // the return value — only `demand`, which is the full-output figure and deliberately not what is
+  // being drawn (see actualDraw()). A caller handed `net` alone can see that a rate is 0; it cannot
+  // see whether that 0 was computed or assigned. Returning `draw` instead would technically answer
+  // it, but it would answer it by inviting every surface to re-run `stocks <= 0 && raw < 0` for
+  // itself, which is the presentation layer deciding a simulation rule — exactly what the note over
+  // colonyRates() and engine/colonyReadout.js's header forbid. The branch is already being taken
+  // here; recording which one costs nothing and leaves one source of truth.
+  //
+  // KEYED FOR ALL FOUR RESOURCES ALWAYS, `null` WHEN UNPINNED, matching the discipline
+  // expeditionSlice() states for its resources map: every caller indexes by id and no caller should
+  // have to guard the lookup. `'empty'` and `'capacity'` are the two ends by name rather than a
+  // boolean, because a surface that colours them the same still has to be able to word them
+  // differently — "nothing left and not recovering" against "full, and the surplus is being thrown
+  // away".
   const net = {};
+  const pinned = {};
   EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
     const raw = gross[resourceId] - draw[resourceId];
     if (stocks[resourceId] <= 0 && raw < 0) {
       net[resourceId] = 0;
+      pinned[resourceId] = 'empty';
     } else if (stocks[resourceId] >= capacity[resourceId] && raw > 0) {
       net[resourceId] = 0;
+      pinned[resourceId] = 'capacity';
     } else {
       net[resourceId] = raw;
+      pinned[resourceId] = null;
     }
   });
 
@@ -979,7 +1009,7 @@ function colonyRates(state, modifiers) {
   // never disagree about how starved the colony is.
   const salvage = salvageFromOwned(owned, satisfaction, supplyThrottle);
 
-  return { satisfaction, supplyThrottle, gross, demand, net, capacity, passes, salvage };
+  return { satisfaction, supplyThrottle, gross, demand, net, capacity, pinned, passes, salvage };
 }
 
 // Sum of every owned module's Salvage output at the solved ration. Split out rather than inlined

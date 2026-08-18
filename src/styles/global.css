@@ -3136,6 +3136,190 @@ body.expedition .v7-board-line-wins {
 }
 
 /* ---------------------------------------------------------------------------------------------
+   THE OPS PANEL — net rates, the ration, the phase and the standing directive (PRD §6.4).
+   STORY-035.
+
+   PLACED HERE, INSIDE THE body.expedition SECTION AND ABOVE THE FINAL MEDIA QUERY, ON PURPOSE.
+   This file is 3,000-plus lines and its LAST block is `@media (max-width: 640px)`. A rule appended
+   at EOF lands inside it and is silently mobile-only — it builds clean, it looks right in the diff,
+   and it does nothing on a desktop. STORY-022 and STORY-023 both shipped that bug. Anything added
+   for an Act VII panel belongs above this line.
+
+   ONE CONTIGUOUS BLOCK, DELIBERATELY. STORY-036 (the Fab panel) is adding its own rules to this
+   same section concurrently. Neither story supersedes the other — Ops renders rates and Fab renders
+   shop rows — so the resolution for that conflict is to TAKE BOTH BLOCKS, and keeping each one
+   whole and marked is what keeps that resolution mechanical instead of a line-by-line merge.
+
+   IT DEFINES NO COLOURS OF ITS OWN. `.v7-rate`, `.v7-meter` and `.v7-meter-fill` are STORY-034's
+   shared primitives and its comment on them is an instruction — "Extend these; do not fork them" —
+   so every rate and every bar below is one of those wearing a layout class. The `--v7-*` tokens are
+   the act's palette and nothing here invents a hex value.
+   --------------------------------------------------------------------------------------------- */
+
+/* The directive block. Bordered rather than merely spaced because it is the one thing on this
+   screen that is not a number, and in `aftermath` it is the one thing on this screen at all. */
+body.expedition .v7-ops-directive {
+  border: 1px solid var(--v7-border);
+  border-left: 3px solid var(--v7-accent);
+  border-radius: 6px;
+  background: var(--v7-chip);
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1.1rem;
+}
+
+body.expedition .v7-ops-directive-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+body.expedition .v7-ops-directive-head h3 {
+  margin: 0;
+}
+
+/* The phase pill. Shares the era/phase chip's SHAPE with the header without sharing its rule — the
+   header's chip lives in a flex row of other chips and inherits margins from it, which this one
+   must not. The colour arrives inline from data/actSevenPalette.js, exactly as it does in the
+   header, because a CSS class per phase is the thing that palette file exists to prevent. */
+body.expedition .v7-ops-phase-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--v7-panel);
+  color: var(--v7-ink);
+}
+
+body.expedition .v7-ops-directive-line {
+  margin: 0.5rem 0 0.35rem;
+  color: var(--v7-ink);
+}
+
+/* One consumable. Bottom-ruled rather than boxed, matching `.v7-row` — four boxed cards would
+   out-shout the directive above them, and these are a list rather than a set of choices. */
+body.expedition .v7-ops-rate {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--v7-border);
+}
+
+/* Scoped to the wrapper on purpose: `.v7-ops-rate:last-of-type` alone matches nothing, because the
+   solve grid further down the panel is also a div and is the last one of that type. */
+body.expedition .v7-ops-rates .v7-ops-rate:last-child {
+  border-bottom: none;
+}
+
+body.expedition .v7-ops-rate-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
+body.expedition .v7-ops-rate-name {
+  flex: 1 1 auto;
+  color: var(--v7-ink);
+}
+
+/* Stock against ceiling. Tabular figures for the same reason `.v7-rate` uses them: four rows of
+   numbers that change every tick must not reflow their own columns while being read. */
+body.expedition .v7-ops-rate-stock {
+  font-variant-numeric: tabular-nums;
+  color: var(--v7-ink);
+  white-space: nowrap;
+}
+
+body.expedition .v7-ops-rate-cap {
+  color: var(--v7-muted);
+}
+
+/* The pin's sentence. `--v7-alert` on the badge only, not on the whole line: the badge is the
+   flag and the sentence is the explanation, and alarm-coloured body text at 0.82rem is harder to
+   read than the thing it is warning about. */
+body.expedition .v7-ops-rate-pin {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--v7-muted);
+}
+
+body.expedition .v7-ops-pin-badge {
+  flex: 0 0 auto;
+  border: 1px solid var(--v7-alert);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  color: var(--v7-alert);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* Per-bus throttles and the runway, rendered only where one is biting. `gap` rather than separators
+   because the number of spans varies from one to three. */
+body.expedition .v7-ops-rate-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--v7-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The three solve figures. auto-fit rather than a fixed three columns so the row folds to two and
+   then one without a media query of its own — which matters here specifically, because a rule
+   written for this panel in the 640px block at the foot of the file would be the exact mistake the
+   header of this section warns about. */
+body.expedition .v7-ops-solve {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.7rem;
+  margin-top: 1.2rem;
+}
+
+body.expedition .v7-ops-tile {
+  border: 1px solid var(--v7-border);
+  border-radius: 6px;
+  background: var(--v7-chip);
+  padding: 0.6rem 0.7rem;
+}
+
+body.expedition .v7-ops-tile-label {
+  color: var(--v7-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Amber, because it is an instrument reading — the act's one warm colour is the glow on anything
+   the player is meant to look at (data/actSevenPalette.js states the rule). */
+body.expedition .v7-ops-tile-value {
+  color: var(--v7-accent);
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+body.expedition .v7-ops-tile-detail {
+  color: var(--v7-ink);
+  font-size: 0.8rem;
+}
+
+body.expedition .v7-ops-tile-help {
+  color: var(--v7-muted);
+  font-size: 0.76rem;
+  margin-top: 0.3rem;
+}
+
+/* --------------------------------------------------------------------------------------------
+   END OPS PANEL (STORY-035)
+   -------------------------------------------------------------------------------------------- */
+
    STORY-036 — THE FAB PANEL (PRD §6.4), the act's one Salvage sink.
 
    EXTENSIONS TO STORY-034's `.v7-row`, NOT A SECOND ROW. That block above already carries the row
