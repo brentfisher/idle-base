@@ -3,7 +3,15 @@ const { RESOURCE_WARNING_SECONDS, RESOURCE_FULL_EPSILON } = require('../data/col
 const { colonyRates, expeditionSlice } = require('./colony');
 const { computeModifiers } = require('./modifiers');
 
-// THE HEADER'S BOUNDARY HELPER — one solve, one helper (PRD ledger R5).
+// THE READOUT'S BOUNDARY HELPERS — one solve per helper, one helper per surface (PRD ledger R5).
+//
+// TWO OF THEM NOW: listResources() for the header chips (§6.6) and opsReadout() for the Ops panel
+// (§6.4, STORY-035). They are siblings rather than one function with a flag because they want
+// different SHAPES — the header wants four rows, the panel wants four rows and the three scalars
+// beside them — and a single function returning the union would hand the header a ration it has no
+// slot for. What they emphatically do not each get is a solve of their own per surface per tick:
+// both take exactly one, and both build their rows through resourceRows() below, so the chip and
+// the panel are reshapings of the same numbers and cannot disagree.
 //
 // It lives in a file of its own rather than in engine/colony.js for one reason: colony.js is the
 // SIMULATION and this is a PRESENTATION shape. Everything below is a reshaping of numbers
@@ -28,9 +36,20 @@ const { computeModifiers } = require('./modifiers');
 // solved modifiers (the tick loop, a future panel) may still pass them to avoid recomputing.
 function listResources(state, modifiers) {
   const resolved = modifiers || computeModifiers(state);
-  const slice = expeditionSlice(state);
-  const rates = colonyRates(state, resolved);
+  return resourceRows(expeditionSlice(state), colonyRates(state, resolved));
+}
 
+// The rows, given a slice and a solve that has ALREADY HAPPENED. Split out of listResources() by
+// STORY-035 so that opsReadout() below can share it, and the split is the whole point rather than
+// tidiness: the Ops panel needs the rows AND the three scalars beside them, and the obvious way to
+// get both — call listResources() and colonyRates() — takes TWO 16-pass Kleene solves per render
+// on the one screen in the act that is open continuously. That is precisely the drift this file's
+// header forbids, in its most expensive form.
+//
+// Takes the resolved objects rather than `state` so it CANNOT solve. A function that received
+// state could reach for colonyRates() itself, and the second solve would be back — invisible,
+// because it would agree with the first one right up until a caller passed different modifiers.
+function resourceRows(slice, rates) {
   return EXPEDITION_RESOURCES.map((resource) => {
     const id = resource.id;
     const amount = slice.resources[id].amount;
@@ -69,9 +88,111 @@ function listResources(state, modifiers) {
       // save opens with an alarm-red Fuel chip describing a crisis that is actually the normal
       // starting state. A resource with nowhere to put anything is not starved; it is unbuilt.
       starved: capacity > 0 && amount <= 0 && net <= 0,
+      // WHICH END THE ENGINE PINNED THIS RATE AGAINST, passed straight through from colonyRates()
+      // — 'empty', 'capacity' or null. Not computed here and not computable here: `net` is already
+      // 0 by the time this file sees it, so a 0 that was ASSIGNED and a 0 that was calculated are
+      // indistinguishable from anything in this scope. See THE PIN in engine/colony.js.
+      //
+      // DELIBERATELY NOT THE SAME FIELD AS `starved`, though they overlap at the empty end.
+      // `starved` is a HEADER state and carries a `capacity > 0` guard, because a resource with
+      // nowhere to store anything is unbuilt rather than in crisis and the chip must not open every
+      // fresh Act VII save with an alarm about Fuel. `pinned` is the ENGINE's fact, ungated, and it
+      // covers a case `starved` does not describe at all: the FULL end.
+      //
+      // WHICH RESOURCES CAN ACTUALLY PIN AT CAPACITY — MEASURED, because the intuitive answer is
+      // wrong and this story's first draft of this comment gave it. A MODULE producing into a full
+      // tank does NOT pin: loadFollowThrottles() sets its throttle to demand/gross, the producer
+      // backs off, `raw` lands at exactly 0 and the pin branch never fires. Driven under `node`, an
+      // Electrolysis Stack bought before a Fuel tank (capacity 0, amount 0) reports
+      // `supplyThrottle.fuel = 0` and `pinned.fuel = null` — the stack simply stops.
+      //
+      // The capacity pin therefore fires on production that CANNOT be load-followed, which in this
+      // act means SITE production: Home Plate's 2.0 O2/s takes neither throttle, because a planet
+      // does not back off because your tank is full (siteProductionPerSecond() in colony.js argues
+      // it at length). Measured: a fresh Act VII save with Oxygen at 100/100 reports
+      // `pinned.oxygen = 'capacity'` and `net.oxygen = 0`. That is the real reading the panel has to
+      // explain — free atmosphere being vented because there is nowhere to put it — and it is
+      // reachable in the act's opening minutes.
+      //
+      // No guard is needed for the Fuel-at-0-capacity case either way: with no Fuel producer at all
+      // `raw` is exactly 0, neither branch fires, and a genuinely fresh save reports no pin.
+      pinned: rates.pinned[id],
+      // §5.6's two throttles, per resource, kept apart for the same reason colonyRates() returns
+      // them apart: `satisfaction` is how much of what this bus was ASKED for it could supply, and
+      // `supplyThrottle` is how far its producers BACKED OFF because the tank is full. They are
+      // near-opposite conditions — starving and glutted — and folding them into one "efficiency"
+      // number would make the two failure modes of the act look identical.
+      satisfaction: rates.satisfaction[id],
+      supplyThrottle: rates.supplyThrottle[id],
+      // The `< 1` tests, decided HERE. A component asking `satisfaction < 1` is a component
+      // deciding what counts as rationed, which is the identical objection the `trend` note above
+      // makes — and it is the line that would have to move the day either throttle grows a
+      // deadband. Strict, because 1 is the un-throttled value both terms are initialised to.
+      rationed: rates.satisfaction[id] < 1,
+      backedOff: rates.supplyThrottle[id] < 1,
     };
   });
 }
+
+// THE TIGHTEST BUS. A single headline number for a per-resource quantity, and the reduction is a
+// DECISION — which is why it is here and not in the panel that wants to print it.
+//
+// The minimum, and it has to be the minimum rather than an average: §5.6 solves the ration per
+// resource, but throughputOf() then runs every module at the LOWEST satisfaction among its inputs.
+// The worst bus is therefore not one input to how starved the colony is, it IS how starved the
+// colony is — an average would report a comfortable 80% for a colony whose reactors have stopped.
+//
+// Returns the id alongside the value, because "68%" alone is a number the player cannot act on and
+// "68%, Power" is an instruction. Ties go to the first in configured order, which is stable rather
+// than arbitrary: EXPEDITION_RESOURCES is ordered and does not depend on object key iteration.
+function tightest(byResource) {
+  let worst = { id: null, value: 1 };
+  EXPEDITION_RESOURCES.forEach((resource) => {
+    const value = byResource[resource.id];
+    if (!Number.isFinite(value) || value >= worst.value) return;
+    worst = { id: resource.id, label: resource.label, value };
+  });
+  return worst;
+}
+
+// THE OPS PANEL'S BOUNDARY HELPER (PRD §6.4, STORY-035) — one solve, one helper, same as above.
+//
+// It exists so the panel can render the rows, the ration, the load-follow and Salvage/s from a
+// SINGLE colonyRates() call. Every field below is a reshaping of that one solve; nothing here
+// computes a rate, and the arithmetic that is here (the minimum, the `< 1` tests) is a reduction of
+// the engine's output rather than a second model of it.
+//
+// SALVAGE IS PASSED THROUGH RATHER THAN RECOMPUTED, and that is the point of it being in the solve
+// at all: engine/income.js reads the same `rates.salvage` for the header's per-second figure, so
+// the panel and the header cannot disagree about how starved the colony is. Two surfaces summing
+// drone output independently would drift the first time a module's throttle rule changed.
+function opsReadout(state, modifiers) {
+  const resolved = modifiers || computeModifiers(state);
+  const slice = expeditionSlice(state);
+  const rates = colonyRates(state, resolved);
+
+  return {
+    phase: slice.phase,
+    rows: resourceRows(slice, rates),
+    // The headline pair. `ration` is the empty end, `throttle` the full end; both read 1 (and a
+    // null id) for a colony under no pressure at either, which is the honest reading of a colony
+    // that is simply fine.
+    ration: tightest(rates.satisfaction),
+    throttle: tightest(rates.supplyThrottle),
+    salvage: rates.salvage,
+  };
+}
+
+// THERE IS DELIBERATELY NO `quiet` FLAG HERE, AND THE ATTEMPT IS WORTH RECORDING BECAUSE IT LOOKS
+// OBVIOUS. `aftermath` runs 20-30 minutes on this one screen, so a line saying "these zeros are
+// correct, the site is not up yet" seems clearly worth having. It was written, driven, and removed:
+// a fresh Act VII save is NOT quiet. Home Plate is reached and colonized from the first second and
+// produces 2.0 O2/s, so `gross.oxygen` is 2 and any honest test of "nothing is happening" is false
+// from t = 0 — the note would have been unreachable copy in the file that exists to hold the copy.
+//
+// The job it was going to do is done better by the per-phase `note` in data/actSevenOpsConfig.js,
+// which always renders, is keyed by the same phase the directive is, and can say the true thing:
+// the planet still makes its own air, and everything else reads zero until the player builds.
 
 // Infinity whenever the resource is not actually falling, which includes the pinned-at-empty case
 // described above. Callers format Infinity as an em dash; they must not treat it as a large
@@ -96,4 +217,4 @@ function isWarning(amount, net) {
   return Number.isFinite(seconds) && seconds <= RESOURCE_WARNING_SECONDS;
 }
 
-module.exports = { listResources };
+module.exports = { listResources, opsReadout };

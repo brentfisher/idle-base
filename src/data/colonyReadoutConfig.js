@@ -1,7 +1,15 @@
-// Tuning and palette for the Act VII header resource readout (PRD §6.6).
+// Tuning and palette for the Act VII resource readout — the header chips (PRD §6.6) and, as of
+// STORY-035, the Ops panel's rate rows (§6.4).
 //
 // Everything the readout decides is a number, and a number inline in an engine or a component is
 // a bug — so both the warning threshold and the chip colours live here.
+//
+// BOTH SURFACES ARE CLASSIFIED FROM THIS ONE FILE, and that is the reason resourceTone() below and
+// rateClass() at the foot of it are neighbours rather than one living beside each caller. They read
+// the same row and answer the same question — which state is this resource in — and the two would
+// eventually disagree about it if they were written a component apart. They differ only in what
+// they hand back, because the header paints inline `{ bg, ink }` pairs and the panel wears
+// STORY-034's `--v7-*` classes; the priority ORDER is the design, and it is stated once.
 
 // How close to empty counts as a warning, in seconds of remaining runway.
 //
@@ -69,9 +77,54 @@ function resourceTone(row) {
   return RESOURCE_TONES.steady;
 }
 
+// Which STORY-034 modifier a signed rate wears on the Ops panel: `--v7-alert`, `--v7-drain`,
+// `--v7-good`, or the muted default (PRD §6.4).
+//
+// THE PIN OUTRANKS THE SIGN, AND THAT ORDERING IS THE WHOLE REASON THIS FUNCTION EXISTS. A pinned
+// resource reads 0/s, so on `trend` alone it is 'steady' and would be painted the same muted grey
+// as a colony sitting comfortably at equilibrium — which is the one confusion the panel is built to
+// prevent. Decision 3.3's promise is that a starved colony is throttled and never broken, and the
+// player can only believe that promise if they can see the throttle. `--v7-alert` is the louder
+// colour precisely because being clamped is the more serious state: falling means you have time,
+// pinned means the time is already gone. The `.v7-rate` rules in styles/global.css say the same
+// thing from the CSS side.
+//
+// It takes a ROW, not a net rate, for the reason conventions.md gives: a component that had to
+// unpack `pinned` and `trend` and decide between them is a component deciding a rule, and it is the
+// exact line that would need editing the day a fourth state is added.
+//
+// '' RATHER THAN A CLASS FOR THE DEFAULT. `.v7-rate` on its own is already the muted state, so the
+// steady case wants no modifier at all — and returning a real class name for it would mean
+// inventing an `is-steady` rule that only ever restated the base.
+function rateClass(row) {
+  if (row.pinned) return 'is-alert';
+  if (row.trend === 'falling') return 'is-drain';
+  if (row.trend === 'rising') return 'is-good';
+  return '';
+}
+
+// The same question for the METER fill, and it is deliberately not the same answer.
+//
+// A rising rate gets no modifier here where it gets `is-good` above, because `.v7-meter-fill` is
+// ALREADY `--v7-good` at rest — a bar that is filling is the ordinary case, and colouring it
+// specially would leave the panel with no visual quiet at all. Only the two bad states are worth a
+// colour on a 6px bar seen at a glance.
+//
+// The empty pin colours the meter and the capacity pin does not: at 'capacity' the bar is full,
+// which is a picture that is already correct and already reassuring, and repainting it alarm-red
+// would say the tank is broken when what is actually happening is that the tank is finished. The
+// RATE beside it is where that surplus gets reported, which is what rateClass() is for.
+function meterClass(row) {
+  if (row.pinned === 'empty') return 'is-alert';
+  if (row.trend === 'falling') return 'is-drain';
+  return '';
+}
+
 module.exports = {
   RESOURCE_WARNING_SECONDS,
   RESOURCE_FULL_EPSILON,
   RESOURCE_TONES,
   resourceTone,
+  rateClass,
+  meterClass,
 };
