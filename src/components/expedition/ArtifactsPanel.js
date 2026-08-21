@@ -123,6 +123,18 @@ function ArtifactRow({ row, unaided, feedback, onSubmit, onManual, onSimulate, o
   // prose for a set test, one preparing a numeral for arithmetic, and its comment explains why
   // `4.0` breaks the first) and a tidy-up here would be a third, weaker one that the other two would
   // eventually disagree with. The panel's job is to deliver the keystrokes.
+  //
+  // IT SURVIVES THE TICK, AND THAT PROPERTY IS ARGUED RATHER THAN MEASURED — flagged because
+  // everything else in this file's verification record was measured. `state.clock` advances every
+  // second and GameContext's `useMemo` is keyed on `state`, so EVERY consumer of this panel
+  // re-renders once a second while the player is typing. React preserves `useState` across a
+  // re-render as long as the element keeps its position and key, and these rows are keyed by
+  // `row.id` from a list that only ever GAINS members (listPuzzles() filters on isRevealed(), and a
+  // reveal is permanent — nothing in the act un-reveals an artifact). So a row is never unmounted
+  // while the player is mid-answer and the draft holds. It is argued because the harness renders
+  // through react-dom/server, which never exercises useState persistence at all: if this were
+  // wrong, the panel would clear the field once a second and no assertion in the record below would
+  // have caught it.
   const [draft, setDraft] = React.useState('');
   const resolved = row.status !== 'open';
   const busy = row.cooldownRemaining > 0;
@@ -136,7 +148,7 @@ function ArtifactRow({ row, unaided, feedback, onSubmit, onManual, onSimulate, o
   }
 
   return (
-    <div className={'v7-artifact' + (resolved ? ' is-resolved' : '')}>
+    <div className={'v7-artifact is-' + row.status}>
       <div className="v7-artifact-head">
         <span className="v7-artifact-name">{row.name}</span>
         <span className={'v7-artifact-status is-' + row.status}>
@@ -437,6 +449,11 @@ function ArtifactsPanel() {
 // one, the Governor Bypass halves the printed wait to 45s, and the Plot Table adds the bench — which
 // records no attempt, consumes no attempt governor, and reports PASS, FAIL or nothing at all
 // depending on whether it has been run.
+//
+// THE TWO ENDINGS DRAW DIFFERENTLY ON THE CARD AS WELL AS ON THE CHIP: a solved artifact renders
+// `v7-artifact is-solved` and a released one `is-bypassed`, re-checked after the card stopped
+// carrying a single resolved/unresolved class — a green edge on a bypass would have claimed a solve
+// the player never made, six lines above a chip arguing the opposite.
 //
 // AND IT MOUNTS AGAINST THE SAVES THIS CODEBASE NEVER MIGRATES: `expedition` deleted entirely,
 // `expedition` present with no `puzzles`, and an unrecognized phase all render — the first two draw

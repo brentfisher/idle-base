@@ -3490,11 +3490,21 @@ body.expedition .v7-artifact {
   margin: 0 0 1rem;
 }
 
-/* A resolved artifact recedes without becoming unreadable. It is still worth opening — the prompt
-   and what it unlocked are the record of what the player did — so this is a de-emphasis and not the
-   `.is-unaffordable` dim, which means "out of reach". */
-body.expedition .v7-artifact.is-resolved {
+/* A resolved artifact keeps its full legibility — it is still worth opening, because the prompt and
+   what it unlocked are the record of what the player did — and is marked on its edge instead.
+
+   THE TWO ENDINGS GET TWO EDGES, matching the status chip rather than contradicting it. A solved
+   artifact takes the act's "this is fine" green. A RELEASED one takes the ordinary border, because
+   the panel giving up is a route this game offers on purpose: painting it green would claim a solve
+   the player did not make, and painting it a warning colour would punish them for using the
+   guarantee. Marking a bypass in the same colour as a solve was the first version of this rule and
+   it quietly disagreed with the chip six lines below. */
+body.expedition .v7-artifact.is-solved {
   border-left: 3px solid var(--v7-good);
+}
+
+body.expedition .v7-artifact.is-bypassed {
+  border-left: 3px solid var(--v7-border);
 }
 
 body.expedition .v7-artifact-head {
