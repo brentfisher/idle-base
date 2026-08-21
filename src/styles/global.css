@@ -3626,6 +3626,483 @@ body.expedition .v7-site-offer-effect {
    END SITES PANEL (STORY-037)
    --------------------------------------------------------------------------------------------- */
 
+/* ---------------------------------------------------------------------------------------------
+   STORY-038 — THE ARTIFACTS PANEL (PRD §6.4, §8): the puzzle surface, the graded feedback, the
+   hint ladder, the attempt governor and the instrument shop.
+
+   PLACED HERE, INSIDE THE body.expedition SECTION AND ABOVE THE FINAL MEDIA QUERY, ON PURPOSE, and
+   with the same note the Ops and Fab sections above carry: this file ENDS inside
+   `@media (max-width: 640px)`, so a rule appended at EOF is silently mobile-only. It builds clean
+   and it reads correctly in the diff. STORY-022 and STORY-023 both shipped that bug. Anything added
+   for an Act VII panel belongs above that line, and after any merge against master the first thing
+   to re-check is that this block still sits outside it.
+
+   ONE CONTIGUOUS BLOCK, so a concurrent panel story's block merges by taking both rather than by
+   anyone reading two interleaved sets of rules.
+
+   IT INVENTS NO COLOUR. The instrument shop wears STORY-034's `.v7-row` primitives unchanged — it
+   is the same house shop row the Fab bench draws — and everything below is a `--v7-*` token. The
+   palette rule this act established is that everything the player BUYS or READS is amber and
+   everything else is blue-grey, and the one place this section stretches it is the graded feedback:
+   a NEAR is amber because it is the most player-caused thing on the screen, and it says keep going
+   at the same temperature as a price.
+
+   FOUR PAIRINGS MEASURED against the 4.7:1 floor, because a new pairing is a new measurement
+   (the lesson of the `.stat-chip .label` regression documented above):
+     --v7-accent #ffb340 on --v7-chip #0a1018 ...... 10.70:1   NEAR feedback, bought hint text
+     --v7-ink    #dbe6f2 on --v7-chip #0a1018 ...... 15.10:1   WRONG_KIND feedback, the prompt
+     --v7-muted  #8fa3bb on --v7-chip #0a1018 .......  7.38:1   OUT_OF_BAND / NULL, locked tiers
+     --v7-good   #5ad1a0 on --v7-chip #0a1018 ...... 10.05:1   SOLVED feedback, ACCEPTED chip
+   The accent-on-accent-ink button pairing (#07121a on #ffb340, 10.60:1) is the tab bar's own and is
+   reused rather than re-chosen.
+
+   MOBILE, 390x844. The artifact PROMPTS are the hazard on this screen and they are the reason this
+   section exists at all: several of them are printed tables — a two-column insertion log, a manifest
+   with dot leaders, a gate/gain grid — and §8.1's rule 3 is that the player can check their own
+   answer, which they cannot do against a table whose columns have been re-wrapped. So the prompt
+   keeps `white-space: pre` and scrolls INSIDE ITS OWN BOX (`overflow-x: auto`), which is what keeps
+   the page from scrolling sideways instead. The answer field is 16px because anything smaller makes
+   iOS Safari zoom the viewport on focus, and that zoom is itself a source of horizontal scroll —
+   the same rule `.team-identity-input` and `.wu-select` carry. Every control here is >= 44px tall.
+   --------------------------------------------------------------------------------------------- */
+
+/* The anti-soft-lock guarantee, stated once at the top of the screen (design.md Decision 6). Given
+   the directive block's frame rather than a paragraph's, because it is a standing promise about the
+   whole tab rather than a note about the rows under it — and because a player who is stuck is
+   looking for exactly this and should be able to find it by shape. */
+body.expedition .v7-artifact-guarantee {
+  border: 1px solid var(--v7-border);
+  border-left: 3px solid var(--v7-accent);
+  border-radius: 6px;
+  background: var(--v7-chip);
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1.1rem;
+}
+
+body.expedition .v7-artifact-guarantee h3 {
+  margin: 0 0 0.35rem;
+}
+
+body.expedition .v7-artifact-guarantee p {
+  margin: 0;
+}
+
+/* One artifact. A card rather than a row, and the difference is the point of the tab existing: a
+   shop row is scanned against its neighbours, and an artifact is READ. It gets its own ground, its
+   own frame and enough padding to stop being a list item. */
+body.expedition .v7-artifact {
+  border: 1px solid var(--v7-border);
+  border-radius: 6px;
+  background: var(--v7-panel);
+  padding: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+/* A resolved artifact keeps its full legibility — it is still worth opening, because the prompt and
+   what it unlocked are the record of what the player did — and is marked on its edge instead.
+
+   THE TWO ENDINGS GET TWO EDGES, matching the status chip rather than contradicting it. A solved
+   artifact takes the act's "this is fine" green. A RELEASED one takes the ordinary border, because
+   the panel giving up is a route this game offers on purpose: painting it green would claim a solve
+   the player did not make, and painting it a warning colour would punish them for using the
+   guarantee. Marking a bypass in the same colour as a solve was the first version of this rule and
+   it quietly disagreed with the chip six lines below. */
+body.expedition .v7-artifact.is-solved {
+  border-left: 3px solid var(--v7-good);
+}
+
+body.expedition .v7-artifact.is-bypassed {
+  border-left: 3px solid var(--v7-border);
+}
+
+body.expedition .v7-artifact-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+body.expedition .v7-artifact-name {
+  color: var(--v7-ink);
+  font-weight: 600;
+  flex: 1 1 12ch;
+}
+
+/* The status chip. Three states and three readings: OPEN is a fact, ACCEPTED is the good colour the
+   act uses for a fed resource, and RELEASED is deliberately blue-grey rather than a warning — the
+   panel gave up, which is a route the game offers on purpose, and colouring it as a failure would
+   punish the player for using the guarantee. */
+body.expedition .v7-artifact-status {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 1px solid var(--v7-border);
+  border-radius: 999px;
+  background: var(--v7-chip);
+  color: var(--v7-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+body.expedition .v7-artifact-status.is-solved {
+  border-color: var(--v7-good);
+  color: var(--v7-good);
+}
+
+/* Solved with no hint bought (engine/puzzles.js's solvedUnaided). Amber, because it is the one chip
+   on this screen that is purely a statement about the player. §9's Rule 5 Draft and §10's ending
+   text both read this fact, so the player is shown it as it is earned rather than only at the end. */
+body.expedition .v7-artifact-unaided {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 1px solid var(--v7-accent);
+  border-radius: 999px;
+  background: var(--v7-chip);
+  color: var(--v7-accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* THE PROMPT. Monospaced and unwrapped, because it is a printout: several of these artifacts are
+   column tables and the columns are load-bearing (see the section note above). It scrolls inside
+   itself on a narrow screen so the page never does.
+
+   Full-strength ink rather than muted, which is the opposite of what a block of small type usually
+   gets — this is the single thing on the screen the player is here to read, and every number they
+   need to check their own answer is inside it. */
+body.expedition .v7-artifact-prompt {
+  margin: 0 0 0.7rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--v7-border);
+  border-radius: 4px;
+  background: var(--v7-chip);
+  color: var(--v7-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
+  /* Momentum scrolling inside the box on iOS, so the horizontal gesture belongs to the printout
+     rather than to the page behind it. */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* What an owned instrument reads off this artifact. Amber, because it is a thing the player bought
+   and is now looking at — the clearest case in the act of the accent's own rule. */
+body.expedition .v7-artifact-readout {
+  margin: 0 0 0.7rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px dashed var(--v7-accent);
+  border-radius: 4px;
+  background: var(--v7-chip);
+  color: var(--v7-accent);
+  font-size: 0.82rem;
+}
+
+body.expedition .v7-artifact-readout-label {
+  display: block;
+  color: var(--v7-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+body.expedition .v7-artifact-stakes {
+  margin-bottom: 0.8rem;
+  color: var(--v7-ink);
+  font-size: 0.85rem;
+}
+
+body.expedition .v7-artifact-stakes div + div {
+  margin-top: 0.25rem;
+}
+
+body.expedition .v7-artifact-stake-label {
+  color: var(--v7-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-right: 0.4rem;
+}
+
+body.expedition .v7-artifact-status-note {
+  color: var(--v7-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.7rem;
+}
+
+body.expedition .v7-artifact-form {
+  margin-bottom: 0.6rem;
+}
+
+body.expedition .v7-artifact-label {
+  display: block;
+  color: var(--v7-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.3rem;
+}
+
+/* The field and its button. `min-width: 0` on the input is what lets the flex row shrink to 390px
+   without the input's default intrinsic width pushing the button off the screen — the same fix
+   `.wu-select` documents. They wrap rather than squash when even that is not enough. */
+body.expedition .v7-artifact-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+body.expedition .v7-artifact-input {
+  flex: 1 1 12ch;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 0.6rem;
+  border: 1px solid var(--v7-border);
+  border-radius: 4px;
+  background: var(--v7-chip);
+  color: var(--v7-ink);
+  /* Never below 16px: iOS Safari zooms the viewport on focus for anything smaller, and this panel
+     is the only place in Act VII with a text field. */
+  font-size: 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+body.expedition .v7-artifact-input:focus {
+  outline: none;
+  border-color: var(--v7-accent);
+}
+
+/* SUBMIT is the act's one filled button outside the tab bar, and it earns it: this is the control
+   the whole tab is about. It borrows the tab bar's own amber-on-dark pairing rather than choosing a
+   new one. */
+body.expedition .v7-artifact-submit {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid var(--v7-accent);
+  border-radius: 4px;
+  background: var(--v7-accent);
+  color: var(--v7-accent-ink);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+/* Disabled means the governor is live or the field is empty. It loses the fill entirely rather than
+   fading, because a dimmed amber still reads as the thing to press. */
+body.expedition .v7-artifact-submit:disabled {
+  background: var(--v7-chip);
+  border-color: var(--v7-border);
+  color: var(--v7-muted);
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   THE GRADED FEEDBACK — the reason this panel exists (§8.1: the goal may be unclear, the FEEDBACK
+   never is). FIVE CODES, AND THEY MUST NOT ALL DRAW THE SAME. The engine goes to real lengths to
+   tell "you have the right kind of answer" apart from "you are answering a different question", and
+   if both arrive on screen as one grey sentence that work is thrown away at the last inch.
+
+   Which class a code wears is decided in data/actSevenArtifactsConfig.js beside the act's other
+   tone tables, never by a conditional in the component. The left rule is what makes the difference
+   legible at a glance before a word is read. */
+body.expedition .v7-artifact-feedback {
+  margin: 0 0 0.8rem;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid var(--v7-border);
+  border-radius: 0 4px 4px 0;
+  background: var(--v7-chip);
+  color: var(--v7-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+body.expedition .v7-artifact-feedback.is-solved {
+  border-left-color: var(--v7-good);
+  color: var(--v7-good);
+}
+
+body.expedition .v7-artifact-feedback.is-near {
+  border-left-color: var(--v7-accent);
+  color: var(--v7-accent);
+}
+
+/* A real sentence about a real misreading, at full strength so it gets read. Deliberately NOT
+   `--v7-alert`: a wrong answer is not a fault condition, and the act keeps that colour for a colony
+   that is actually breaking. */
+body.expedition .v7-artifact-feedback.is-wrong-kind {
+  border-left-color: var(--v7-ink);
+  color: var(--v7-ink);
+}
+
+/* Nothing was learned. The line says so quietly, and both codes share the block's default. */
+body.expedition .v7-artifact-feedback.is-out-of-band,
+body.expedition .v7-artifact-feedback.is-null {
+  border-left-color: var(--v7-border);
+  color: var(--v7-muted);
+}
+
+/* ---------------------------------------------------------------------------------------------
+   THE MANUAL ROUTE AND THE BENCH. Both are a control, a live deadline and a sentence. */
+body.expedition .v7-artifact-manual,
+body.expedition .v7-artifact-sim {
+  margin-bottom: 0.8rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--v7-border);
+}
+
+body.expedition .v7-artifact-manual p,
+body.expedition .v7-artifact-sim p,
+body.expedition .v7-artifact-hints p {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+}
+
+body.expedition .v7-artifact-manual-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* OUTLINED, NOT FILLED, AND THAT IS THE WHOLE DESIGN OF THIS CONTROL. It has to be visible — the
+   anti-soft-lock guarantee is only real if the player can see the route that needs no answer — and
+   it must not compete with SUBMIT, because a filled button beside a filled button reads as two equal
+   offers and this one is the fallback. Amber text on the panel ground, no fill. */
+body.expedition .v7-artifact-manual-button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--v7-accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--v7-accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+body.expedition .v7-artifact-manual-button:disabled {
+  border-color: var(--v7-border);
+  color: var(--v7-muted);
+  cursor: default;
+}
+
+/* The governor's countdown. Tabular figures so a number counting down does not shuffle the row
+   sideways once a second — the value is `state.clock`-derived and re-renders on every tick, so any
+   proportional digit would jitter visibly. */
+body.expedition .v7-artifact-governor {
+  color: var(--v7-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+body.expedition .v7-artifact-governor.is-busy {
+  color: var(--v7-accent);
+}
+
+/* How close the panel is to giving up. Takes the slack so it lands at the right edge on a desktop
+   and wraps to its own line on a phone, which is what a growing flex item buys with no media
+   query. */
+body.expedition .v7-artifact-attempts {
+  flex: 1 1 10ch;
+  text-align: right;
+  color: var(--v7-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+body.expedition .v7-artifact-sim-result {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 1px solid var(--v7-border);
+  border-radius: 999px;
+  background: var(--v7-chip);
+  color: var(--v7-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+body.expedition .v7-artifact-sim-result.is-pass {
+  border-color: var(--v7-good);
+  color: var(--v7-good);
+}
+
+/* ---------------------------------------------------------------------------------------------
+   THE HINT LADDER. Three tiers, and only the next unbought one carries a price button — buyHint()
+   takes no tier and always buys the next, so a control on tier 3 would buy tier 1. */
+body.expedition .v7-artifact-hints {
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--v7-border);
+}
+
+body.expedition .v7-artifact-sub {
+  color: var(--v7-ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+body.expedition .v7-artifact-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--v7-border);
+}
+
+body.expedition .v7-artifact-hint:last-child {
+  border-bottom: none;
+}
+
+body.expedition .v7-artifact-hint-tier {
+  flex: 0 0 auto;
+  color: var(--v7-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* A bought hint, amber: it is prose the player spent Salvage on, which is the accent's rule exactly.
+   Unbought tiers have no text to render at all — engine/puzzles.js sends `text: null` so that hint
+   prose the player has not paid for never reaches the DOM for them to find in devtools. */
+body.expedition .v7-artifact-hint-text {
+  flex: 1 1 16ch;
+  color: var(--v7-accent);
+  font-size: 0.85rem;
+}
+
+/* A tier that is not next. No control, because there is nothing to press, and the price still shown
+   as a target — the same treatment the Fab bench gives a row its spend gate is holding. */
+body.expedition .v7-artifact-hint-locked {
+  flex: 1 1 auto;
+  text-align: right;
+  color: var(--v7-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The buyable tier's button pushed to the right edge, matching where the shop rows put their price
+   so the two surfaces agree about where a price lives. */
+body.expedition .v7-artifact-hint button.v7-row-cost {
+  margin-left: auto;
+  min-height: 44px;
+}
+
+/* --------------------------------------------------------------------------------------------
+   END ARTIFACTS PANEL (STORY-038)
+   -------------------------------------------------------------------------------------------- */
+
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
      description do not share 390px with a price button and stay readable. Stacked, the price
