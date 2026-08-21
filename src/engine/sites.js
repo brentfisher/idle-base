@@ -109,6 +109,14 @@ function siteReach(site) {
 // panel quoting a price the network is not charging, which is the one thing this screen exists to
 // get right.
 //
+// THE THREE RATE LISTS ARE RESOLVED FOR EVERY SITE, INCLUDING ONES THAT ARE NOT COLONIZED, and a
+// consumer that sums them across the ladder will DOUBLE-COUNT what the network is actually paying.
+// engine/colony.js's siteUpkeepPerSecond() gates the charge on `colonized` — a site you have flown
+// past but not paid for has no colony on it and nothing to keep alive — and this row deliberately
+// does not apply that gate, because the Sites panel needs the resolved figures for a site it is
+// about to offer. This function is a PRESENTATION row and never a billing one; the biller is over
+// there, it is one function, and nothing should grow a second.
+//
 // `buildSecondsRemaining` is here for a narrower reason: the clock. Every other clock reader in
 // this file guards with `Number.isFinite(state.clock) ? state.clock : 0` because a save is a file
 // on somebody's disk, and `readyAtClock - state.clock` written in a component skips that guard and
