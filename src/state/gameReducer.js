@@ -16,6 +16,7 @@ const identityActions = require('./actions/identityActions');
 const fabActions = require('./actions/fabActions');
 const contractActions = require('./actions/contractActions');
 const boardActions = require('./actions/boardActions');
+const sitesActions = require('./actions/sitesActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -54,6 +55,9 @@ function gameReducer(state, action) {
 
     case actionTypes.FILL_STANDING_ORDER:
       return boardActions.fillStandingOrder(state, action);
+
+    case actionTypes.BUY_SITE_BUILD:
+      return sitesActions.buySiteBuild(state, action);
 
     case actionTypes.BUY_CAPS_UPGRADE:
       return capsShopActions.buyCapsUpgrade(state, action);
