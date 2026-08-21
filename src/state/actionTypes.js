@@ -69,6 +69,17 @@ module.exports = {
   // hold, and nothing to walk away from. It resolves entirely inside the dispatch.
   FILL_STANDING_ORDER: 'FILL_STANDING_ORDER',
 
+  // Act VII's artifact puzzles (PRD §8). Five ids rather than one because each is a different
+  // player event with different economics: a typed answer is graded and costs an attempt, the
+  // manual operation spends the governor's cooldown, the bench simulates without either, and the
+  // two purchases spend different currencies. Collapsing them behind one id would put the branch
+  // in the reducer and hide which of the five §8.7 paths a save actually took.
+  SUBMIT_PUZZLE_ANSWER: 'SUBMIT_PUZZLE_ANSWER',
+  OPERATE_PUZZLE_MANUALLY: 'OPERATE_PUZZLE_MANUALLY',
+  SIMULATE_PUZZLE_ANSWER: 'SIMULATE_PUZZLE_ANSWER',
+  BUY_PUZZLE_HINT: 'BUY_PUZZLE_HINT',
+  BUY_PUZZLE_INSTRUMENT: 'BUY_PUZZLE_INSTRUMENT',
+
   MARK_TAB_SEEN: 'MARK_TAB_SEEN',
   SET_TEAM_NAME: 'SET_TEAM_NAME',
 

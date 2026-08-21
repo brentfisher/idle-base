@@ -56,18 +56,17 @@ function gameReducer(state, action) {
     case actionTypes.FILL_STANDING_ORDER:
       return boardActions.fillStandingOrder(state, action);
 
-    // Act VII's artifact puzzles (PRD §8). The ids are constants on the action module rather than
-    // entries in ./actionTypes.js — the reducers that read them and the panel that dispatches them
-    // import from the same file, so the three cannot drift. See the note in puzzleActions.js.
-    case puzzleActions.SUBMIT_PUZZLE_ANSWER:
+    // Act VII's artifact puzzles (PRD §8). Five ids because each is a different player event with
+    // different economics — see the block on them in ./actionTypes.js.
+    case actionTypes.SUBMIT_PUZZLE_ANSWER:
       return puzzleActions.submitPuzzleAnswer(state, action);
-    case puzzleActions.OPERATE_PUZZLE_MANUALLY:
+    case actionTypes.OPERATE_PUZZLE_MANUALLY:
       return puzzleActions.operatePuzzleManually(state, action);
-    case puzzleActions.SIMULATE_PUZZLE_ANSWER:
+    case actionTypes.SIMULATE_PUZZLE_ANSWER:
       return puzzleActions.simulatePuzzleAnswer(state, action);
-    case puzzleActions.BUY_PUZZLE_HINT:
+    case actionTypes.BUY_PUZZLE_HINT:
       return puzzleActions.buyPuzzleHint(state, action);
-    case puzzleActions.BUY_PUZZLE_INSTRUMENT:
+    case actionTypes.BUY_PUZZLE_INSTRUMENT:
       return puzzleActions.buyPuzzleInstrument(state, action);
 
     case actionTypes.BUY_CAPS_UPGRADE:

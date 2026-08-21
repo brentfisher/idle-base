@@ -1,6 +1,7 @@
 const React = require('react');
 const { useGame } = require('../../state/GameContext');
 const puzzleActions = require('../../state/actions/puzzleActions');
+const actionTypes = require('../../state/actionTypes');
 const { listPuzzles, listInstruments, solvedUnaided } = require('../../engine/puzzles');
 const { artifactsCopy, feedbackLine, feedbackClass } = require('../../data/actSevenArtifactsConfig');
 
@@ -366,17 +367,17 @@ function ArtifactsPanel() {
             unaided={solvedUnaided(state, row.id)}
             feedback={puzzleActions.lastFeedback(state, row.id)}
             onSubmit={(input) => dispatch({
-              type: puzzleActions.SUBMIT_PUZZLE_ANSWER,
+              type: actionTypes.SUBMIT_PUZZLE_ANSWER,
               puzzleId: row.id,
               input,
             })}
-            onManual={() => dispatch({ type: puzzleActions.OPERATE_PUZZLE_MANUALLY, puzzleId: row.id })}
+            onManual={() => dispatch({ type: actionTypes.OPERATE_PUZZLE_MANUALLY, puzzleId: row.id })}
             onSimulate={(input) => dispatch({
-              type: puzzleActions.SIMULATE_PUZZLE_ANSWER,
+              type: actionTypes.SIMULATE_PUZZLE_ANSWER,
               puzzleId: row.id,
               input,
             })}
-            onBuyHint={() => dispatch({ type: puzzleActions.BUY_PUZZLE_HINT, puzzleId: row.id })}
+            onBuyHint={() => dispatch({ type: actionTypes.BUY_PUZZLE_HINT, puzzleId: row.id })}
           />
         ))
         : <p className="muted">{artifactsCopy.emptyNote}</p>}
@@ -389,7 +390,7 @@ function ArtifactsPanel() {
             key={instrument.id}
             instrument={instrument}
             onBuy={() => dispatch({
-              type: puzzleActions.BUY_PUZZLE_INSTRUMENT,
+              type: actionTypes.BUY_PUZZLE_INSTRUMENT,
               itemId: instrument.id,
             })}
           />

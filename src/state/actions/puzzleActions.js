@@ -6,6 +6,7 @@ const {
   buyInstrument,
   simulateAnswer,
 } = require('../../engine/puzzles');
+const actionTypes = require('../actionTypes');
 
 // Act VII's artifact puzzles (PRD §8) — the five dispatches the Artifacts panel makes, each one
 // line over engine/puzzles.js, plus the one piece of state this layer owns: what the panel last
@@ -29,17 +30,17 @@ const {
 // intra-act ladder belongs to engine/sites.js, which is the single writer of `expedition.phase`.
 //
 // ---------------------------------------------------------------------------------------------
-// THE ACTION IDS LIVE HERE AND NOT IN state/actionTypes.js.
-//
-// The reducers that read them and the panel that dispatches them both import from this one module,
-// so the three cannot drift out of agreement, and gameReducer.js grows one `require` and five `case`
-// arms rather than a second edit to a file every act in the game shares. That registry stays the
-// home of the ids that predate this change; nothing about it is deprecated by these five.
-const SUBMIT_PUZZLE_ANSWER = 'SUBMIT_PUZZLE_ANSWER';
-const OPERATE_PUZZLE_MANUALLY = 'OPERATE_PUZZLE_MANUALLY';
-const SIMULATE_PUZZLE_ANSWER = 'SIMULATE_PUZZLE_ANSWER';
-const BUY_PUZZLE_HINT = 'BUY_PUZZLE_HINT';
-const BUY_PUZZLE_INSTRUMENT = 'BUY_PUZZLE_INSTRUMENT';
+// THE ACTION IDS ARE IN state/actionTypes.js, beside every other id in the game, and are re-exported
+// here only so this module's own reducers can name them. That registry is the house convention —
+// all eighteen sibling action modules read from it — and one shared registry is what lets a reader
+// answer "what can be dispatched?" from a single file.
+const {
+  SUBMIT_PUZZLE_ANSWER,
+  OPERATE_PUZZLE_MANUALLY,
+  SIMULATE_PUZZLE_ANSWER,
+  BUY_PUZZLE_HINT,
+  BUY_PUZZLE_INSTRUMENT,
+} = actionTypes;
 
 // ---------------------------------------------------------------------------------------------
 // THE GRADED FEEDBACK, RECORDED IN STATE RATHER THAN COMPUTED IN THE PANEL. This is the decision
