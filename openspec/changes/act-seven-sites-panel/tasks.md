@@ -65,7 +65,13 @@
       9.57, drain/panel 7.85, muted/panel 7.02, muted/chip 7.38, good/chip 10.05, ink/chip 15.10.
       No new pairing is introduced; all clear the 4.7 floor.
 - [x] Mobile handled by `flex-wrap` on every horizontal group rather than a media query, so nothing
-      overflows 390px. No fork of the shared button for a tap target.
+      overflows 390px.
+- [ ] **NOT MET, AND NOT THIS BRANCH'S TO FIX**: the 44px tap-target floor. `button.v7-row-cost` is
+      `padding: 6px 10px` with a 1px border and inherited font — roughly 33px tall at 390x844. It is
+      pre-existing, it is the ONLY control this panel draws, and it is shared with Fab (STORY-036)
+      and the standing-order board (STORY-032), both already merged. Its own comment asks panel
+      stories to extend rather than fork it, so a Sites-only override would be three buttons that
+      nearly match and two panels still under the floor. Raised as a cross-panel gap.
 
 ## 6. Verification
 
