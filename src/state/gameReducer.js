@@ -16,6 +16,7 @@ const identityActions = require('./actions/identityActions');
 const fabActions = require('./actions/fabActions');
 const contractActions = require('./actions/contractActions');
 const boardActions = require('./actions/boardActions');
+const puzzleActions = require('./actions/puzzleActions');
 const { createInitialState } = require('./initialState');
 
 function gameReducer(state, action) {
@@ -54,6 +55,20 @@ function gameReducer(state, action) {
 
     case actionTypes.FILL_STANDING_ORDER:
       return boardActions.fillStandingOrder(state, action);
+
+    // Act VII's artifact puzzles (PRD §8). The ids are constants on the action module rather than
+    // entries in ./actionTypes.js — the reducers that read them and the panel that dispatches them
+    // import from the same file, so the three cannot drift. See the note in puzzleActions.js.
+    case puzzleActions.SUBMIT_PUZZLE_ANSWER:
+      return puzzleActions.submitPuzzleAnswer(state, action);
+    case puzzleActions.OPERATE_PUZZLE_MANUALLY:
+      return puzzleActions.operatePuzzleManually(state, action);
+    case puzzleActions.SIMULATE_PUZZLE_ANSWER:
+      return puzzleActions.simulatePuzzleAnswer(state, action);
+    case puzzleActions.BUY_PUZZLE_HINT:
+      return puzzleActions.buyPuzzleHint(state, action);
+    case puzzleActions.BUY_PUZZLE_INSTRUMENT:
+      return puzzleActions.buyPuzzleInstrument(state, action);
 
     case actionTypes.BUY_CAPS_UPGRADE:
       return capsShopActions.buyCapsUpgrade(state, action);

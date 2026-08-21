@@ -66,6 +66,12 @@ const ACT_SEVEN_PANELS = [
     id: 'artifacts',
     label: 'Artifacts',
     title: 'Artifacts',
+    // Keeps its `blurb` for the reason the `fab` and `board` rows above state: the field is part of
+    // this list's shape, and a row missing it would be the one row a future reader had to open a
+    // panel to check. components/expedition/ArtifactsPanel.js is a real panel as of STORY-038 and
+    // never renders PlaceholderPanel, so this line is now read only by whoever is editing this file
+    // — the puzzle surface's own heading, subtitle and every other word it draws are authored in
+    // data/actSevenArtifactsConfig.js and data/actSevenPuzzlesConfig.js.
     blurb: 'Recovered equipment, and what can be read off it. Nothing recovered.',
   },
   {
