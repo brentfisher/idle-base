@@ -60,6 +60,12 @@ const ACT_SEVEN_PANELS = [
     id: 'sites',
     label: 'Sites',
     title: 'Sites',
+    // Keeps its `blurb` for the reason the `fab` row above and the `board` row below both state:
+    // the field is part of this list's shape, and a row missing it would be the one row a future
+    // reader had to open a panel to check. components/expedition/SitesPanel.js is a real panel as
+    // of STORY-037 and never renders PlaceholderPanel, so this line is now read only by whoever is
+    // editing this file — the ladder's own heading and subtitle are authored in
+    // data/actSevenSitesPanelConfig.js.
     blurb: 'The affiliate ladder, out from the wreck. One site on it so far, and you are standing on it.',
   },
   {

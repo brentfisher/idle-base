@@ -69,6 +69,24 @@ module.exports = {
   // hold, and nothing to walk away from. It resolves entirely inside the dispatch.
   FILL_STANDING_ORDER: 'FILL_STANDING_ORDER',
 
+  // Act VII's site ladder (PRD §7.1, §7.2). Colonizing a rung, and building the one pad tier that
+  // rung may hold — the act's other Salvage sink, and the only purchase in the game that adds a
+  // PERMANENT draw on a shared pool rather than a one-off cost. See engine/sites.js.
+  //
+  // ONE ACTION FOR TWO KINDS OF BUILD, because they are one kind of ROW. An offer id is
+  // `<buildingId>@<siteId>` and engine/sites.js's OFFER_SEPARATOR note argues that the prefix IS
+  // the `buildingId` that gets stored, so there is one vocabulary and no mapping table anywhere.
+  // A COLONIZE_SITE / BUILD_PAD pair here would make the dispatcher decide which of the two it had
+  // pressed, which is a rules question the engine answers by parsing the id it emitted.
+  //
+  // It is a PURCHASE and not a completion. It opens a build window; engine/sites.js's
+  // resolveBuilds() is the single path that finishes one, run from advance() so an eight-hour
+  // offline return grants it exactly once.
+  //
+  // Carries `offerId` and not `siteId`, matching BUY_MODULE, BUY_LOT_ITEM and FILL_STANDING_ORDER:
+  // it is the id of a row the shop offered, and every shop in this game names it the same way.
+  BUY_SITE_BUILD: 'BUY_SITE_BUILD',
+
   MARK_TAB_SEEN: 'MARK_TAB_SEEN',
   SET_TEAM_NAME: 'SET_TEAM_NAME',
 
