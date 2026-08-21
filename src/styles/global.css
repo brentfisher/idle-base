@@ -3419,6 +3419,214 @@ body.expedition .v7-row-need.is-met {
 }
 
 /* ---------------------------------------------------------------------------------------------
+   STORY-037 — THE SITES PANEL (PRD §6.4, §7.1, §7.2): the colony ladder, its upkeep, and what a
+   pad costs to keep.
+
+   INSIDE THE `body.expedition` SECTION AND ABOVE THE MOBILE MEDIA QUERY THAT FOLLOWS, deliberately
+   and with a note on it, because this file ENDS inside `@media (max-width: 640px)` and a rule
+   appended at EOF is silently mobile-only. It builds clean and it reads correctly in the diff.
+   STORY-022 and STORY-023 both shipped that bug and the Ops and Fab blocks above each carry the
+   same warning. ONE CONTIGUOUS BLOCK, so that a merge against a parallel panel story resolves by
+   taking both blocks rather than by anyone reading two interleaved sets of rules.
+
+   TWO ROW SHAPES ON ONE SCREEN, AND THE DIFFERENCE IS THE POINT. The bottom half is the house shop
+   row — `.v7-row` and its children, unchanged and unforked, because engine/sites.js emits the same
+   contract engine/actSevenModules.js does and Fab and Sites are meant to draw the SAME row. The top
+   half is not a shop at all; it is a ladder of PLACES, most of which cannot be bought and one of
+   which is where the player is standing. `.v7-site` is that, and it is a new shape rather than a
+   `.v7-row` with extra classes because it has no price, no button and no affordability — three of
+   the four things the shop row exists to arrange.
+
+   NO METERS ANYWHERE IN THIS BLOCK, and that is a design ruling rather than an omission. §7.4 is
+   explicit that Act VII has ONE resource pool and not one per site; `.v7-meter` drawn beside a site
+   would read as that site's stock, which is exactly the thing the ruling says does not exist. The
+   ladder shows RATES, and the panel says so in words.
+
+   COLOUR, AGAINST STORY-034's RULE THAT AMBER IS THE ACT'S ONE WARM COLOUR:
+
+     amber   the reach figure, and the price button on a shop row. Reach is what a pad BUYS —
+             the one capability on this screen — so it wears the colour of the things the player
+             acts on. Nothing else here is amber.
+     drain   upkeep, both kinds, through STORY-034's shared `.v7-rate.is-drain`. Upkeep IS a
+             permanent draw and the palette already has the colour for one; a neutral upkeep line
+             would be the screen declining to say the thing it exists to say.
+     good    Home Plate's production, through `.v7-rate.is-good`, so a supply and a draw are told
+             apart by colour as well as by sign. Also the `colonized` status pill.
+     ink     names, and the shop row's leading upkeep line.
+     muted   everything else — `where`, descriptions, labels, an unreached site's pill.
+
+   CONTRAST, RECOMPUTED RATHER THAN ASSUMED (WCAG relative luminance, 4.7:1 floor, same method as
+   the token block at line 2753). This block introduces NO new colour pairing — every one below is
+   already measured further up the file — but the arithmetic was re-run because moving a colour onto
+   a new element is where the `.stat-chip .label` regression came from:
+
+     ink #dbe6f2 on panel #0e1622    14.36:1     muted #8fa3bb on panel   7.02:1
+     accent #ffb340 on panel         10.18:1     muted #8fa3bb on chip    7.38:1
+     good #5ad1a0 on panel            9.57:1     good #5ad1a0 on chip    10.05:1
+     drain #ff8a66 on panel           7.85:1     ink #dbe6f2 on chip     15.10:1
+
+   MOBILE (390x844) IS HANDLED BY WRAPPING AND NOT BY A MEDIA QUERY. Every horizontal group here is
+   `display: flex` with `flex-wrap: wrap`, so a rung head, a rate line or a pad line collapses onto
+   as many lines as 390px needs and nothing overflows. The panel's only tap target is the shared
+   `button.v7-row-cost`, which is deliberately NOT forked here — its own comment asks panel stories
+   to extend rather than fork it, and a Sites-only override of a button Fab and Board also draw
+   would be three buttons that nearly match.
+   --------------------------------------------------------------------------------------------- */
+
+/* One rung. The rule goes on the TOP of every row but the first, rather than the bottom of every
+   row but the last: the ladder is followed by an <h3>, so `:last-child` would never match and the
+   final site would keep a rule that then sat directly above the shop's heading. */
+body.expedition .v7-site {
+  padding: 12px 0;
+}
+
+body.expedition .v7-site + .v7-site {
+  border-top: 1px solid var(--v7-border);
+}
+
+body.expedition .v7-site-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+/* The rung number, as a chip. It is the ORDERING and it is load-bearing — the legal destination of
+   a launch is always the lowest unreached rung — so it is given a shape of its own rather than
+   folded into the name, where it would read as decoration. */
+body.expedition .v7-site-rung {
+  padding: 1px 6px;
+  border: 1px solid var(--v7-border);
+  border-radius: 999px;
+  background: var(--v7-chip);
+  color: var(--v7-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+body.expedition .v7-site-name {
+  color: var(--v7-ink);
+  font-weight: 600;
+}
+
+/* The state, pushed to the right edge on a desktop by `margin-left: auto` and dropping onto its own
+   line on a phone because the head wraps. Three states and three treatments, keyed by the id
+   data/actSevenSitesPanelConfig.js's statusFor() returns so the component maps no words to classes.
+
+   AN UNREACHED SITE IS MUTED AND NOT ALARMED. It is a destination, not a failure — nothing is
+   withheld and nothing has gone wrong — and red on four of the five rows of a fresh act would make
+   the ladder read as a list of problems instead of the promise §7.1 is making. */
+body.expedition .v7-site-status {
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid var(--v7-border);
+  border-radius: 999px;
+  background: var(--v7-chip);
+  color: var(--v7-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+body.expedition .v7-site-status.is-colonized {
+  border-color: var(--v7-good);
+  color: var(--v7-good);
+}
+
+body.expedition .v7-site-status.is-reached {
+  color: var(--v7-ink);
+}
+
+body.expedition .v7-site-where {
+  color: var(--v7-muted);
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+body.expedition .v7-site-description {
+  color: var(--v7-muted);
+  font-size: 0.85rem;
+}
+
+body.expedition .v7-site-lines {
+  margin-top: 6px;
+}
+
+body.expedition .v7-site-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 0.85rem;
+}
+
+/* A fixed minimum so "Upkeep", "Pad upkeep" and "Produces" start their rates at the same column on
+   a desktop, which is what lets the three lines be read down as one bill. `flex-shrink: 0` keeps
+   that column from collapsing on a phone; the rates wrap under it instead. */
+body.expedition .v7-site-line-label {
+  min-width: 9ch;
+  flex-shrink: 0;
+  color: var(--v7-muted);
+  font-size: 0.78rem;
+}
+
+body.expedition .v7-site-pad {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+body.expedition .v7-site-pad-name {
+  color: var(--v7-ink);
+}
+
+/* THE ONE AMBER THING ON A LADDER ROW. Reach is the entire reason a pad exists and the only
+   capability this screen reports, so it wears the colour of the things the player acts on.
+
+   IT HAS NO SECOND STATE. There is no dimmed, warned or degraded variant of this class and there
+   must never be one: §7.2's sharpest rule is that reach is a function of built pad tier ALONE and
+   never of satisfaction, so a starved network launches later and never shorter. A stylesheet that
+   could grey this figure out during a shortage would be an invitation to wire it up. */
+body.expedition .v7-site-reach {
+  color: var(--v7-accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* A build under way. Bordered and on the chip ground because "one build per site at a time" (§7.7)
+   is a rule the player is meant to SEE, and the way a screen says "this one is busy" is to make the
+   busy row look different rather than to add a word to it. */
+body.expedition .v7-site-build {
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--v7-border);
+  border-radius: 4px;
+  background: var(--v7-chip);
+  color: var(--v7-ink);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The shop row's LEADING line — what this will cost per second, before what it unlocks. Ink rather
+   than the muted `.v7-row-effect` the description below it wears, and that difference is Decision 9
+   of openspec/changes/act-seven-site-ladder made visible: engine/sites.js assembles the string
+   upkeep-first because §7.2's design is that expanding must be a decision, and a screen that
+   rendered it in the same grey as the flavour text would have undone the ordering without moving
+   a single word. */
+body.expedition .v7-site-offer-effect {
+  color: var(--v7-ink);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   END SITES PANEL (STORY-037)
+   --------------------------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------------------------
    STORY-038 — THE ARTIFACTS PANEL (PRD §6.4, §8): the puzzle surface, the graded feedback, the
    hint ladder, the attempt governor and the instrument shop.
 

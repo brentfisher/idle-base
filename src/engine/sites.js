@@ -16,6 +16,7 @@ const {
   LIFE_SUPPORT_PHASE,
   MAJORS_PHASE,
   OVER_THE_WALL_MILESTONE,
+  EXPEDITION_RESOURCES,
 } = require('../data/actSevenConfig');
 const {
   LAUNCH_PAD_TIERS,
@@ -24,6 +25,7 @@ const {
   getSiteDefinition,
   getPadTier,
   padTierForRung,
+  padUpkeepAt,
 } = require('../data/actSevenSitesConfig');
 const { expeditionSlice, resolvedSites, isLifeSupportPhase } = require('./colony');
 const { balanceOf, debitWallet, canAfford } = require('./wallet');
@@ -92,7 +94,36 @@ function siteReach(site) {
 // this is "where am I", including sites with a build already running and sites finished with, while
 // listOffers() is "what can I buy right now". A panel needs both and computing either from the
 // other loses information the player is looking at.
+//
+// WHAT STORY-037 ADDED, AND WHY IT WENT HERE RATHER THAN INTO THE PANEL. The Sites panel's whole
+// point (§7.2) is that expanding is a DECISION, and the thing that makes it one is the permanent
+// draw — so the panel has to print, per colonized site, the colony's base upkeep, the PAD's upkeep
+// after that site's `upkeepFactor`, and Home Plate's free production. Only the first of those was
+// on this row. The other two are one multiplication and one lookup away, and a component doing
+// either would be a second implementation of what the colony actually bills.
+//
+// That is not a style objection. engine/colony.js's siteUpkeepPerSecond() bills the pad through
+// padUpkeepAt() and nothing else, so calling the same function here means the screen and the solve
+// cannot disagree about what a pad costs. A `pad.upkeep[id] * site.upkeepFactor` written in JSX
+// would agree today and drift the first time §7.2's factor grew a rule — and the drift would be a
+// panel quoting a price the network is not charging, which is the one thing this screen exists to
+// get right.
+//
+// THE THREE RATE LISTS ARE RESOLVED FOR EVERY SITE, INCLUDING ONES THAT ARE NOT COLONIZED, and a
+// consumer that sums them across the ladder will DOUBLE-COUNT what the network is actually paying.
+// engine/colony.js's siteUpkeepPerSecond() gates the charge on `colonized` — a site you have flown
+// past but not paid for has no colony on it and nothing to keep alive — and this row deliberately
+// does not apply that gate, because the Sites panel needs the resolved figures for a site it is
+// about to offer. This function is a PRESENTATION row and never a billing one; the biller is over
+// there, it is one function, and nothing should grow a second.
+//
+// `buildSecondsRemaining` is here for a narrower reason: the clock. Every other clock reader in
+// this file guards with `Number.isFinite(state.clock) ? state.clock : 0` because a save is a file
+// on somebody's disk, and `readyAtClock - state.clock` written in a component skips that guard and
+// renders NaN for the rest of the run.
 function listSites(state) {
+  const clock = Number.isFinite(state && state.clock) ? state.clock : 0;
+
   return resolvedSites(state).map((site) => ({
     id: site.id,
     name: site.label,
@@ -106,9 +137,67 @@ function listSites(state) {
     reachesRung: siteReach(site),
     buildingId: site.buildingId,
     readyAtClock: site.readyAtClock,
+    // The pending build, named and counted down. Null on an idle site rather than 0, so the panel
+    // tests one field and never has to tell "finishing this instant" from "nothing running".
+    buildLabel: pendingBuildLabel(site),
+    buildSecondsRemaining: site.buildingId ? Math.max(0, site.readyAtClock - clock) : null,
     upkeepFactor: site.upkeepFactor,
     fuelCapacityOnArrival: site.fuelCapacityOnArrival,
+    // THE THREE RATE LISTS, KEPT APART BECAUSE THEY ARE THREE DIFFERENT FACTS. `upkeep` is what the
+    // colony on this rock eats and it is NOT scaled by `upkeepFactor` (colony.js says why: a colony
+    // feeds itself, a pad has to be fed from the network). `padUpkeep` IS scaled, and is the whole
+    // mechanical content of the factor. `produces` is Home Plate's 2.0 O2/s and is the only entry
+    // in the act — a panel that summed the three would delete the distinction §7.2 is built on.
+    upkeep: describeRateList(site.baseUpkeep),
+    padUpkeep: describeRateList(padUpkeepAt(site, site.launchPadTier)),
+    produces: describeRateList(site.produces),
   }));
+}
+
+// A `{ resourceId: perSecond }` bundle as an ordered, LABELLED list.
+//
+// ORDERED BY EXPEDITION_RESOURCES rather than by key iteration, so the same three rates always
+// print in the same order on every row — Power, Oxygen, Provisions, Fuel — and a config edit that
+// reorders one site's `baseUpkeep` object cannot reshuffle a column the player reads down.
+//
+// THE FILTER IS THE BILLER'S FILTER, deliberately: colony.js's addRates() drops anything
+// non-finite or non-positive before it charges it, so dropping the same rows here is what keeps
+// the screen showing exactly what the network pays. A corrupt rate that the solve ignores must not
+// appear on a row as a cost the player thinks they are carrying.
+//
+// The label comes from config rather than from the resource id, because the ids are the engine's
+// vocabulary ('provisions') and the labels are the game's ('Provisions'). engine/colonyReadout.js
+// resolves the same field the same way for the header chips and the Ops rows.
+function describeRateList(rates) {
+  return EXPEDITION_RESOURCES.reduce((rows, resource) => {
+    const perSecond = rates && rates[resource.id];
+    if (!Number.isFinite(perSecond) || perSecond <= 0) return rows;
+    rows.push({ resourceId: resource.id, label: resource.label, perSecond });
+    return rows;
+  }, []);
+}
+
+// The word for a colonize build, in ONE place. candidateBuildFor() names the shop OFFER with it and
+// pendingBuildLabel() names the RUNNING BUILD with it, and those are the same sentence at two
+// moments — the row the player pressed, and the row that is now under way on the ladder. Two
+// literals would let a future edit rename one and leave the Sites panel calling a build something
+// the shop never offered.
+function colonizeLabel(site) {
+  return 'Colonize ' + site.label;
+}
+
+// What the site is building, in words, or null when it is idle.
+//
+// Returns null for an UNRECOGNIZED `buildingId` rather than echoing the id, and that pairs with
+// applyCompletedBuild(), which grants nothing for one. A retired or hand-edited build id is a real
+// case in a codebase that never migrates a save; the honest reading is that the site is busy with
+// something this build does not have a name for, and the panel's copy owns that sentence. Putting
+// the raw id on screen would be the one failure worse than saying nothing.
+function pendingBuildLabel(site) {
+  if (typeof site.buildingId !== 'string') return null;
+  if (site.buildingId === COLONIZE_BUILD_ID) return colonizeLabel(site);
+  const pad = LAUNCH_PAD_BY_ID[site.buildingId];
+  return pad ? pad.label : null;
 }
 
 // The one thing a site could be doing next, or null. At most one row per site, which is the whole
@@ -125,7 +214,7 @@ function candidateBuildFor(site) {
   if (site.reached && !site.colonized) {
     return {
       buildingId: COLONIZE_BUILD_ID,
-      name: 'Colonize ' + site.label,
+      name: colonizeLabel(site),
       description: site.description,
       effect: describeColonizeEffect(site),
       cost: site.colonizeCost,
