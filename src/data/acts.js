@@ -55,10 +55,16 @@
 //
 // Opt-in on purpose. Act VII discards the ladder rather than being a rung on it, so a player who
 // wants to keep managing the franchise declines and Act VI behaves as it always has, forever.
+// `shortLabel` is the act's number as the header wears it — "Act IV" — and it is AUTHORED rather
+// than derived, on the same rule `titleName` follows. `progression.act` is a 0-BASED INDEX, so a
+// component rendering it would have to write `act + 1` and then map 5 to a Roman numeral; splitting
+// `name` on its em-dash would be the same string-slicing one layer along. Both are a second place
+// that knows how acts are numbered, and neither survives an act being inserted or renamed.
 const ACTS = [
   {
     id: 0,
     name: 'Act I — The Vacant Lot',
+    shortLabel: 'Act I',
     description:
       'You are nine years old. There is a vacant lot behind the hardware store, and there is money in the dirt if you know where to look.',
     entry: 'New game.',
@@ -70,6 +76,7 @@ const ACTS = [
   {
     id: 1,
     name: 'Act II — Off the Wall',
+    shortLabel: 'Act II',
     description: 'A brick wall, a chalk strike zone, and every kid on the block wants a piece of you.',
     entry: 'Own the Starter Kit.',
     exit: { id: 'crewAssembled', description: 'Win 5 wall-ball challenges and recruit 3 crew members.' },
@@ -83,6 +90,7 @@ const ACTS = [
   {
     id: 2,
     name: 'Act III — Little League',
+    shortLabel: 'Act III',
     description: 'Real uniforms. Real umpires. Six games and a trophy nobody will remember but you.',
     entry: 'Five wall-ball wins and a crew of three.',
     exit: { id: 'littleLeagueTitleWon', description: 'Finish first in a six-game Little League season.' },
@@ -168,6 +176,7 @@ const ACTS = [
   {
     id: 3,
     name: 'Act IV — Travel Ball',
+    shortLabel: 'Act IV',
     description:
       "Weekend tournaments three towns over. Somebody's dad is keeping stats. Somebody's uncle is taking bets.",
     entry: 'The Little League title.',
@@ -272,6 +281,7 @@ const ACTS = [
   {
     id: 4,
     name: 'Act V — The Minors',
+    shortLabel: 'Act V',
     description: 'A real stadium. A real payroll. The first time baseball is a business and not a game.',
     entry: 'A 60% career win rate over two travel seasons.',
     // THE DESCRIPTION USED TO NAME A STADIUM AND A PENNANT, AND THE ACT COULD DELIVER NEITHER.
@@ -317,6 +327,7 @@ const ACTS = [
   {
     id: 5,
     name: 'Act VI — The Big Leagues',
+    shortLabel: 'Act VI',
     description: 'Everything you have done was to get here.',
     entry: 'A full stadium and the minor-league pennant.',
     // NOT terminal any more, but not a rung either. Winning the championship remains the win
@@ -350,6 +361,7 @@ const ACTS = [
   {
     id: 6,
     name: 'Act VII — The Farm Team',
+    shortLabel: 'Act VII',
     description:
       'The trophy ceremony is interrupted. Baseball was an aptitude program, Earth is a farm team, and there is a call-up.',
     entry: 'Accept the call-up, after a championship.',

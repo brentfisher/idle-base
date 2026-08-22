@@ -94,6 +94,9 @@ function gameReducer(state, action) {
     case actionTypes.UPGRADE_STADIUM:
       return economyActions.upgradeStadium(state, action);
 
+    case actionTypes.BUY_STAT_UPGRADE_MAX:
+      return rosterActions.buyStatUpgradeMax(state, action);
+
     case actionTypes.BUY_STAT_UPGRADE:
       return rosterActions.buyStatUpgrade(state, action);
     case actionTypes.SET_WALKUP_SONG:

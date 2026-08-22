@@ -24,12 +24,12 @@ const POSITION_STATS = {
 // by accident, and a shop that charges 4,800 cash on a scroll gesture is not a shop.
 function WalkupPicker({ player }) {
   const { state, dispatch } = useGame();
-  const options = listPickerOptions(state, player);
+  const { none, groups } = listPickerOptions(state, player);
 
-  // Length 1 is the "no walk-up song" row on its own: either the crate is empty, or everything in
+  // No groups is the "no walk-up song" row on its own: either the crate is empty, or everything in
   // it is a pitching record and this is a shortstop. Rendering a one-option dropdown would be a
   // control the player cannot use, on the densest screen in the game, fifteen times over.
-  if (options.length <= 1) return <div className="muted wu-empty">{WALKUP_COPY.emptyCrate}</div>;
+  if (groups.length === 0) return <div className="muted wu-empty">{WALKUP_COPY.emptyCrate}</div>;
 
   return (
     <label className="wu-picker">
@@ -47,10 +47,21 @@ function WalkupPicker({ player }) {
           })
         }
       >
-        {options.map((option) => (
-          <option key={option.id || 'none'} value={option.id}>
-            {option.label}
-          </option>
+        {/* Ungrouped and first, so the way to take a record OFF a kid is never buried under a
+            heading. Its value is '' and it is what the <select> matches when nobody is assigned. */}
+        <option value={none.id}>{none.label}</option>
+        {/* <optgroup> AND NOT A DISABLED <option>, which is the whole reason the heading is safe to
+            add: an optgroup label cannot be selected or focused, where a disabled option can still
+            be landed on by keyboard in some browsers. The grouping and its order are the engine's
+            (listPickerOptions) — this renders them and chooses nothing. */}
+        {groups.map((group) => (
+          <optgroup key={group.stat} label={group.label}>
+            {group.options.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
     </label>

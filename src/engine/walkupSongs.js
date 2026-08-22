@@ -107,13 +107,42 @@ function listCrate(state) {
       pitchersOnly: !songCountsFor('DEFAULT', song.stat),
       heldBy: holder ? holder.name : null,
     };
-  }).sort((a, b) => a.cost - b.cost);
+  })
+    // UNOWNED FIRST, THEN OWNED, EACH CHEAPEST FIRST — and the first half of that is the point.
+    //
+    // Sorting on cost alone left bought records sitting among the unbought ones, so the row under
+    // the cursor changed identity after every purchase: a player coming back to a full wallet had
+    // to re-find the next record after each click, eighteen times. Sinking what you already own
+    // means buying the cheapest promotes the next-cheapest into the same slot, and the whole crate
+    // can be cleared without moving the pointer.
+    //
+    // It also keeps the two row SHAPES apart. An owned row renders a <span> where an unowned row
+    // renders a <button>; interleaved, any height difference between them shifts the buy targets
+    // around unpredictably. With every button above every span, the block of targets is contiguous.
+    //
+    // Unaffordable rows stay in place and stay disabled rather than sinking too — they are still
+    // the next thing to save for, and a list that reordered itself as income arrived would be the
+    // same moving-target problem wearing a different hat.
+    .sort((a, b) => (a.owned === b.owned ? a.cost - b.cost : (a.owned ? 1 : -1)));
 }
 
 // The per-player dropdown: the "no song" row, then every OWNED record this player's position can
-// actually use, cheapest first. Unowned records are not listed — buying happens in the crate
-// above, where the price and the description are visible, and never by brushing a <select> on a
-// phone into spending 4,800 cash.
+// actually use, GROUPED BY THE STAT EACH ONE BOOSTS and cheapest first inside each group. Unowned
+// records are not listed — buying happens in the crate above, where the price and the description
+// are visible, and never by brushing a <select> on a phone into spending 4,800 cash.
+//
+// RETURNS `{ none, groups }` RATHER THAN A FLAT LIST. The stat a record boosts is the only thing a
+// player is actually choosing on, and it used to be visible only inside each row's effect string —
+// so a crate with a dozen records was a wall of song titles to read through. The grouping is
+// resolved here rather than in the component for the reason every shop in this act follows: the
+// component renders rows and decides nothing about how they are ordered.
+//
+// GROUP ORDER IS `statWeights()`'s KEY ORDER, WHICH IS DERIVED AND NOT RESTATED. That is the same
+// order components/roster/PlayerCard.js draws the stat BARS in on the same card — a pitcher reads
+// pitching, defense, contact, power, speed and everybody else reads power, contact, speed, defense
+// — so the dropdown and the bars beneath it agree by construction. Restating the order here would
+// be a second copy that drifts the first time a position's weights are retuned, and it is why the
+// picker deliberately orders differently for a pitcher than for a shortstop.
 function listPickerOptions(state, player) {
   const roster = (state && state.roster) || [];
   const options = walkupSlice(state)
@@ -137,6 +166,9 @@ function listPickerOptions(state, player) {
         id: song.id,
         title: song.title,
         artist: song.artist,
+        // The stat this record boosts, carried so the grouping above keys on the record itself
+        // rather than on parsing it back out of the effect string.
+        stat: song.stat,
         effect: describe(song),
         selected: player.walkupSongId === song.id,
         // Named rather than hidden: the record is still choosable, and choosing it takes it off
@@ -149,6 +181,10 @@ function listPickerOptions(state, player) {
       };
     });
 
+  // The remove affordance, and it stays UNGROUPED and first. Its `id` is '' so it matches the
+  // <select>'s own `value` when the player has no song — putting it inside a group would still
+  // work, but a heading over a single "no walk-up song" row reads as a category with one record in
+  // it rather than as the way to take a record off somebody.
   const none = {
     id: '',
     title: WALKUP_COPY.noSong,
@@ -159,7 +195,33 @@ function listPickerOptions(state, player) {
     inert: false,
     label: WALKUP_COPY.noSong,
   };
-  return [none, ...options];
+
+  // One block per stat that actually has a record in it. A group with nothing in it is dropped
+  // rather than rendered empty — a heading over no rows is the shape of a bug, and which stats are
+  // represented depends entirely on what the player has bought.
+  const groups = Object.keys(statWeights(player.position))
+    .map((stat) => ({
+      stat,
+      label: WALKUP_COPY.statGroup(stat),
+      options: options.filter((option) => option.stat === stat),
+    }))
+    .filter((group) => group.options.length > 0);
+
+  // A record that is listed but does NOT count for this position — the training-camp stand-in case
+  // above — belongs to no group in `statWeights(player.position)`, so it would silently vanish from
+  // a dropdown that only rendered the groups. It is appended under its own heading instead, because
+  // the whole reason that row is listed is so the player can move him OFF it.
+  const grouped = new Set(groups.reduce((all, g) => all.concat(g.options.map((o) => o.id)), []));
+  const orphans = options.filter((option) => !grouped.has(option.id));
+  if (orphans.length > 0) {
+    orphans.forEach((orphan) => {
+      const existing = groups.find((g) => g.stat === orphan.stat);
+      if (existing) existing.options.push(orphan);
+      else groups.push({ stat: orphan.stat, label: WALKUP_COPY.statGroup(orphan.stat), options: [orphan] });
+    });
+  }
+
+  return { none, groups };
 }
 
 // What the roster card prints under the player's name, or null when they have no song. The card

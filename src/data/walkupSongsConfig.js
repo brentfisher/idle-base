@@ -289,6 +289,23 @@ const WALKUP_COPY = {
   // Appended to a picker option that is real but does nothing for this player — see
   // listPickerOptions() in engine/walkupSongs.js for the training-camp case that produces one.
   inertSuffix: ' — does nothing here',
+
+  // THE HEADING OVER EACH BLOCK OF THE PICKER, so a crate with a dozen records reads as "here are
+  // the power ones" rather than as a wall of titles. The stat a record boosts is the only thing a
+  // player is choosing on, and it was previously visible only inside each row's effect string.
+  //
+  // Rendered as an <optgroup> label rather than as a row, which is what makes it a heading rather
+  // than a trap: an <optgroup> label CANNOT be selected or focused by keyboard, where a disabled
+  // <option> can still be landed on in some browsers. listPickerOptions()'s long note on the
+  // training-camp case is about exactly this class of bug — a <select> displaying something other
+  // than its own value — and a selectable heading would be a new way to cause it.
+  //
+  // CAPITALISED, WHILE THE STAT BARS ON THE SAME CARD STAY LOWERCASE, and that is a boundary
+  // rather than an oversight. components/common/StatBar.js renders `label={stat}` raw, so every
+  // bar in the game says "power"; giving stats a display-name vocabulary means touching every bar
+  // on every screen, which is its own change. A heading inside a dropdown is a sentence-level
+  // label and reads wrong in lower case, so it is capitalised here and the bars are left alone.
+  statGroup: (stat) => stat.charAt(0).toUpperCase() + stat.slice(1),
 };
 
 // Tolerates null/undefined/garbage rather than throwing: this is called with

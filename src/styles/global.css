@@ -1828,6 +1828,31 @@ input[type='range']::-moz-range-thumb {
   border: 1px solid #f4d35e;
 }
 
+/* The two buy controls as one column, so a row with a bulk button is the same width as one
+   without and the bars beside them stay aligned down the card. Column rather than row: at 390px a
+   second 88px chip alongside the first would push the stat bar under 100px, and the bar is the
+   thing the buttons are about. */
+.upgrade-chip-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+/* Quieter than the single buy, deliberately. The stepped purchase is the default action and this
+   is the shortcut for a player who has been away — it should be findable, not the first thing the
+   eye lands on. It is also never the control that reaches the cap, so it takes no gold border:
+   `.is-last-step` above owns that meaning and this must not compete with it.
+
+   Only rendered when two or more upgrades are affordable (see UpgradeButton), so on most rows this
+   rule matches nothing at all. */
+.upgrade-chip.is-bulk {
+  min-height: 34px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
 /* The whole player is finished. Deliberately louder than the per-stat MAX: it answers the
    question the player is actually asking, which is whether they can stop looking at this card. */
 .player-card.is-fully-upgraded {
