@@ -87,6 +87,17 @@ const feedMessages = {
     return `${roundLabel} played out around the league without you.`;
   },
 
+  // Topping the table in a league with no postseason, which in Acts III and V IS the trophy. Takes
+  // the trophy's NAME from the act rather than spelling one, because the same fact is "the
+  // little-league title" in one act and "the pennant" in another — and because an act that names no
+  // trophy gets no line at all rather than a generic one.
+  //
+  // Separate from championshipWon() below, which belongs to Act VI's real bracket. The two never
+  // both fire: the acts that set `titleName` are exactly the acts that have no playoffs.
+  topOfTheTable: function topOfTheTable(seasonNumber, titleName) {
+    return `First place. Season ${seasonNumber} ends with ${titleName}.`;
+  },
+
   championshipWon: function championshipWon(seasonNumber) {
     return `Champions! Season ${seasonNumber} ends with the league title in the trophy case.`;
   },

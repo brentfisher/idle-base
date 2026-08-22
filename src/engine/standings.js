@@ -24,4 +24,22 @@ function sortStandings(standings) {
   });
 }
 
-module.exports = { applyGameResult, winPct, sortStandings };
+// Whether the season that just ended finished with the player on top of the table.
+//
+// READ FROM THE RECAP, NOT FROM THE STANDINGS, and that is the whole reason this is a function
+// rather than a call to sortStandings(). engine/tickEngine.js's runOffseasonTransition() computes
+// `finishedFirst` and then RESETS the standings three lines later, so by the time an exit predicate
+// or a feed line runs, the evidence is gone. The recap is what survives.
+//
+// ONE READER FOR TWO ACTS. Act III's title and Act V's pennant are the same fact about two
+// different leagues — both declare `playoffTeams: 0`, so topping the table IS the trophy — and the
+// two used to be one function in engine/littleLeague.js and one that did not exist at all. Act V's
+// exit was unsatisfiable for exactly that reason: `minorsPennantWon` was named in data/acts.js and
+// nothing anywhere in src/ ever wrote or evaluated it, so isExitSatisfied() fell through to a
+// milestone that had no writer and the act could not be left. See engine/progression.js.
+function finishedFirstLastSeason(state) {
+  const summary = state && state.season && state.season.lastOffseasonSummary;
+  return !!(summary && summary.finishedFirst);
+}
+
+module.exports = { applyGameResult, winPct, sortStandings, finishedFirstLastSeason };

@@ -86,6 +86,12 @@ const ACTS = [
     description: 'Real uniforms. Real umpires. Six games and a trophy nobody will remember but you.',
     entry: 'Five wall-ball wins and a crew of three.',
     exit: { id: 'littleLeagueTitleWon', description: 'Finish first in a six-game Little League season.' },
+    // What topping the table is CALLED here. Set only on the acts that declare `playoffTeams: 0`
+    // and end on the standings, which is Acts III and V — Act IV also has no postseason but ends on
+    // an accumulated win rate, and Act VI has a real bracket and narrates its championship instead.
+    // engine/tickEngine.js gates the offseason's trophy line on this field being present, so an act
+    // that does not name a trophy does not claim one.
+    titleName: 'the little-league title',
     // The existing schedule/standings simulation, switched on in miniature. `playoffTeams: 0`
     // means no bracket yet — the champion is simply the standings leader, which is exactly what
     // the `littleLeagueTitleWon` exit reads.
@@ -268,7 +274,13 @@ const ACTS = [
     name: 'Act V — The Minors',
     description: 'A real stadium. A real payroll. The first time baseball is a business and not a game.',
     entry: 'A 60% career win rate over two travel seasons.',
-    exit: { id: 'minorsPennantWon', description: 'Fill a 10,000-seat stadium and win the minor-league pennant.' },
+    // THE DESCRIPTION USED TO NAME A STADIUM AND A PENNANT, AND THE ACT COULD DELIVER NEITHER.
+    // `playoffTeams: 0` below means this league has no postseason, so there was no bracket to win a
+    // pennant in; and the capacity half was never read by anything. The exit is now the one thing
+    // the act actually simulates and the player can see themselves do — finishing first, exactly as
+    // Act III does. See the long note on the predicate in engine/progression.js.
+    exit: { id: 'minorsPennantWon', description: 'Finish first in a minor-league season and take the pennant.' },
+    titleName: 'the pennant',
     // The click goes back to paying CAPS here, deliberately, and this is the one act boundary
     // where it changes currency in the direction of the older one.
     //
