@@ -26,6 +26,16 @@ module.exports = {
   UPGRADE_STADIUM: 'UPGRADE_STADIUM',
 
   BUY_STAT_UPGRADE: 'BUY_STAT_UPGRADE',
+
+  // The same purchase, repeated until the wallet or the cap stops it. A separate action rather than
+  // a `count` field on the one above, because the two are different player intents and refuse for
+  // different reasons: a single buy is "one more point", and this is "spend what I have on this
+  // stat" — which is the thing a player wants after being away long enough for the money to pile
+  // up, and which they otherwise do by clicking the same chip fourteen times.
+  //
+  // It carries no count. How many is a rules question about prices the player cannot see the curve
+  // of, so the reducer works it out by actually making the purchases; see rosterActions.js.
+  BUY_STAT_UPGRADE_MAX: 'BUY_STAT_UPGRADE_MAX',
   // Buying a record and handing it to a kid are ONE action, not two, because they are one
   // decision made through one control: `playerId: null` buys into the team's crate, a `playerId`
   // sets who walks up to it (and `songId: null` sets nobody). See engine/walkupSongs.js.

@@ -72,4 +72,34 @@ function executeTradeAction(state, action) {
   };
 }
 
-module.exports = { buyStatUpgrade, startCampAction, executeTradeAction };
+// Buys as many upgrades as the wallet and the cap allow, by REPLAYING THE REAL PURCHASE ABOVE.
+//
+// LOOPS buyStatUpgrade() RATHER THAN REIMPLEMENTING IT, and terminates on IDENTITY. That function
+// returns the state object it was handed, unchanged and by reference, on every one of its three
+// refusals — no such player or stat, already at the cap, cannot afford it — so `next === held` is
+// exactly "the engine declined" and needs no second copy of any gate here. Every step is therefore
+// priced by the real cost curve as the stat climbs, and the debit is the sum of the actual
+// escalating prices rather than a multiple of the first one.
+//
+// engine/economy.js's planMaxStatUpgrades() computes the same figures for the BUTTON'S LABEL, and
+// is deliberately not trusted here: a stale render could hand this a count that no longer fits the
+// wallet. The label predicts; this decides.
+//
+// The iteration cap is structural rather than defensive, on engine/tickEngine.js's
+// safetyCapIterations precedent: the loop already cannot outrun the cap or the wallet, but a retune
+// that made statUpgradeAmount zero would otherwise spin forever on a state that never changes.
+const MAX_UPGRADE_STEPS = 1000;
+
+function buyStatUpgradeMax(state, action) {
+  let held = state;
+  for (let step = 0; step < MAX_UPGRADE_STEPS; step += 1) {
+    const next = buyStatUpgrade(held, action);
+    if (next === held) break;
+    held = next;
+  }
+  // Returns the ORIGINAL object when nothing was bought, so a press with no money and a press on a
+  // capped stat are both no-ops by reference, exactly as a single refused purchase is.
+  return held;
+}
+
+module.exports = { buyStatUpgrade, buyStatUpgradeMax, startCampAction, executeTradeAction };

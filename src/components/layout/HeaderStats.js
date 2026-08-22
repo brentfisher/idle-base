@@ -11,6 +11,7 @@ const { winPct } = require('../../engine/standings');
 const { PLAYER_TEAM_ID } = require('../../engine/schedule');
 const { formatNumber, formatDuration } = require('../../utils/formatNumber');
 const { getEraConfig } = require('../../data/eras');
+const { getActConfig } = require('../../data/acts');
 const { CURRENCIES } = require('../../data/currencies');
 const { getPhasePill } = require('../../data/actSevenPalette');
 
@@ -65,6 +66,17 @@ function readRecord(state) {
 function HeaderStats() {
   const { state } = useGame();
   const era = getEraConfig(state.prestige.era);
+  // THE ACT, WHICH IS NOT THE ERA, AND THE HEADER USED TO SHOW ONLY ONE OF THEM. An era is a
+  // PRESTIGE lap — engine/prestige.js's resetForPrestige() is the only thing that advances it — so
+  // a run that has never prestiged is in the Sandlot Era in Act I and still in the Sandlot Era in
+  // Act VI. That is correct and it reads as a bug: the pill is the only chapter marker in the
+  // header, so a player crossing three act boundaries watched it never move and reasonably
+  // concluded it was stuck.
+  //
+  // Both are shown now. `shortLabel` is authored in data/acts.js rather than derived here, because
+  // `progression.act` is a 0-based index and turning 4 into "Act V" in a component is a second
+  // place that knows how acts are numbered.
+  const act = getActConfig(state.progression ? state.progression.act : 0);
   // THE ONE QUESTION THIS HEADER ASKS ABOUT ACT VII, and it asks it of the rules rather than of
   // the act index. `seasonFrozen` is the act rule that retires the baseball SIMULATION (see
   // data/acts.js), so it is exactly the condition under which the record, the season chip and the
@@ -225,7 +237,7 @@ function HeaderStats() {
           style={{ background: era.pill.bg, color: era.pill.ink }}
           title={era.description}
         >
-          <span className="label">Era</span>
+          <span className="label">{act.shortLabel}</span>
           {era.name}
         </span>
       )}
@@ -252,7 +264,12 @@ function HeaderStats() {
           } : undefined}
           title="How far into the odyssey this run has come"
         >
-          <span className="label">Phase</span>
+          {/* The ACT in the label slot here too, matching the era pill above rather than keeping the
+              word "Phase". Act VII is the only act that freezes the season, so this pill only ever
+              appears there and "Act VII — Lunar" is unambiguous; what the player loses is a word
+              they can infer, and what they gain is the same chapter marker in the same place in
+              both halves of the game. */}
+          <span className="label">{act.shortLabel}</span>
           {EXPEDITION_PHASE_LABELS[expeditionSlice(state).phase] || expeditionSlice(state).phase}
         </span>
       )}
