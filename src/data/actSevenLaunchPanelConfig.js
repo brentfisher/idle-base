@@ -89,7 +89,10 @@ const launchPanelCopy = {
   // The destination, and the fact that nobody chose it. §7.1's ladder is strictly ordered, so there
   // is exactly one legal destination at every instant of the run — which is what makes one-burn-at-
   // a-time a consequence rather than a rule anyone enforces, and it is worth the player knowing.
-  destinationLabel: 'Next',
+  // `nextLabel` and not `destinationLabel`: the offer row already carries a `destinationLabel`
+  // holding the site's NAME, and two adjacent things called the same thing meaning different things
+  // is the kind of collision that survives review and then bites a rename.
+  nextLabel: 'Next',
   destinationNote: 'The ladder is strictly ordered. There is only ever one place to go next.',
 
   // What the surplus has actually bought, at the fill the player is looking at right now. Every

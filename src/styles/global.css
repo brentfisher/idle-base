@@ -4121,6 +4121,7 @@ body.expedition .v7-artifact-hint button.v7-row-cost {
    only thing on this screen the player is being offered rather than told. */
 body.expedition .v7-launch-destination {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 10px;
   margin-top: 14px;
@@ -4164,10 +4165,14 @@ body.expedition .v7-launch-notank p {
   font-size: 0.9rem;
 }
 
-/* The line that says what to go and buy. Last child, so it carries no trailing margin. */
-body.expedition .v7-launch-notank-fix {
-  margin-bottom: 0 !important;
-  color: var(--v7-accent) !important;
+/* The line that says what to go and buy: amber, and last child so it carries no trailing margin.
+   Qualified with `p` so it TIES the `.v7-launch-notank p` rule above on specificity and wins on
+   source order. `!important` would have worked and nothing else in this stylesheet's
+   `body.expedition` section uses it — one specificity class is the cheaper fix and leaves the
+   section overridable. */
+body.expedition p.v7-launch-notank-fix {
+  margin-bottom: 0;
+  color: var(--v7-accent);
 }
 
 /* ---- The band ---- */
@@ -4178,8 +4183,13 @@ body.expedition .v7-launch-band {
 
 /* Three figures on one line: what is held, the threshold, the ceiling — in the order the bar below
    reads left to right, so the eye maps one onto the other without a legend. */
+/* `flex-wrap` on every horizontal group in this section rather than a media query, which is the
+   mechanism STORY-037 recorded and the reason it holds at 390px: three uppercase labels with
+   letter-spacing at `space-between` is tight on a phone, and wrapping is what stops it overflowing
+   rather than a breakpoint that has to be maintained. */
 body.expedition .v7-launch-band-figures {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 6px;
@@ -4324,6 +4334,7 @@ body.expedition .v7-launch-flight {
 
 body.expedition .v7-launch-flight-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;

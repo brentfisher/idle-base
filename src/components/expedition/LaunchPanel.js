@@ -109,9 +109,10 @@ function Band({ offer }) {
       </div>
 
       <div className="v7-meter v7-launch-meter">
-        {/* `is-good` once the burn is legal, so the bar changes character at the one boundary that
-            matters. Below the threshold it is the act's drain colour, which is honest: Fuel under
-            the line is not progress toward a choice, it is progress toward having one. */}
+        {/* The bar changes character at the one boundary that matters. `.v7-meter-fill` is already
+            the act's good colour, so the legal state needs no class at all; below the threshold it
+            takes `is-drain`, which is honest — Fuel under the line is not progress toward a choice,
+            it is progress toward HAVING one. */}
         <div
           className={'v7-meter-fill' + (offer.affordable ? '' : ' is-drain')}
           style={{ width: widthPercent(offer.fuelHeld, offer.tankCeiling) }}
@@ -141,6 +142,12 @@ function Band({ offer }) {
 // At the floor the block says so in one sentence instead of listing zeroes — a row reading
 // "0% shorter, +0 Salvage" reads as a broken feature, where its absence reads as what it is, which
 // is a burn leaving on the minimum.
+// ITEMISED EVEN WHILE THE BURN IS REFUSED, and that is a decision rather than an oversight. At every
+// rung above the first the player arrives with no pad, so the reach refusal ("Build The Mound
+// first") is the NORMAL state of this screen for as long as that pad takes to buy — and it is
+// exactly then that the surplus block is doing its most useful work, because it is what tells the
+// player that continuing to fill is worth something. Suppressing it while blocked would hide the
+// reason to keep filling at the one moment there is nothing else to do.
 function Buys({ offer }) {
   const overshooting = offer.transitSeconds < offer.baseTransitSeconds;
 
@@ -285,7 +292,7 @@ function LaunchPanel() {
       {!flight && offer ? (
         <React.Fragment>
           <div className="v7-launch-destination">
-            <span className="v7-launch-band-label">{launchPanelCopy.destinationLabel}</span>
+            <span className="v7-launch-band-label">{launchPanelCopy.nextLabel}</span>
             <span className="v7-launch-destination-name">{offer.destinationLabel}</span>
           </div>
           <p className="muted">{launchPanelCopy.destinationNote}</p>
@@ -345,10 +352,10 @@ function LaunchPanel() {
 // ---------------------------------------------------------------------------------------------
 // VERIFIED (STORY-039), under `node`. This repo has no test runner and `npm run build` transforms
 // JSX without ever MOUNTING it, so a throw on mount ships with a green build — STORY-032 hit exactly
-// that, and STORY-036, STORY-037 and STORY-038 all record it. The harness below was run (124
+// that, and STORY-036, STORY-037 and STORY-038 all record it. The harness below was run (137
 // assertions, all passing) and then deleted; what it asserted is the record. It drove the engine and
 // the reducer directly AND mounted this component through react-dom/server inside a GameContext,
-// across thirteen fixtures. Every displayed figure was asserted against the ENGINE'S OWN RETURN
+// across fifteen fixtures. Every displayed figure was asserted against the ENGINE'S OWN RETURN
 // VALUE rather than against a hardcoded number, because a hardcoded list cannot catch a panel that
 // recomputed something.
 //
@@ -389,6 +396,19 @@ function LaunchPanel() {
 //     §7.3's "dumps the whole tank" means the launch band, not everything held, and once §5's Cryo
 //     rows exist the two diverge. Asserted: the spend note does not contain "everything you have",
 //     the surplus-stays line is on screen, and the confirm quotes the SPEND rather than the holding.
+//
+// REACH-BLOCKED, WHICH IS THE NORMAL STATE AT EVERY RUNG ABOVE THE FIRST. A site is reached by a
+// launch and arrives with no pad, so the screen sits here for as long as that pad takes to buy —
+// On-Deck reached at tier 0, holding 10,000 against a 4,200 threshold:
+//   * the leg has moved up a rung (First Base, departing The On-Deck Circle) and the refusal is the
+//     REACH one, naming the pad: "The pad here does not throw that far. Build The Mound first." The
+//     `noPad` fallback is asserted NOT to fire — every rung on today's ladder has a legal pad tier,
+//     checked exhaustively, so `noPad` is a future-ladder branch and not this one.
+//   * `affordable` is TRUE and the burn is still refused. The two are different questions and the
+//     panel does not conflate them: the band is drawn, the button is disabled, and the reason is on
+//     screen.
+//   * THE SURPLUS IS STILL ITEMISED, deliberately — see the note on Buys. The overflow line reads
+//     `10,000 - 6,720`, which is honest: nothing is lost by filling past the band while waiting.
 //
 // IN FLIGHT TO A SITE — committed through the real reducer, then read at clock 100 of a 162s window:
 //   * the whole tank was debited (Fuel 0) and the record is `resolved: false`.

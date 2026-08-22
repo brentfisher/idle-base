@@ -290,10 +290,10 @@ function inFlightReadout(state) {
     // to run, which is the honest reading and also avoids the division. Clamped at both ends
     // because `clock` can sit either side of a corrupt record's two boundaries.
     progress: transitSeconds > 0 ? elapsed / transitSeconds : 1,
-    // `resolved: false` is the whole of what "in flight" means (§7.3, §4) — there is no second slot
-    // and no status field. Named here so a screen can say "under way" without testing a save-borne
-    // boolean itself.
-    resolved: false,
+    // NO `resolved` FIELD, DELIBERATELY. `resolved: false` is the whole of what "in flight" means
+    // (§7.3, §4) — there is no second slot and no status flag — so a caller holding this object is
+    // already looking at an unresolved burn and a field restating that would be one more thing that
+    // could disagree with the record. THE RETURN BEING NON-NULL IS THE STATUS.
   };
 }
 

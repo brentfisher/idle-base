@@ -9,7 +9,9 @@
 - [x] `fuelLeftBehind` is `held - spent`, computed in the engine because it is an ECONOMIC fact
       about the clamp and not a layout one (Decision 3).
 - [x] **`inFlightReadout(state)` — new export.** `secondsRemaining`, `progress`, `transitSeconds`,
-      `fuelSpent`, `arrivalGrant`, both end labels, and `resolved: false`.
+      `fuelSpent`, `arrivalGrant` and both end labels. **No `resolved` field** — a non-null return
+      IS the status, and a flag restating it would be one more thing that could disagree with the
+      record.
 - [x] The clock subtraction lives here, guarded, so `clock: 'lots'` yields a finite number and a
       window-less record reads as landing rather than as `NaN` (Decision 1b).
 - [x] `destinationLabelFor()` handles the one destination that is not a site — `getSiteDefinition()`
@@ -87,14 +89,17 @@
       alert/chip 6.81, accent-ink/accent 10.60. No new pairing is introduced; all clear the 4.7 floor.
 - [x] The commit control is 44px minimum height — the tap-target floor `button.v7-row-cost` misses
       across Fab, Sites and the standings board. This panel's one control meets it.
-- [x] Mobile handled by the existing flex groups rather than a new media query; nothing overflows
-      390px.
+- [x] `flex-wrap` on EVERY horizontal group in the section — the band figures, the destination pair
+      and the in-flight head — which is STORY-037's recorded mechanism and the reason it holds at
+      390px without a breakpoint to maintain.
+- [x] No `!important` anywhere. The one rule that needed to beat `.v7-launch-notank p` is qualified
+      with `p` instead, tying on specificity and winning on source order.
 
 ## 6. Verification
 
 - [x] `npm run build` passes (3 pre-existing bundle-size warnings, unchanged).
-- [x] Driven under `node` with a Babel require-hook, **124 assertions**, engine AND reducer AND mount
-      (through `react-dom/server` inside a `GameContext`), across thirteen fixtures. Harness deleted;
+- [x] Driven under `node` with a Babel require-hook, **137 assertions**, engine AND reducer AND mount
+      (through `react-dom/server` inside a `GameContext`), across fifteen fixtures. Harness deleted;
       the record is the `VERIFIED (STORY-039)` block at the foot of `LaunchPanel.js`.
 - [x] Every displayed figure asserted against the ENGINE'S OWN RETURN VALUE, never a hardcoded
       number — a hardcoded list cannot catch a panel that recomputed something.
@@ -102,6 +107,14 @@
       unreachable); below threshold (`is-drain`, blocked on the tank); at the threshold exactly
       (ratio 1.0, base window, no zero-row); with surplus (1.25x, 162s against a 180s base, 450
       Salvage — 2.5 steps × 2% × 9,000).
+- [x] **Reach-blocked** — the normal state at every rung above the first, since a site is reached by
+      a launch and arrives with no pad. On-Deck at tier 0 holding 10,000 against a 4,200 threshold:
+      the refusal is the REACH one and names The Mound, `affordable` is TRUE while the burn is still
+      illegal, the band is still drawn, the button is disabled. The `noPad` fallback is asserted NOT
+      to fire — every rung on today's ladder has a legal pad tier, checked exhaustively.
+- [x] The surplus block is itemised **while blocked**, deliberately: it is what tells a player
+      waiting on a pad that continuing to fill is worth something, and suppressing it would hide the
+      reason to keep filling at the one moment there is nothing else to do.
 - [x] **Above the band** (5,000 against a 1,920 ceiling): spend clamps, ratio pins at 1.6, bar clamps
       at 100%, `fuelLeftBehind` is 3,080, the surplus line renders, and the confirm quotes the spend.
 - [x] **In flight to a site**: whole tank debited, `resolved: false`, countdown 62s at clock 100 of a
