@@ -23,6 +23,29 @@ simulation, and each ends on a condition the engine can check rather than on a t
 | VI | The Big Leagues | You win the championship, then accept the call-up — **your choice** |
 | VII | The Farm Team | Nothing. It is the end of the arc. |
 
+### What they look like
+
+One screen from each act, in order. Every act reuses the same engine and the same save; what
+changes is what the screen is *for* — a button in the dirt, a wager against a wall, a lineup, a
+man at the fence with a notebook, a stadium's gate revenue, a pennant race, and a colony you are
+keeping alive from a wreck. Click any of them for the full-size image.
+
+<table>
+  <tr>
+    <td width="33%"><a href="docs/screenshots/act-1-the-vacant-lot.jpg"><img src="docs/screenshots/act-1-the-vacant-lot.jpg" alt="Act I — The Vacant Lot: a bottle-cap counter, one collector for sale, and a Search the lot button" width="100%"></a><br><sub><b>I — The Vacant Lot.</b> One button, one screen.</sub></td>
+    <td width="33%"><a href="docs/screenshots/act-2-off-the-wall.jpg"><img src="docs/screenshots/act-2-off-the-wall.jpg" alt="Act II — Off the Wall: three shot choices with odds, a wager slider, and three empty crew slots" width="100%"></a><br><sub><b>II — Off the Wall.</b> Bounded wagers, and a crew.</sub></td>
+    <td width="33%"><a href="docs/screenshots/act-3-little-league.jpg"><img src="docs/screenshots/act-3-little-league.jpg" alt="Act III — Little League: a fielding diagram with nine named players and their ratings" width="100%"></a><br><sub><b>III — Little League.</b> The first real team.</sub></td>
+  </tr>
+  <tr>
+    <td><a href="docs/screenshots/act-4-travel-ball.jpg"><img src="docs/screenshots/act-4-travel-ball.jpg" alt="Act IV — Travel Ball: the bookie's board, with moneyline odds and prop bets on things that are not the score" width="100%"></a><br><sub><b>IV — Travel Ball.</b> Somebody's uncle is taking bets.</sub></td>
+    <td><a href="docs/screenshots/act-5-the-minors.jpg"><img src="docs/screenshots/act-5-the-minors.jpg" alt="Act V — The Minors: ticket price slider, stadium level and capacity, and a shop of permanent upgrades" width="100%"></a><br><sub><b>V — The Minors.</b> Baseball becomes a business.</sub></td>
+    <td><a href="docs/screenshots/act-6-the-big-leagues.jpg"><img src="docs/screenshots/act-6-the-big-leagues.jpg" alt="Act VI — The Big Leagues: a full league standings table with win-loss records, percentages and run differential" width="100%"></a><br><sub><b>VI — The Big Leagues.</b> A pennant race, and the call-up.</sub></td>
+  </tr>
+  <tr>
+    <td colspan="3"><a href="docs/screenshots/act-7-the-farm-team.jpg"><img src="docs/screenshots/act-7-the-farm-team.jpg" alt="Act VII — The Farm Team: the Ops terminal, showing four resource meters, a standing directive, and net rates with two resources pinned at their ceiling and floor" width="100%"></a><br><sub><b>VII — The Farm Team.</b> The same engine, wearing a different game. Nothing here is a team any more.</sub></td>
+  </tr>
+</table>
+
 Winning the championship in Act VI is the game's win condition. Act VII is what you may choose
 to do afterwards, and it is one-way: the trophy ceremony is interrupted, baseball turns out to
 have been an aptitude program, Earth is a farm team, and there is a call-up. The franchise is
@@ -38,11 +61,10 @@ itself is still played once per save.
 
 ### What is built
 
-Acts I–VI are playable end to end. Act VII's simulation is built — the colony and its resource
+**All seven acts are playable end to end.** Act VII's simulation — the colony and its resource
 solve, the module ladder, site colonization and launch pads, launches with transit and the
-overshoot decision, the artifact puzzles — along with the teardown, the header resource readout
-and the act's palette. **Its six panels are still placeholders**, so the tabs open onto their
-copy and a "not built yet" line rather than their contents.
+overshoot decision, the artifact puzzles, the contract board — now has the screens to go with it:
+Ops, Fab, Launch, Sites, Artifacts, Contracts, and the standings board the ending is read from.
 
 ## Running it locally
 
