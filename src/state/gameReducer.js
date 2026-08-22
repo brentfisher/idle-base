@@ -17,6 +17,7 @@ const fabActions = require('./actions/fabActions');
 const contractActions = require('./actions/contractActions');
 const boardActions = require('./actions/boardActions');
 const sitesActions = require('./actions/sitesActions');
+const launchActions = require('./actions/launchActions');
 const puzzleActions = require('./actions/puzzleActions');
 const { createInitialState } = require('./initialState');
 
@@ -59,6 +60,9 @@ function gameReducer(state, action) {
 
     case actionTypes.BUY_SITE_BUILD:
       return sitesActions.buySiteBuild(state, action);
+
+    case actionTypes.COMMIT_LAUNCH:
+      return launchActions.commitLaunch(state, action);
 
     // Act VII's artifact puzzles (PRD §8). Five ids because each is a different player event with
     // different economics — see the block on them in ./actionTypes.js.

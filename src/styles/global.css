@@ -4103,6 +4103,266 @@ body.expedition .v7-artifact-hint button.v7-row-cost {
    END ARTIFACTS PANEL (STORY-038)
    -------------------------------------------------------------------------------------------- */
 
+/* --------------------------------------------------------------------------------------------
+   LAUNCH PANEL (STORY-039) — the Fuel threshold, the overshoot band and the commit surface.
+
+   PLACED HERE BY HAND, INSIDE the `body.expedition` section and ABOVE the mobile media query at
+   the foot of the file, for the reason every Act VII section since STORY-034 records: this file
+   ENDS inside `@media (max-width: 640px)`, so a rule appended at EOF is silently mobile-only and
+   builds clean while doing nothing on a desktop.
+
+   IT ADDS NO NEW PRIMITIVE. The band and the transit bar are STORY-034's `.v7-meter` and
+   `.v7-meter-fill` with one addition — an absolutely positioned threshold marker, which the
+   primitive already supports because it declares `position: relative`. Forking the meter to draw a
+   line on it would have been forking a rule three panels now build on.
+   -------------------------------------------------------------------------------------------- */
+
+/* The destination, as a heading pair. The name carries the act's one warm colour because it is the
+   only thing on this screen the player is being offered rather than told. */
+body.expedition .v7-launch-destination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+body.expedition .v7-launch-destination-name {
+  color: var(--v7-accent);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+/* The leg's authored flavour, from engine/launch.js's `description`. Body ink rather than muted:
+   it is the one piece of writing on the screen and the numbers around it are already quiet. */
+body.expedition .v7-launch-leg {
+  color: var(--v7-ink);
+  font-size: 0.9rem;
+  margin: 6px 0 0;
+}
+
+/* ---- The tank that does not exist yet ---- */
+
+/* Bordered and set apart, because it is not a note about the band below — it is the reason the band
+   below cannot move. Amber rather than alert: nothing is broken, something is missing. */
+body.expedition .v7-launch-notank {
+  border: 1px solid var(--v7-accent);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  background: var(--v7-chip);
+}
+
+body.expedition .v7-launch-notank h3 {
+  margin: 0 0 8px;
+  color: var(--v7-accent);
+  font-size: 0.95rem;
+}
+
+body.expedition .v7-launch-notank p {
+  margin: 0 0 8px;
+  color: var(--v7-ink);
+  font-size: 0.9rem;
+}
+
+/* The line that says what to go and buy: amber, and last child so it carries no trailing margin.
+   Qualified with `p` so it TIES the `.v7-launch-notank p` rule above on specificity and wins on
+   source order. `!important` would have worked and nothing else in this stylesheet's
+   `body.expedition` section uses it — one specificity class is the cheaper fix and leaves the
+   section overridable. */
+body.expedition p.v7-launch-notank-fix {
+  margin-bottom: 0;
+  color: var(--v7-accent);
+}
+
+/* ---- The band ---- */
+
+body.expedition .v7-launch-band {
+  margin: 10px 0 4px;
+}
+
+/* Three figures on one line: what is held, the threshold, the ceiling — in the order the bar below
+   reads left to right, so the eye maps one onto the other without a legend. */
+/* `flex-wrap` on every horizontal group in this section rather than a media query, which is the
+   mechanism STORY-037 recorded and the reason it holds at 390px: three uppercase labels with
+   letter-spacing at `space-between` is tight on a phone, and wrapping is what stops it overflowing
+   rather than a breakpoint that has to be maintained. */
+body.expedition .v7-launch-band-figures {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+  color: var(--v7-ink);
+}
+
+/* The held figure is the one that moves, so it is the one that is emphasised. The other two are
+   fixed properties of the leg. */
+body.expedition .v7-launch-band-held {
+  font-weight: 600;
+  color: var(--v7-accent);
+}
+
+body.expedition .v7-launch-band-figure {
+  color: var(--v7-muted);
+}
+
+body.expedition .v7-launch-band-label {
+  display: block;
+  color: var(--v7-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Taller than the Ops panel's 6px stock meters, and that is deliberate rather than decorative: this
+   is the only meter in the act a player makes a DECISION against, and it has to carry a marker
+   across it that reads as a line and not as a speck. */
+body.expedition .v7-launch-meter {
+  height: 14px;
+}
+
+/* THE THRESHOLD, AS A LINE ACROSS THE BAND. Positioned from the engine's `fuelRequired` over its
+   `tankCeiling` — never from a multiplier written here — so a retune of ledger R1's band moves the
+   marker without anyone editing this file.
+
+   `translateX(-50%)` centres the rule on its position rather than starting it there, so the line
+   marks the boundary instead of sitting just past it. */
+body.expedition .v7-launch-mark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--v7-ink);
+  box-shadow: 0 0 0 1px var(--v7-panel);
+}
+
+/* The Fuel that will not fit in the launch tank and therefore survives the commit. Good-coloured,
+   because it is the one number on this screen that is not being spent. */
+body.expedition .v7-launch-surplus {
+  color: var(--v7-good);
+  font-size: 0.85rem;
+  margin: 6px 0 0;
+}
+
+/* ---- What the surplus buys ---- */
+
+body.expedition .v7-launch-buys {
+  margin-top: 16px;
+}
+
+body.expedition .v7-launch-buys h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+body.expedition .v7-launch-buys-line {
+  margin: 0 0 4px;
+  color: var(--v7-ink);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- The commit surface ---- */
+
+body.expedition .v7-launch-commit {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--v7-border);
+}
+
+/* THE SENTENCE THAT MUST BE READ BEFORE THE BUTTON IS PRESSED, and it is styled to be read: full
+   ink, above the control, and never `.muted`. §7.3's spend is the act's one irreversible decision
+   and the tank/threshold gap is exactly the part a player would assume works the other way. */
+body.expedition .v7-launch-spend {
+  color: var(--v7-ink);
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+/* Why this burn cannot leave, in the engine's own words. Alert-coloured because it is the one line
+   on the screen that is standing between the player and the thing the tab is for. */
+body.expedition .v7-launch-blocked {
+  color: var(--v7-alert);
+  font-size: 0.9rem;
+  margin: 0 0 10px;
+}
+
+/* The commit control. ITS OWN CLASS RATHER THAN THE GLOBAL `.btn`, and the reason is the palette:
+   `.btn` is the ballpark's green on the ballpark's ink, and STORY-034 replaced that ground
+   everywhere else in the act. The Act VII surfaces that already needed a button
+   (`.v7-artifact-submit`) went the same way, and this matches it deliberately — one button shape in
+   the act, not two.
+
+   The confirm modal's button is a different case and DOES keep `btn danger`: a modal renders on the
+   app's own ground rather than on `body.expedition`'s, and CallUpModal — the precedent this whole
+   surface follows — dresses its irreversible accept exactly that way. */
+body.expedition .v7-launch-button {
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid var(--v7-accent);
+  border-radius: 4px;
+  background: var(--v7-accent);
+  color: var(--v7-accent-ink);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+/* Disabled means the engine gave a `blockedReason`, which is printed directly above. It loses the
+   fill entirely rather than fading, because a dimmed amber still reads as the thing to press. */
+body.expedition .v7-launch-button:disabled {
+  background: var(--v7-chip);
+  border-color: var(--v7-border);
+  color: var(--v7-muted);
+  cursor: default;
+}
+
+/* ---- In flight ---- */
+
+/* A burn under way replaces the commit surface rather than sitting beside it, so the block gets a
+   border of its own — on this tab, this IS the screen for the next few minutes. */
+body.expedition .v7-launch-flight {
+  border: 1px solid var(--v7-border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-top: 14px;
+  background: var(--v7-chip);
+}
+
+body.expedition .v7-launch-flight-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body.expedition .v7-launch-flight-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* The countdown. Tabular figures because it changes every second and a proportional font would make
+   the whole line shuffle sideways as the digits go round. */
+body.expedition .v7-launch-flight-clock {
+  color: var(--v7-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+body.expedition .v7-launch-flight-leg {
+  color: var(--v7-ink);
+  margin: 6px 0 10px;
+}
+
+/* --------------------------------------------------------------------------------------------
+   END LAUNCH PANEL (STORY-039)
+   -------------------------------------------------------------------------------------------- */
+
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
      description do not share 390px with a price button and stay readable. Stacked, the price

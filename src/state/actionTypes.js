@@ -87,6 +87,22 @@ module.exports = {
   // it is the id of a row the shop offered, and every shop in this game names it the same way.
   BUY_SITE_BUILD: 'BUY_SITE_BUILD',
 
+  // Act VII's launches (PRD §7.3). The act's one irreversible spend, and the only purchase in the
+  // game that dumps a whole tank rather than a price — committing spends everything up to the
+  // launch band's ceiling, not the threshold, and there is no change.
+  //
+  // ONE ACTION AND NO CANCEL. There is deliberately no ABORT_LAUNCH beside this, and the absence is
+  // the design rather than a gap: §7.3 makes the burn a commitment, engine/launch.js takes no rng
+  // so a committed burn always arrives, and a recall would turn the overshoot decision into a
+  // free option. The confirm surface in components/expedition/LaunchPanel.js is where the decision
+  // is reversible; after the dispatch it is not.
+  //
+  // Carries `offerId` and not `destinationSiteId`, matching BUY_SITE_BUILD, BUY_MODULE and
+  // BUY_LOT_ITEM: it is the id of a row the shop offered, and every shop in this game names it the
+  // same way. engine/launch.js's offer id is also the stored record's id, so the burn in the log
+  // can be traced straight back to the row that started it.
+  COMMIT_LAUNCH: 'COMMIT_LAUNCH',
+
   // Act VII's artifact puzzles (PRD §8). Five ids rather than one because each is a different
   // player event with different economics: a typed answer is graded and costs an attempt, the
   // manual operation spends the governor's cooldown, the bench simulates without either, and the
