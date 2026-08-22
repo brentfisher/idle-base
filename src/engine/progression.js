@@ -275,12 +275,19 @@ const ACT_INITIALIZERS = {
   // have zeroed runStats at Act VII while prestige still returned to Act VI — so the first
   // payout after each prestige would have been inflated by everything earned in Act VI, which
   // is precisely the bug the zeroing was written to prevent.
+  //
+  // THIS LITERAL IS ONE OF THREE THAT MUST AGREE, and it is the one that runs LAST. The other two
+  // are state/initialState.js's opening shape and engine/prestige.js's resetForPrestige(), and
+  // resetForPrestige() finishes by calling enterAct(PRESTIGE_ACT_INDEX) — so this initializer
+  // overwrites what that function just wrote. A key added there and forgotten here is silently
+  // deleted on every prestige, which is exactly how `baselineOverallRating` came to be missing
+  // from the object the payout reads. Adding a runStat means adding it in all three.
   [PRESTIGE_ACT_INDEX]: function zeroRunStatsAtPrestigeFloor(state) {
     return {
       ...state,
       prestige: {
         ...state.prestige,
-        runStats: { championships: 0, peakOverallRating: 0, totalRevenue: 0 },
+        runStats: { championships: 0, peakOverallRating: 0, totalRevenue: 0, baselineOverallRating: null },
       },
     };
   },

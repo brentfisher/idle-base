@@ -129,14 +129,44 @@ function expirePowerups(working) {
   );
 }
 
+// The peak rating this run has reached, AND — the first time this run is seen — the rating it
+// STARTED at.
+//
+// THE BASELINE IS WHY PRESTIGE WAS FARMABLE. engine/prestige.js pays legacy points partly on
+// `peakOverallRating`, and resetForPrestige() zeroes that field and then hands the player a brand
+// new roster from createStartingRoster(). One tick later this function wrote the fresh roster's
+// average — 47 to 54, measured — straight back into the peak, so a player could press Prestige,
+// wait a second, and press it again for another ~50 points having played nothing at all. Measured
+// before the fix: six presses, no play, 270 points and six irreversible era steps.
+//
+// Recording where the run started makes the payout measure what the run ADDED. See
+// calculateLegacyPoints().
+//
+// SEEDED LAZILY, HERE, AND NOWHERE ELSE. This is the one place that already computes the number,
+// and doing it on first sight covers every way a roster can arrive — the Act III initializer on a
+// first run, resetForPrestige() on every run after it, and a save written before this field
+// existed. Seeding it inside resetForPrestige() as well would close a one-second window (a player
+// buying an upgrade between the reset and the next tick raises their own baseline and is paid
+// LESS) at the cost of a second writer for one fact, which is the trade this codebase consistently
+// refuses. The window costs the player, never the game.
 function updatePeakRating(working) {
   const starters = working.roster.filter((p) => p.isStarter);
   if (starters.length === 0) return working;
   const rating = starters.reduce((sum, p) => sum + playerOverall(p), 0) / starters.length;
-  if (rating <= working.prestige.runStats.peakOverallRating) return working;
+  const runStats = working.prestige.runStats;
+  const unseeded = !Number.isFinite(runStats.baselineOverallRating);
+
+  if (!unseeded && rating <= runStats.peakOverallRating) return working;
   return {
     ...working,
-    prestige: { ...working.prestige, runStats: { ...working.prestige.runStats, peakOverallRating: rating } },
+    prestige: {
+      ...working.prestige,
+      runStats: {
+        ...runStats,
+        peakOverallRating: Math.max(rating, runStats.peakOverallRating || 0),
+        baselineOverallRating: unseeded ? rating : runStats.baselineOverallRating,
+      },
+    },
   };
 }
 

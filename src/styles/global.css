@@ -724,6 +724,13 @@ table.standings tr.me {
   color: #7fd497;
 }
 
+/* The tempo half of an approach's reward. Deliberately the act's gold rather than the odds line's
+   green: caps and respect are both banked and can wait, and this is the one thing a win pays
+   immediately — it is what the player is weighing when they take the riskier line. */
+.wb-approach-tempo {
+  color: #f4d35e;
+}
+
 .wb-stake {
   display: flex;
   flex-direction: column;
