@@ -16,6 +16,7 @@ const {
 } = require('../data/actThreeConfig');
 const { createPlayer } = require('./playerFactory');
 const { createLeagueTeams, resetStandings, generateSeasonSchedule, buildTradeWindows } = require('./schedule');
+const { finishedFirstLastSeason } = require('./standings');
 const { resolveRules } = require('./modifiers');
 const { pick } = require('../utils/randomUtils');
 
@@ -118,12 +119,16 @@ function openLittleLeague(state) {
   };
 }
 
-// Act III's exit, read from the recap the player was just shown rather than from live
-// standings — by the time this is checked the offseason transition has already reset them.
-// See `finishedFirst` in engine/tickEngine.js: runOffseasonTransition().
+// Act III's exit, read from the recap the player was just shown rather than from live standings —
+// by the time this is checked the offseason transition has already reset them. See `finishedFirst`
+// in engine/tickEngine.js: runOffseasonTransition().
+//
+// DELEGATES rather than re-reading the field. Act V's pennant is the same fact about a different
+// league, so the read moved to engine/standings.js when that act's exit was fixed; this keeps its
+// own name because "the little-league title" is what Act III calls it, and the act's exit id says
+// so. The name is Act III's; the fact is shared.
 function hasWonLittleLeagueTitle(state) {
-  const summary = state.season && state.season.lastOffseasonSummary;
-  return !!(summary && summary.finishedFirst);
+  return finishedFirstLastSeason(state);
 }
 
 module.exports = {

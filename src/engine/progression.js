@@ -1,6 +1,7 @@
 const { ACTS, FINAL_ACT_INDEX, PRESTIGE_ACT_INDEX, getActConfig } = require('../data/acts');
 const { STARTER_KIT_ITEMS } = require('../data/actOneConfig');
 const { isCrewAssembled } = require('./wallBall');
+const { finishedFirstLastSeason } = require('./standings');
 const {
   LITTLE_LEAGUE_ACT_INDEX,
   openLittleLeague,
@@ -141,6 +142,25 @@ const EXIT_PREDICATES = {
   // a 60% win rate over at least two completed travel seasons, counted from the act's own
   // record so the little-league title cannot be spent twice. See engine/travelBall.js.
   travelBallWinRateReached: (state) => hasReachedTravelWinRate(state),
+  // Act V: the pennant, which in a league that declares `playoffTeams: 0` is topping the table —
+  // the identical shape as Act III's title, through the identical reader.
+  //
+  // THIS ENTRY'S ABSENCE WAS A HARD PROGRESSION STALL, and it is worth recording what it cost
+  // rather than just adding the line. `minorsPennantWon` was named as Act V's exit in
+  // data/acts.js and appeared NOWHERE ELSE in src/ — no predicate here, and no writer anywhere.
+  // So isExitSatisfied() fell through to `progression.milestones.minorsPennantWon`, which nothing
+  // could ever set, and checkActTransition()'s loop broke at act 4 forever. Measured: six
+  // simulated hours, eighteen seasons, a 40,000-seat stadium and a 95-rated roster, still Act V.
+  //
+  // It stranded more than one act. `prestige` unlocks in Act VI and `era` advances only inside
+  // engine/prestige.js's resetForPrestige(), so a save stuck here could never prestige and the
+  // header's era pill read "Sandlot Era" permanently — which is how the bug was reported.
+  //
+  // A PREDICATE AND NOT A MILESTONE, per the rule at the head of this block. The milestone
+  // fall-through is for exits nothing has implemented yet, plus Act VI's `callUpAccepted`, where a
+  // single player action IS the mechanism. A pennant is EARNED, and Act I's note says why that
+  // matters: a derived read cannot drift from the thing that produced it.
+  minorsPennantWon: (state) => finishedFirstLastSeason(state),
 };
 
 // The milestone that ends Act VI. Named here, next to the predicates it deliberately is not one

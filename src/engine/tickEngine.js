@@ -18,7 +18,7 @@ const { generateBracket, resolveCurrentRound } = require('./playoffs');
 const { generateTradeCandidates } = require('./tradeDeadline');
 const { processCampCompletions } = require('./trainingCamp');
 const { checkRetirements } = require('./retirement');
-const { checkActTransition, getUnlockedFeatures } = require('./progression');
+const { checkActTransition, getUnlockedFeatures, getActConfig } = require('./progression');
 const { recordTravelSeason } = require('./travelBall');
 const { settleWager, refundOpenWager } = require('./bookie');
 const { newlyAvailableSponsors, markSponsorsAnnounced } = require('./sponsorships');
@@ -546,6 +546,22 @@ function runOffseasonTransition(working, modifiers) {
   rookies.forEach((p) => {
     entries.push(createFeedEntry(working.clock, 'roster', feedMessages.rookieSigned(p.name, p.position)));
   });
+  // THE TROPHY, WHERE THE ACT HAS ONE TO GIVE. Gated on the act naming a `titleName`, which only
+  // the acts that end on the standings do (data/acts.js) — so Act IV, whose league also has no
+  // postseason but whose exit is an accumulated win rate, stays quiet, and Act VI narrates its
+  // championship through its own bracket instead.
+  //
+  // BEFORE the rollover line, so the feed reads in the order it happened: you won it, and then the
+  // season turned over. It is also the moment Act V's exit becomes satisfiable — the predicate and
+  // this line read the same `finishedFirst` off the same recap, so a player who sees this line is
+  // looking at the reason the act is about to end.
+  const actTitleName = getActConfig(working.progression ? working.progression.act : 0).titleName;
+  if (finishedFirst && actTitleName) {
+    entries.push(
+      createFeedEntry(working.clock, 'championship', feedMessages.topOfTheTable(summary.seasonNumber, actTitleName))
+    );
+  }
+
   entries.push(
     createFeedEntry(
       working.clock,
