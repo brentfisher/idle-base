@@ -27,14 +27,43 @@ const MOUND = { x: 50, y: 66 };
 const PLATE = { x: 50, y: 90 };
 
 // Where a ball ends up, and how far it moves the batter. `bases: 4` is out of the park.
+//
+// A HIT LANDS WHERE NOBODY IS STANDING. That is the whole difference between a hit and an out on
+// this diagram, and it used to be drawn the other way round: four of the five landing spots below
+// were copied straight off data/positions.js, so "finds the gap in center" flew to the exact pixel
+// the centre fielder occupies, "chops one past the third baseman" landed on the third baseman, and
+// the two corner-outfield hits landed on the corner outfielders. Every label said the ball got
+// through and every drawing said it was caught.
+//
+// It also broke the defence's reaction. components/field/FieldView.js breaks the nearest fielder
+// toward the ball when they are within 12 units of it; a hit landing ON somebody is 0 units away,
+// so that fielder "converged" on a ball already at their feet and the play read as a routine catch.
+//
+// SO THE COORDINATES ARE NOW GAPS, AND "GAP" HAS A NUMBER: every entry below is more than 12 units
+// from every fielding position, which is exactly FieldView's break radius. Under it a fielder
+// converges and the ball looks fielded; over it nobody is close enough to and the ball visibly
+// gets through. The verification in that component's own story asserts the distance rather than
+// eyeballing the picture, so re-tuning either the diamond or the break radius will fail loudly
+// instead of quietly turning hits back into outs.
 const HITS = [
-  { label: 'lines one into left', x: 18, y: 30, bases: 1 },
-  { label: 'finds the gap in center', x: 50, y: 14, bases: 2 },
-  { label: 'pulls one down the right-field line', x: 82, y: 30, bases: 2 },
-  { label: 'chops one past the third baseman', x: 28, y: 66, bases: 1 },
-  { label: 'gets every bit of it', x: 50, y: 6, bases: 4 },
+  // Down the left-field line, outside and behind the left fielder at (18,30).
+  { label: 'slices one down the left-field line', x: 8, y: 44, bases: 2 },
+  // The left-centre gap: the widest piece of grass on the diagram, between LF and CF.
+  { label: 'finds the gap in left-center', x: 33, y: 8, bases: 2 },
+  // The right-centre gap, its mirror.
+  { label: 'splits the gap in right-center', x: 67, y: 8, bases: 2 },
+  // Up the middle, past the pitcher and between the two middle infielders at (38,50) and (58,50).
+  { label: 'bounces one up the middle', x: 48, y: 36, bases: 1 },
+  // Over everything, out to right-center. It used to sit at dead centre (50,6), which was clear of
+  // the diagram's edge but only 8 units from the centre fielder — inside FieldView's break radius,
+  // so the last thing drawn before a home run landed was the centre fielder converging on it.
+  // Pulled off-centre it clears every fielder by 19, and nobody chases it.
+  { label: 'gets every bit of it', x: 66, y: 4, bases: 4 },
 ];
 
+// AN OUT IS CAUGHT BY SOMEBODY, so these stay ON the fielding positions — and the contrast with
+// the gaps above is what makes the difference legible at a glance. Each one is the coordinate of
+// the fielder the label names, so the ball arrives at a player and that player breaks to meet it.
 const OUTS = [
   { label: 'pops it up to short', x: 38, y: 50 },
   { label: 'grounds to second', x: 58, y: 50 },
@@ -45,9 +74,25 @@ const OUTS = [
 
 // Pitch beats are short on purpose — the count is texture, and the player is waiting for
 // something to happen. The action beat is what holds.
-const PITCH_HOLD_MS = 130;
-const ACTION_HOLD_MS = 560;
-const INNING_HOLD_MS = 360;
+//
+// THE SHARE OF THE REPLAY SPENT ON THE ACTION WAS RAISED, NOT THE LENGTH OF THE REPLAY. An average
+// replay is 26 pitch beats, 18 actions and 6 inning ends, and at the old 130/560/360 that was
+// ~15.6s of narration against a budget of 19s at Act III's 25s slot and 34s at Act IV's — so the
+// replay was finishing early everywhere and still flicking through the one part worth watching.
+//
+// Trimming the pitch and lengthening the action moves time from the texture to the event: the ball
+// now takes long enough to travel that where it lands can actually be read, which is the whole
+// point of the gap coordinates below. ~20.1s natural, which plays in full from Act IV on and
+// compresses by about 6% at Act III's tighter slot — an action hold of ~773ms there, still half as
+// long again as the old 560.
+//
+// THE CEILING IS fitToBudget(), NOT THESE NUMBERS. A replay must finish before the next game
+// starts or the field cuts mid-inning, so raising these cannot overrun a slot — it can only spend
+// more of one. The verification asserts the fitted total stays inside replayDurationMs() at every
+// slot in the game including the pace ladder's fastest.
+const PITCH_HOLD_MS = 110;
+const ACTION_HOLD_MS = 820;
+const INNING_HOLD_MS = 420;
 
 // A replay must finish before the next game starts, or the field cuts mid-inning to a new one
 // and the box score the player was reading is replaced by a different game's. Three innings of
