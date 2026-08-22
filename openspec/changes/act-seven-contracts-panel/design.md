@@ -154,6 +154,62 @@ Asserted in both directions across all seven ids, plus uniqueness and label pres
 
 ---
 
+## Decision 7 — an offered window row shows no progress, because the clock is not running
+
+`progressFor()` falls back for a `window` or `expedition` row that is not yet `active`:
+
+```js
+return { value: 0, target: total, pct: 0, label: remainingLabel(total) };
+```
+
+which puts **"10:00 remaining"** on an assignment nobody has accepted. That figure is the window the
+player *would* get, not time they are losing — and it sits one line from `expiresLabel`'s "Offer
+closes in 8:00", which **is** a running countdown. Two opposite time semantics in identical
+treatment, on one card.
+
+**Suppression rather than rewording, because nothing is lost.** Every one of these contracts states
+its window in its own `terms`: *"600 seconds with no manual click"*, *"within 300 seconds"*,
+*"Dispatch a crew for 600 seconds"*. The suppressed line is a worse copy of a line already on the
+card.
+
+**The other kinds keep theirs while offered.** A `delivery` row's *"150 of 150 Provisions on hand"* is
+computed from what the player holds at that instant and answers the question they are actually
+asking. A `state` row's *"Not yet met."* does not depend on acceptance at all.
+
+The trade-off taken knowingly: `rehab-assignment` is kind `window` but takes the stagedFraction
+branch, so its *"stage 0 of 2"* is suppressed with the rest. Its terms describe both stages and the
+window, so the card still carries everything the line did.
+
+---
+
+## Decision 8 — one engine call, two verbs, two reassurances
+
+`abandon()` takes an `offered` row and an `active` row down the identical path. They are not one act
+to a player: an offer is **declined**, an assignment is **dropped**.
+
+More than a wording preference — one of the two reassurances is **false** in the other state.
+*"The slot comes back"* is true of an active row and false of an offer, because the two-slot ceiling
+counts assignments that have been **accepted** (`acceptRefusalFor`'s `slots` test). Declining returns
+nothing, because nothing was spent.
+
+What is true of both is the part that matters: `abandon()` writes the id into `missedIds`, which is
+what §9.4's rescheduler reads to reissue it as a makeup game. Walking away is a **deferral, not a
+forfeit** — and both sentences say so.
+
+This is STORY-039's Cryo wording problem in a second form, and it is invisible to a harness that
+asserts a string is present rather than that it is true.
+
+---
+
+## Decision 9 — no makeup badge
+
+Rendered a makeup fixture before deciding, rather than reasoning about it. `makeupName` already
+renames the row *"Makeup Game: Bus Trip"* and `makeupBrief` already opens *"Rescheduled: Bus Trip.
+Same terms. Longer window."* A badge would be one fact three times on one card, and the name is both
+the most prominent and the one a player scans. `row.makeup` is deliberately not drawn.
+
+---
+
 ## What is deliberately not here
 
 **A countdown to the next board refresh.** `nextOfferAtClock` is the board's own rotation clock. The

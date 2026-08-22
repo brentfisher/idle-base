@@ -4436,19 +4436,6 @@ body.expedition .v7-contract-status.is-active {
   color: var(--v7-accent);
 }
 
-/* §9.4's rescheduled offer. A quiet badge and deliberately NOT a warning colour: a makeup game is
-   the act being accommodating, and dressing it as an alert would turn a second chance into a
-   reprimand. */
-body.expedition .v7-contract-makeup {
-  border: 1px solid var(--v7-border);
-  border-radius: 999px;
-  padding: 1px 8px;
-  color: var(--v7-muted);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
 /* Why the Office wants it. Flavour, so it is muted. */
 body.expedition .v7-contract-brief {
   color: var(--v7-muted);

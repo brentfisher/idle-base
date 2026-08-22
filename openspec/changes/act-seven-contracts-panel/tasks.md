@@ -24,6 +24,11 @@
       rules question.
 - [x] The offer deadline is omitted where there is none, and cannot survive acceptance — the engine
       nulls it (§9.4).
+- [x] **An offered `window`/`expedition` row shows no progress at all**, because the engine's
+      fallback reports a clock that is not running (Decision 7). Other kinds keep theirs.
+- [x] **Walking away is labelled and explained per status** — Decline/Drop, and only the accepted
+      row's note promises the slot back (Decision 8).
+- [x] **No makeup badge.** The name and the brief already say it twice (Decision 9).
 - [x] An empty board renders its authored sentence, not an empty div.
 - [x] **No `Date.now()`, no timer.** Every duration arrives already formatted from the engine,
       measured against `state.clock`.
@@ -80,8 +85,8 @@
 ## 7. Verification
 
 - [x] `npm run build` passes (3 pre-existing bundle-size warnings, unchanged).
-- [x] Driven under `node` with a Babel require-hook, **118 assertions**, engine AND reducer AND mount
-      (through `react-dom/server` inside a `GameContext`), across nine fixtures. Harness deleted; the
+- [x] Driven under `node` with a Babel require-hook, **165 assertions**, engine AND reducer AND mount
+      (through `react-dom/server` inside a `GameContext`), across twelve fixtures. Harness deleted; the
       record is the `VERIFIED (STORY-040)` block at the foot of the component.
 - [x] **An empty board**: the authored sentence, no buttons, all three preamble lines, and the
       optional statement asserted NOT to be `.muted`.
@@ -101,7 +106,25 @@
       `clock: 'lots'` rendering with no `NaN` anywhere.
 - [x] Purity: a full render plus `listOffers()` leave the state byte-for-byte unchanged.
 
-## 8. Found while building
+## 8. Found in review, and fixed
+
+- [x] **An offered window row printed "10:00 remaining" for a clock that was not running**, one line
+      from `expiresLabel`'s real countdown — two opposite time semantics in identical treatment. The
+      original harness asserted the panel printed what the engine returned, which is exactly the
+      assertion that cannot notice this. Fixed by `showsProgress()`; nothing is lost, because those
+      contracts state their window in their own `terms`.
+- [x] **"The slot comes back" was false on an offered row.** The two-slot ceiling counts ACCEPTED
+      assignments, so declining an offer returns nothing. Same class as STORY-039's Cryo wording: a
+      sentence true in one state and false in another, invisible to an assertion that only checks
+      the string is present.
+- [x] **The makeup badge was a third statement of one fact.** Rendered a makeup fixture and found the
+      name already reads "Makeup Game: Bus Trip" and the brief already opens "Rescheduled:". Badge
+      and its CSS removed.
+- [x] **The `majors` rotating row had no fixture**, and it is the only `kind` path any other fixture
+      misses — `definitionFor()` merges the drawn template's kind over the base, so `rotating` never
+      reaches `listOffers()`'s ternary. All five templates now rendered and asserted.
+
+## 9. Found while building
 
 - [x] **The claim fixture needed a Fuel Bladder, and that is a finding rather than setup.** Fuel's
       base capacity is 0 and `creditResource()` refuses rather than clamping, so on a fresh colony
@@ -109,7 +132,7 @@
       nothing about claiming because of it. That refusal is now exercised deliberately as its own
       fixture, and it is the single most important sentence on the screen.
 
-## 9. Out of scope, deliberately
+## 10. Out of scope, deliberately
 
 - [ ] **No engine change and no balance change.** Nothing in `engine/contracts.js` or the twelve
       contracts moved.

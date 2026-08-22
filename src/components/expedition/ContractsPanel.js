@@ -77,9 +77,10 @@ function ContractRow({ row, dispatch }) {
     <div className={'v7-contract is-' + status.id}>
       <div className="v7-contract-head">
         <span className="v7-contract-name">{row.name}</span>
-        {/* §9.4's rescheduled offer. A badge, because `brief` already carries the whole of it in the
-            row's own prose and a second paragraph would be the same fact twice. */}
-        {row.makeup ? <span className="v7-contract-makeup">{contractCopy.makeupBadge}</span> : null}
+        {/* NO MAKEUP BADGE. §9.4's rescheduled offer already states itself twice on this card
+            before any marker: the name reads "Makeup Game: Bus Trip" and the brief opens
+            "Rescheduled: Bus Trip. Same terms. Longer window." A third would be one fact three
+            times, and `row.makeup` is deliberately not drawn. */}
         <span className={'v7-contract-status is-' + status.id}>{status.label}</span>
       </div>
 
@@ -102,7 +103,12 @@ function ContractRow({ row, dispatch }) {
         <div className="v7-contract-expiry">{contractCopy.expiresLabel(row.expiresInSeconds)}</div>
       ) : null}
 
-      <ContractProgress row={row} />
+      {/* HIDDEN ON AN OFFERED WINDOW ROW, and the reason is in showsProgress(): the engine's
+          fallback reports "10:00 remaining" for a clock that is not running, one line from a real
+          countdown. Nothing is lost — every one of those contracts states its window in its own
+          `terms` — while a delivery row's "150 of 150 on hand" is true at this instant and is
+          exactly what a player deciding whether to take it is reading. */}
+      {contractCopy.showsProgress(row) ? <ContractProgress row={row} /> : null}
 
       {/* THE ROW IS SHOWN WITH ITS REASON RATHER THAN DISABLED IN SILENCE. §9.6 authors the five
           refusals as SENTENCES rather than codes for exactly this — a player reading "slots" learns
@@ -147,16 +153,18 @@ function ContractRow({ row, dispatch }) {
             className="v7-contract-button is-abandon"
             onClick={() => dispatch({ type: actionTypes.ABANDON_CONTRACT, contractId: row.id })}
           >
-            {contractCopy.abandonLabel}
+            {contractCopy.abandonLabel(row.status)}
           </button>
         ) : null}
       </div>
 
-      {/* Dropping is free, and saying so is not decoration. A player who suspects a penalty will
+      {/* Walking away is free, and saying so is not decoration: a player who suspects a penalty will
           hoard a slot on an assignment they cannot finish, which is the one way this optional board
-          can actually cost somebody something. */}
+          can actually cost somebody something. KEYED ON STATUS, because "the slot comes back" is
+          true of an accepted assignment and false of an offer — the ceiling counts what you have
+          taken, and declining returns nothing because nothing was spent. */}
       {row.abandonable ? (
-        <div className="v7-contract-abandon-note">{contractCopy.abandonNote}</div>
+        <div className="v7-contract-abandon-note">{contractCopy.abandonNote(row.status)}</div>
       ) : null}
     </div>
   );
@@ -201,9 +209,9 @@ function ContractsPanel() {
 // ---------------------------------------------------------------------------------------------
 // VERIFIED (STORY-040), under `node`. This repo has no test runner and `npm run build` transforms
 // JSX without ever MOUNTING it, so a throw on mount ships with a green build — STORY-032 hit exactly
-// that, and every panel story since has recorded it. The harness below was run (118 assertions, all
+// that, and every panel story since has recorded it. The harness below was run (165 assertions, all
 // passing) and then deleted; what it asserted is the record. It drove the engine and the reducer
-// directly AND mounted this component through react-dom/server inside a GameContext, across nine
+// directly AND mounted this component through react-dom/server inside a GameContext, across twelve
 // fixtures, asserting every displayed string against the ENGINE'S OWN RETURN VALUE rather than
 // against a hardcoded list.
 //
@@ -213,10 +221,32 @@ function ContractsPanel() {
 // skims past it" is the failure it exists to prevent.
 //
 // A POPULATED BOARD — refreshBoard() placed Rehab Assignment, Bus Trip and Innings Limit. Every
-// name, brief, terms, payout string and progress label on screen was compared against the row the
-// engine returned. Three Accept buttons, no File-it button. THE PHASE IS ABSENT FROM THE MARKUP,
-// asserted by string — ledger R3 resolves payouts per LAUNCH and a screen that grouped or labelled
-// by phase would be describing a different game.
+// name, brief, terms and payout string on screen was compared against the row the engine returned.
+// Three Accept buttons, no File-it button. THE PHASE IS ABSENT FROM THE MARKUP, asserted by string
+// — ledger R3 resolves payouts per LAUNCH and a screen that grouped or labelled by phase would be
+// describing a different game.
+//
+// THE OFFERED-WINDOW CLOCK THAT IS NOT RUNNING — a defect this file used to have. progressFor()
+// falls back to `remainingLabel(total)` for a `window` or `expedition` row that is not yet ACTIVE,
+// so the board printed "10:00 remaining" on an assignment nobody had accepted, one line from
+// `expiresLabel`'s real countdown. Two opposite time semantics in identical treatment. Asserted now:
+// the engine still reports it, showsProgress() refuses it, THE STRING IS NOT IN THE MARKUP, and the
+// row's own terms ("600 seconds with no manual click") carry the window instead. Accepting brings
+// the block back, and its countdown is then on screen. A delivery row KEEPS its progress while
+// offered — "150 of 150 Provisions on hand" is true at that instant and is what a player deciding
+// whether to take it is reading — so the suppression is a decision and not a blackout.
+//
+// A MAKEUP GAME (§9.4). Rendered before deciding rather than reasoned about: the name already reads
+// "Makeup Game: Bus Trip" and the brief already opens "Rescheduled: Bus Trip." A badge would have
+// been one fact three times on one card, so `row.makeup` is deliberately not drawn and the copy
+// authors no badge — asserted by `makeupBadge === undefined`.
+//
+// THE `majors` ROTATING ROW, which is the only `kind` path no other fixture reaches. definitionFor()
+// merges the drawn template's kind over the base, so `rotating` never survives to listOffers()'s
+// ternary and the row arrives as whatever was drawn — sustain, window or expedition. All five
+// templates were rendered: each resolves to its template's kind, each renders its own terms and
+// payout, and the progress gating agrees with the drawn kind rather than the base's. Also asserted
+// repeatable, because writing an endless row into the payout-once ledger would end the endless act.
 //
 // PTBNL, AND THIS IS THE FIXTURE THE FILE'S CENTRAL RULE EXISTS FOR (§9.5). An offered `ptbnl` row
 // carries `payoutFuel: 1000`, its `effect` reads "+750-1500 Fuel, consideration to follow", and a
@@ -227,7 +257,13 @@ function ContractsPanel() {
 // ACTIVE AND CLAIMABLE, through the real reducer:
 //   * accepting flips the status and DISCHARGES THE DEADLINE (§9.4: "an accepted contract never
 //     expires"). The deadline line is asserted gone from the markup for that row.
-//   * an active row keeps its Drop control and its "dropping costs nothing" line.
+//   * an active row keeps its walk-away control and its reassurance — and BOTH ARE KEYED ON STATUS.
+//     abandon() takes an offered row and an active row down one path, but they are not one act to a
+//     player: an offer is DECLINED and an assignment is DROPPED. More importantly "the slot comes
+//     back" is TRUE of an active row and FALSE of an offer, because the two-slot ceiling counts what
+//     has been accepted — declining returns nothing, since nothing was spent. Asserted in both
+//     directions: the active row says Drop and promises the slot, the offered row says Decline and
+//     does not, and the string "slot comes back" appears nowhere on an offered board.
 //   * delivering the goods and stepping advanceContracts() flips it claimable: the File-it button
 //     appears, the pill reads Complete, and the card takes `is-claimable`.
 //   * claiming REMOVES the instance and writes the id into `contractBoard.completedIds`. The panel
