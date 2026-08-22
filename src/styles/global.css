@@ -984,7 +984,12 @@ table.standings tr.me {
   fill: #fdfdf5;
   stroke: #2a2a20;
   stroke-width: 0.4;
-  transition: cx 380ms cubic-bezier(0.2, 0.8, 0.3, 1), cy 380ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  /* Slow enough to WATCH the ball travel, which is the point of the gap coordinates in
+     engine/gameReplay.js — a ball that snaps to its landing spot in 380ms cannot show you that it
+     got past anybody. Kept comfortably inside the action beat's hold (820ms natural, ~773ms at the
+     most compressed slot in the game) so the ball always arrives before the beat ends; a transition
+     longer than its hold would be cut off mid-flight and would look like a dropped frame. */
+  transition: cx 640ms cubic-bezier(0.2, 0.8, 0.3, 1), cy 640ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 .replay-ball.hit {
   fill: #f4d35e;
@@ -992,7 +997,9 @@ table.standings tr.me {
 .replay-runner {
   fill: #e8f3ea;
   opacity: 0.9;
-  transition: cx 420ms ease, cy 420ms ease;
+  /* Lengthened with the ball, so the runner and the throw stay in step rather than the runner
+     arriving while the ball is still in the air. */
+  transition: cx 560ms ease, cy 560ms ease;
 }
 .replay-overlay {
   position: absolute;
@@ -1554,6 +1561,56 @@ input[type='range']::-moz-range-thumb {
 }
 .app-shell-preseason .hustle-bar {
   margin-top: auto;
+}
+
+/* --- The franchise shell's bar is a BAR, not the game --- */
+
+/* In Acts I-II the big button IS the game: one control on an almost empty screen, and its size is
+   the whole point. From Act III it becomes a permanent strip across the bottom of the densest
+   screens in the app, and at 26px of vertical padding around a 1.35rem label it measured 122px —
+   15% of an 839px viewport, permanently, on every tab.
+   
+   MEASURED, WHICH IS WHY THIS IS HERE. On a 1440x900 window the field's `.box-score` sits at
+   706-776 and the bar's top edge is at 718, so 59 of the inning scores' 70 pixels were behind it
+   and the player had to scroll to read a line score that would otherwise have fitted. On the
+   bookie tab the prop stake slider started below the fold entirely and "Write it down" was 102px
+   past it, which reads as the prop board having no way to bet at all.
+   
+   Scoped to `.app-shell` so the pre-season acts keep the button they are built around — the rule
+   above pins that one, and this must not shrink it. */
+.app-shell .hustle-bar .lot-click-button {
+  /* ONE LINE, NOT TWO. The pre-season button stacks its label over its value because it is the
+     hero of an almost empty screen and has the room to be. In the franchise shell the second line
+     costs ~30px of every viewport forever, and the two pieces of information sit perfectly well
+     side by side — which is what finally gets the field's line score out from behind the bar. */
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 20px;
+  max-width: 22rem;
+}
+.app-shell .hustle-bar .lot-click-label {
+  font-size: 1.05rem;
+}
+/* The bar's own padding, trimmed with the button it wraps. The gradient still needs a little room
+   above the button so content scrolling under it fades rather than colliding. */
+.app-shell .hustle-bar {
+  padding: 0.35rem 0 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Clearance so a panel's last row can always be scrolled clear of the bar's opaque edge, rather
+   than coming to rest underneath it. Exactly the reasoning behind `.app-shell-preseason
+   .lot-panel` above — gap is between children and the bar is the panel's SIBLING, so the panel has
+   to carry its own — sized to the bar rather than to a hairline, because this bar overlays far
+   more than a shop row's worth.
+   
+   It is what makes the bookie's place button reachable at the foot of a long board, and it is
+   deliberately on `.panel` rather than on `.app-shell`: padding on the shell sits inside the
+   sticky element's containing block, so the bar simply sticks lower and covers exactly as much. */
+.app-shell .panel {
+  padding-bottom: 84px;
 }
 /* Clearance so the last shop row is not tight against the bar's opaque edge when the page is
    scrolled to the bottom. The panel's own `gap` gets it nothing here — gap is between
