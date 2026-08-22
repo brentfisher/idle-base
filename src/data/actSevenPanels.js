@@ -54,6 +54,12 @@ const ACT_SEVEN_PANELS = [
     id: 'launch',
     label: 'Launch',
     title: 'Launch',
+    // Keeps its `blurb` for the reason the `fab`, `sites`, `artifacts` and `board` rows all state:
+    // the field is part of this list's shape, and a row missing it would be the one row a future
+    // reader had to open a panel to check. components/expedition/LaunchPanel.js is a real panel as
+    // of STORY-039 and never renders PlaceholderPanel — the commit screen's own heading, subtitle
+    // and every other word it draws are authored in data/actSevenLaunchPanelConfig.js, and the
+    // burn's own prose in data/actSevenLaunchConfig.js.
     blurb: 'The Fuel threshold, and the burn that spends it. You have nothing to hold Fuel in yet.',
   },
   {

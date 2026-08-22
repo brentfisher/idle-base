@@ -156,7 +156,17 @@ function inFlightLaunch(slice) {
 // rather than here — this function answers "what would happen", not "may it happen".
 function overshootFor(fuelHeld, threshold, baseTransitSeconds, colonizeCost) {
   const held = Number.isFinite(fuelHeld) && fuelHeld > 0 ? fuelHeld : 0;
-  const fuelSpent = Math.min(held, OVERSHOOT_TANK_MULT * threshold);
+
+  // THE CLAMP, NAMED, AND IT IS RETURNED BECAUSE STORY-039 NEEDS TO DRAW IT. The Launch panel
+  // renders the overshoot as a BAND — threshold at one end, this ceiling at the other — because a
+  // panel that showed only "threshold met / not met" would delete the act's central decision. That
+  // band needs the ceiling as a number, and the one thing it must not do is multiply the threshold
+  // by 1.6 itself: a second statement of the multiplier in a component is exactly the drift
+  // data/actSevenSitesConfig.js's derivation was written to foreclose. So the ceiling ships out of
+  // the same expression that CLAMPS the spend, and the screen cannot advertise a band the commit
+  // does not honour.
+  const tankCeiling = OVERSHOOT_TANK_MULT * threshold;
+  const fuelSpent = Math.min(held, tankCeiling);
   const overshootRatio = fuelSpent / threshold;
 
   // How many tenths over the floor, as a continuous quantity. §7.5's table quotes a slope per +0.1
@@ -174,7 +184,7 @@ function overshootFor(fuelHeld, threshold, baseTransitSeconds, colonizeCost) {
 
   const arrivalGrant = steps * ARRIVAL_GRANT_PER_STEP * (Number.isFinite(colonizeCost) ? colonizeCost : 0);
 
-  return { fuelSpent, overshootRatio, transitSeconds, arrivalGrant };
+  return { fuelSpent, tankCeiling, overshootRatio, transitSeconds, arrivalGrant };
 }
 
 // The arrival grant, RECOMPUTED FROM THE STORED RATIO rather than read off a stored grant.
@@ -193,6 +203,98 @@ function arrivalGrantFor(launch) {
   if (!definition || !Number.isFinite(definition.colonizeCost)) return 0;
   const steps = Math.max(0, ratio - OVERSHOOT_FLOOR) / OVERSHOOT_STEP;
   return steps * ARRIVAL_GRANT_PER_STEP * definition.colonizeCost;
+}
+
+// The destination's NAME, from the one place that authors it.
+//
+// Two sources rather than one because there are two kinds of destination and only one of them is a
+// place. Four of the five burns land on a site, whose `label` lives on its row in
+// data/actSevenSitesConfig.js; the fifth lands nowhere at all, and §7.1 is explicit that beyond the
+// wall is not a site — so it has no definition to look up and its name is a display string in
+// data/actSevenLaunchConfig.js. getSiteDefinition() answers null for it, which is correct rather
+// than a miss, and this is the one function that has to know that.
+function destinationLabelFor(destinationSiteId) {
+  if (destinationSiteId === OVER_THE_WALL_DESTINATION_ID) return OVER_THE_WALL_LABEL;
+  const definition = getSiteDefinition(destinationSiteId);
+  return definition ? definition.label : '';
+}
+
+// THE BURN UNDER WAY, RESOLVED FOR A SCREEN — or null when none is. Added by STORY-039, and the
+// reason it is a separate export rather than a field on the shop row is the finding that story
+// opened with.
+//
+// listOffers() CANNOT CARRY THIS, and it fails in two different directions:
+//
+//   * AFTER THE FIFTH BURN IS COMMITTED IT RETURNS NOTHING AT ALL. Every rung is reached, so
+//     currentLeg()'s `sites.find(s => !s.reached)` is undefined and beyondTheWall() has already
+//     refused; the leg is null and the shop is empty. Measured on this branch. Without this
+//     function the Launch panel would go blank for the twelve minutes of the last burn in the game
+//     — the one beat of the act the player is most certainly watching.
+//   * DURING ANY OTHER BURN IT RETURNS A ROW ABOUT THE WRONG FLIGHT. The leg still resolves (the
+//     destination is still unreached), but every figure on it — `transitSeconds`, `overshootRatio`,
+//     `arrivalGrant` — is recomputed from the Fuel held RIGHT NOW, which is a hypothetical next
+//     burn and not the one in the air. A panel that rendered that row's effect string mid-transit
+//     would be quoting a window nothing is flying.
+//
+// So the shop row answers "what would committing do" and this answers "what is happening", and the
+// two are never derived from each other.
+//
+// THE CLOCK IS READ HERE AND NOWHERE ELSE. `secondsRemaining` is a subtraction against `state.clock`
+// and it lives in the engine for the same reason engine/sites.js computes `buildSecondsRemaining`
+// rather than handing a panel a `readyAtClock`: a save carries `clock` and a save can be corrupt, so
+// the subtraction that must stay finite belongs where the guard already is. A component doing it
+// would put NaN on screen for a `clock` that is not a number, and would be the second place in the
+// app that knows how a transit is measured.
+//
+// nextArrivalClock() IS NOT THAT SUBTRACTION'S SOURCE, deliberately. It excludes overdue and
+// window-less records by contract — it feeds advance()'s step and must never propose a boundary in
+// the past — so it answers Infinity for exactly the corrupt record isDue() takes such care to
+// resolve. `Infinity - clock` on a screen is the failure that guard exists to prevent.
+function inFlightReadout(state) {
+  const slice = expeditionSlice(state);
+  const record = inFlightLaunch(slice);
+  if (!record) return null;
+
+  const clock = Number.isFinite(state.clock) ? state.clock : 0;
+  // A missing `committedAtClock` falls back to now and a missing `arrivesAtClock` to the departure,
+  // which between them make the window zero and the burn due. That is isDue()'s reading of the same
+  // corruption rendered rather than resolved: the record lands on the next tick, and until it does
+  // the screen says "landing" instead of counting down from a NaN.
+  const committedAt = Number.isFinite(record.committedAtClock) ? record.committedAtClock : clock;
+  const arrivesAt = Number.isFinite(record.arrivesAtClock) ? record.arrivesAtClock : committedAt;
+
+  const transitSeconds = Math.max(0, arrivesAt - committedAt);
+  const secondsRemaining = Math.max(0, arrivesAt - clock);
+  const elapsed = Math.max(0, Math.min(transitSeconds, transitSeconds - secondsRemaining));
+
+  const origin = getSiteDefinition(record.originSiteId);
+  // The threshold this burn actually departed on, looked up rather than stored — the same rule
+  // arrivalGrantFor() states just above. A record carries the RATIO because the ratio is the
+  // decision the player made; what it is a ratio OF is config, and config is read on every render
+  // so a retune moves the history with it.
+  const threshold = origin && Number.isFinite(origin.departingThreshold) ? origin.departingThreshold : 0;
+  const overshootRatio = Number.isFinite(record.overshootRatio) ? record.overshootRatio : 0;
+
+  return {
+    id: record.id,
+    originSiteId: record.originSiteId,
+    originLabel: origin ? origin.label : '',
+    destinationSiteId: record.destinationSiteId,
+    destinationLabel: destinationLabelFor(record.destinationSiteId),
+    overshootRatio,
+    fuelSpent: overshootRatio * threshold,
+    arrivalGrant: arrivalGrantFor(record),
+    transitSeconds,
+    secondsRemaining,
+    // A fraction for a meter, and 1 for a window of zero — a burn with no window has nothing left
+    // to run, which is the honest reading and also avoids the division. Clamped at both ends
+    // because `clock` can sit either side of a corrupt record's two boundaries.
+    progress: transitSeconds > 0 ? elapsed / transitSeconds : 1,
+    // `resolved: false` is the whole of what "in flight" means (§7.3, §4) — there is no second slot
+    // and no status field. Named here so a screen can say "under way" without testing a save-borne
+    // boolean itself.
+    resolved: false,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -340,6 +442,24 @@ function listOffers(state) {
       transitSeconds: leg.transitSeconds,
       baseTransitSeconds: leg.baseTransitSeconds,
       arrivalGrant: leg.arrivalGrant,
+      // WHAT SURVIVES THE COMMIT. Zero for every burn until §5's Cryo rows exist, and the reason it
+      // is a field rather than a subtraction on a screen is that it is an ECONOMIC fact and not a
+      // layout one: the spend is clamped to the band, so Fuel banked above it is not destroyed — it
+      // is waiting at the next rung as a head start on the next fill. See the long note on the
+      // clamp in overshootFor(); a panel that had to derive this would be the second place in the
+      // app that knows the clamp exists.
+      fuelLeftBehind: Math.max(0, leg.fuelHeld - leg.fuelSpent),
+      // THE FAR END OF THE OVERSHOOT BAND, so the panel can draw it as a band rather than as a
+      // binary. It comes out of overshootFor() — the same expression that clamps the spend — and
+      // never from a component multiplying the threshold, which is the drift ledger R1's derivation
+      // exists to foreclose.
+      tankCeiling: leg.tankCeiling,
+      // BOTH ENDS OF THE LEG AS NAMES. `name` above is a sentence with the destination inside it,
+      // and a panel that wanted the bare label would otherwise string-slice one out of the other —
+      // while the origin appears in no string on the row at all, though a confirm surface has to
+      // name the place the burn leaves from.
+      originLabel: leg.origin.label,
+      destinationLabel: leg.destination.label,
       inFlight: !!inFlightLaunch(slice),
       blockedReason: blockedReasonFor(leg, slice),
     },
@@ -597,4 +717,7 @@ module.exports = {
   nextArrivalClock,
   overshootFor,
   currentLaunchThreshold,
+  // STORY-039's Launch panel. See the long note on the function for why the burn under way cannot
+  // be read off a shop row.
+  inFlightReadout,
 };
