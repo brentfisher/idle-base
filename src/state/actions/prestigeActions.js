@@ -1,7 +1,21 @@
 const { PERKS } = require('../../data/perksConfig');
-const { resetForPrestige } = require('../../engine/prestige');
+const { resetForPrestige, calculateLegacyPoints } = require('../../engine/prestige');
 
+// REFUSES A PRESTIGE THAT WOULD EARN NOTHING, returning the identical state object the way every
+// other refused purchase in this codebase does.
+//
+// The panel already disables the button at zero, so reaching this is a stale render or a replayed
+// dispatch — but the gate belongs here as well, because this action had NO gate of any kind and
+// that is what made the exploit reachable at all: `resetForPrestige` was called unconditionally,
+// so the reset ran, the roster was rebuilt, and one tick later there were ~50 more points to
+// collect. See calculateLegacyPoints() for the payout half of the fix.
+//
+// It also protects something the payout fix does not. `prestige.era` only ever increments — nothing
+// in the codebase decrements it — and data/eras.js synthesises eras past the authored five with
+// `aiStrengthMult` climbing each step. So a prestige is an IRREVERSIBLE difficulty increase, and
+// one that banks nothing is pure loss. Refusing it means a mis-click cannot cost a player a run.
 function prestigeResetAction(state) {
+  if (calculateLegacyPoints(state) <= 0) return state;
   return resetForPrestige(state);
 }
 

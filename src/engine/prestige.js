@@ -5,9 +5,29 @@ const { computeModifiers } = require('./modifiers');
 const { PRESTIGE_ACT_INDEX } = require('../data/acts');
 const { enterAct } = require('./progression');
 
+// What this run has EARNED, which is not the same as how good its roster is.
+//
+// THE RATING TERM IS A DELTA, and the absolute version of it was an exploit. resetForPrestige()
+// below zeroes `peakOverallRating` and then builds a fresh roster averaging 47-54; one tick later
+// engine/tickEngine.js's updatePeakRating() recorded that fresh average as the peak, so pressing
+// Prestige twice in a row paid ~50 points the second time for a roster the game had just handed
+// over. Measured before the fix: six presses, no play at all, 270 points banked.
+//
+// Paying on `peak - baseline` makes the term mean "how much better did you make this team", which
+// is what it was always meant to measure — a run that improves a 48-rated roster to a 70 earns 22,
+// and a run that improves nothing earns nothing however good the roster it started with.
+//
+// AN ABSENT BASELINE READS AS 0, WHICH IS DELIBERATELY THE OLD BEHAVIOUR. Saves are never migrated
+// in this codebase, so a run already in progress has no baseline recorded and would otherwise have
+// its legitimately earned rating gain wiped to nothing at the moment it cashes out. Reading absent
+// as 0 pays that run exactly what it expected; the baseline is written on the very next tick, so
+// the exploit closes for that save after one prestige rather than immediately. Punishing a
+// mid-run save to close an exploit a tick sooner is the wrong trade.
 function calculateLegacyPoints(state) {
-  const { championships, peakOverallRating, totalRevenue } = state.prestige.runStats;
-  return Math.floor(championships * 50 + peakOverallRating + totalRevenue / 100000);
+  const { championships, peakOverallRating, totalRevenue, baselineOverallRating } = state.prestige.runStats;
+  const baseline = Number.isFinite(baselineOverallRating) ? baselineOverallRating : 0;
+  const ratingGain = Math.max(0, peakOverallRating - baseline);
+  return Math.floor(championships * 50 + ratingGain + totalRevenue / 100000);
 }
 
 // Resets the run (roster, wallet, season, league) but keeps everything permanent:
@@ -33,7 +53,10 @@ function resetForPrestige(state) {
     totalLegacyEarned: state.prestige.totalLegacyEarned + earned,
     era: nextEra,
     purchasedPerks: state.prestige.purchasedPerks,
-    runStats: { championships: 0, peakOverallRating: 0, totalRevenue: 0 },
+    // `baselineOverallRating` is cleared rather than set from the roster built below, so the ONE
+    // writer stays engine/tickEngine.js's updatePeakRating() — it re-seeds from whatever roster is
+    // actually on the team at the next tick. See the note there.
+    runStats: { championships: 0, peakOverallRating: 0, totalRevenue: 0, baselineOverallRating: null },
     victoryAcknowledgedCount: 0,
   };
 

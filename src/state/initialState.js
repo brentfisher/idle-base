@@ -157,7 +157,11 @@ function createInitialState() {
       totalLegacyEarned: 0,
       era: 0,
       purchasedPerks: [],
-      runStats: { championships: 0, peakOverallRating: 0, totalRevenue: 0 },
+      // `null` rather than 0, and the distinction carries meaning: 0 would claim this run began
+      // with a rating of zero, where null says nobody has looked yet. engine/tickEngine.js's
+      // updatePeakRating() seeds it on first sight and is the only thing that writes it; see the
+      // note there and in engine/prestige.js for what it is for.
+      runStats: { championships: 0, peakOverallRating: 0, totalRevenue: 0, baselineOverallRating: null },
       // How many of this run's championships have been shown to the player via the
       // victory modal — compared against runStats.championships (see AppShell.js).
       // Sticky across season rollovers so a title won during offline catch-up can't

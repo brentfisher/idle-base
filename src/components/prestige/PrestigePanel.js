@@ -13,6 +13,11 @@ function PrestigePanel() {
   const currentEra = getEraConfig(state.prestige.era);
   const nextEra = getEraConfig(state.prestige.era + 1);
   const earnable = calculateLegacyPoints(state);
+  // The two halves of the rating term, so the card can show the subtraction the payout performs.
+  // `baseline` is null on a run that has not ticked since this shipped; the card then omits the
+  // arrow rather than inventing a starting rating.
+  const baseline = state.prestige.runStats.baselineOverallRating;
+  const ratingGain = Math.max(0, state.prestige.runStats.peakOverallRating - (Number.isFinite(baseline) ? baseline : 0));
 
   return (
     <div className="panel">
@@ -29,10 +34,37 @@ function PrestigePanel() {
         <div className="muted">
           Current era: {currentEra.name} — {currentEra.description}
         </div>
-        <div className="muted">This run: {state.prestige.runStats.championships} championship(s), peak rating {state.prestige.runStats.peakOverallRating.toFixed(1)}, {formatCash(state.prestige.runStats.totalRevenue)} earned.</div>
-        <button className="btn" style={{ marginTop: 8 }} onClick={() => setConfirming(true)}>
+        {/* THE RATING LINE SHOWS THE GAIN, NOT THE PEAK, because the gain is what is paid for. It
+            used to print the absolute peak beside a payout computed from it, and once the payout
+            became a delta (engine/prestige.js) the two would have disagreed on screen — a card
+            saying "peak rating 53.0" above a button offering +3. The baseline is named alongside
+            it so the subtraction is visible rather than mysterious. */}
+        <div className="muted">
+          This run: {state.prestige.runStats.championships} championship(s), rating{' '}
+          {ratingGain > 0 ? '+' + ratingGain.toFixed(1) : 'unchanged'}
+          {Number.isFinite(baseline) ? ` (${baseline.toFixed(1)} → ${state.prestige.runStats.peakOverallRating.toFixed(1)})` : ''},{' '}
+          {formatCash(state.prestige.runStats.totalRevenue)} earned.
+        </div>
+        {/* DISABLED AT ZERO, and that guards two different things. It closes the loop this fix is
+            about — pressing Prestige repeatedly for a payout the run did not earn — and it also
+            stops an accidental era burn: nothing anywhere decrements `prestige.era`, and
+            data/eras.js's synthesised eras raise `aiStrengthMult` on every step, so a mis-click is
+            a permanent difficulty increase with nothing banked in return. */}
+        <button
+          className="btn"
+          style={{ marginTop: 8 }}
+          disabled={earnable <= 0}
+          title={earnable <= 0 ? 'Nothing banked yet — win a title, raise the team, or take some revenue first.' : undefined}
+          onClick={() => setConfirming(true)}
+        >
           Prestige Now (+{formatNumber(earnable)} legacy)
         </button>
+        {earnable <= 0 && (
+          <div className="muted" style={{ marginTop: 4 }}>
+            Nothing banked yet. Prestige pays for what this run added — a title, a better team than
+            you were handed, or revenue taken.
+          </div>
+        )}
       </div>
 
       <h3>Perk Tree</h3>
