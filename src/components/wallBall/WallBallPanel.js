@@ -98,6 +98,11 @@ function WallBallPanel() {
             <span className="wb-approach-desc">{option.description}</span>
             <span className="wb-approach-odds">
               {Math.round(option.lossChance * 100)}% chance you lose it · {option.payoutMult}x · +{option.respect} respect
+              {/* The third thing a win buys, and the one the act was not paying out loud. Caps and
+                  respect are both banked; this is the one the player feels immediately, and the
+                  riskier the line the shorter the wait. Engine-resolved seconds — see
+                  challengeView(). */}
+              <span className="wb-approach-tempo"> · next kid in {Math.round(option.winCooldownSeconds)}s</span>
             </span>
           </button>
         ))}

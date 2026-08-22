@@ -262,7 +262,15 @@ function resolveChallenge(state, options = {}, rng = Math.random) {
       challengerId: nextChallengerId(challenger.id, rng),
       // Scheduled off the respect the player is walking away with, not the respect they walked
       // up with, so a win that earns respect visibly shortens the wait it just created.
-      nextChallengeAtClock: (state.clock || 0) + cooldownSecondsForRespect(respect),
+      //
+      // AND CUT AGAIN, ONCE, WHEN THEY WON — by the approach's own `winCooldownCut`, so the next
+      // kid steps up sooner in proportion to what was risked. The respect curve above is
+      // cumulative and moves the walkup by half a second per win, which is real over an act and
+      // imperceptible in the moment; this is the same reward delivered where it can be felt. It
+      // touches only this one scheduled cooldown, is never stored, and does not apply on a loss,
+      // so a losing player's act is shaped exactly as it was. See data/wallBallConfig.js.
+      nextChallengeAtClock: (state.clock || 0)
+        + cooldownSecondsForRespect(respect) * (won ? 1 - approach.winCooldownCut : 1),
       lastResult: {
         won,
         stake,
@@ -325,6 +333,12 @@ function challengeView(state, approachId) {
       lossChance: 1 - challengeWinProbability(state, approach.id, challenger.id),
       payoutMult: approach.payoutMult,
       respect: approach.respect,
+      // What winning on this line does to the walkup, RESOLVED IN SECONDS rather than left as the
+      // fraction. The reward has to be legible at the moment the line is chosen — a player picking
+      // between three buttons is comparing caps, respect and now tempo, and "14s" answers that
+      // where "0.5" does not. Computed off the respect they are standing on, so it is the wait
+      // they would actually get.
+      winCooldownSeconds: cooldownSecondsForRespect(slice.respect) * (1 - approach.winCooldownCut),
     })),
   };
 }

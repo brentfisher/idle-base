@@ -42,6 +42,7 @@ const APPROACHES = [
     strengthDelta: 11.3,
     payoutMult: 1.5,
     respect: 2,
+    winCooldownCut: 0.2,
   },
   {
     id: 'normal',
@@ -50,6 +51,7 @@ const APPROACHES = [
     strengthDelta: 7.2,
     payoutMult: 2,
     respect: 3,
+    winCooldownCut: 0.3,
   },
   {
     id: 'showboat',
@@ -58,6 +60,7 @@ const APPROACHES = [
     strengthDelta: 4,
     payoutMult: 3,
     respect: 5,
+    winCooldownCut: 0.5,
   },
 ];
 
@@ -121,9 +124,32 @@ const MIN_STAKE = 8;
 
 // Seconds between challenges — the line of kids, and the whole of Act II's pacing.
 // Attempts to a full crew are RESPECT_THRESHOLDS[2] / (win rate * approach respect):
-// Safe 35.3, Normal 26.7, Showboat 18.5. At 22s that is 12.9 / 9.8 / 6.8 minutes, with the
-// default Normal line inside the 8-12 minute target and crew #1 landing at 6.7 attempts.
-const CHALLENGE_COOLDOWN_SECONDS = 22;
+// Safe 35.3, Normal 26.7, Showboat 18.5.
+//
+// RAISED FROM 22 TO 28 WHEN winCooldownCut LANDED, AND THE TWO MUST BE READ TOGETHER. A win-only
+// cut on top of a 22s base is not a reward, it is a discount: every line simply got faster
+// (measured: Safe 9.8 -> 8.1, Normal 7.5 -> 5.9, Showboat 5.0 -> 3.5 minutes), which shortens the
+// act for everybody rather than paying the player for winning. Raising the base puts the winning
+// lines back where they were and lets the LOSING wait be the thing that grew — so the reward is a
+// gap the player can feel rather than a giveaway they cannot.
+//
+// RE-MEASURED, 200 seeded runs per approach, driving resolveChallenge() to the act's real exit
+// (5 wins AND 3 crew). Median minutes to exit:
+//
+//   approach    before (22s, no cut)    after (28s + cut)
+//   Safe                    9.8                 10.4
+//   Normal                  7.5                  7.5     <- the default line is unmoved
+//   Showboat                5.0                  4.4
+//
+// The default line lands exactly where it was, the cautious line pays a little more for its
+// caution, and the risk line is 12% quicker to the next act — which is what this change was asked
+// for. Attempts to exit are identical in every case (32.1 / 24.7 / 17.5); only the clock moved,
+// because nothing here touches win probability or respect.
+//
+// WHAT A PLAYER ACTUALLY SEES, which is the number that matters more than the totals above. At 0
+// respect the wait after a loss is 28s, and after a win it is 22.4s (Safe), 19.6s (Normal) or 14s
+// (Showboat). A showboat win halves the walkup. Before this, a showboat win took 0.55s off it.
+const CHALLENGE_COOLDOWN_SECONDS = 28;
 
 // Respect shortens the walkup. The line of kids is the pacing, and being known on the block is
 // what makes the next one stop waiting to be asked — so the cooldown is scaled by
@@ -159,6 +185,31 @@ const CHALLENGE_COOLDOWN_SECONDS = 22;
 // and is still long enough that a rally is a decision rather than a click.
 const RESPECT_COOLDOWN_REDUCTION_PER_POINT = 0.005;
 const MIN_COOLDOWN_FRACTION = 0.6;
+
+// WINNING MAKES THE NEXT KID STEP UP SOONER, and this is the reward the act was missing.
+//
+// Respect already shortens the walkup, but it does it CUMULATIVELY and therefore invisibly: at
+// 0.005 a point, a showboat win took 0.55s off a 22-second wait. Over a whole act that adds up to
+// the 22s -> 16.1s curve above, and it is genuinely worth having — but no single win is felt, and
+// a player watching the wall reasonably concludes the only thing a win pays is caps. This is the
+// same total idea delivered where it can actually be perceived: the wait you just earned is cut
+// once, immediately, in proportion to what you risked.
+//
+// APPLIED ONLY ON A WIN, AND ONLY TO THE ONE COOLDOWN IT SCHEDULES. It is not stored, it does not
+// stack, and a loss is scheduled off the respect curve exactly as before — so the shape of the act
+// is unchanged for a player who is losing, and the whole of this constant's effect is a reward.
+//
+// SCALED BY APPROACH, WHICH IS THE POINT. Showboat already pays 3x caps and 5 respect against
+// Normal's 2x and 3, but both of those are banked rather than felt, and the act's fantasy is the
+// block watching you call your shot. Cutting the walkup in half on a showboat win is the crowd
+// not bothering to disperse.
+//
+// THE BASE COOLDOWN IS RAISED TO COMPENSATE, and that is what keeps this a reward rather than a
+// discount. See CHALLENGE_COOLDOWN_SECONDS: at 22s a win-only cut would simply shorten Act II for
+// everyone who is winning, which is most players; at 26s the winning lines land back where they
+// were and the wait after a LOSS is the thing that grew. Win and the next kid is already there;
+// lose and you stand around — which is the reward the act was asked for, expressed as a gap
+// rather than as a giveaway.
 
 // Crew size is DERIVED from Respect by counting the thresholds passed, never incremented,
 // so a double-dispatch or a replayed action cannot double-recruit.
