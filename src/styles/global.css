@@ -4363,6 +4363,201 @@ body.expedition .v7-launch-flight-leg {
    END LAUNCH PANEL (STORY-039)
    -------------------------------------------------------------------------------------------- */
 
+/* --------------------------------------------------------------------------------------------
+   CONTRACTS PANEL (STORY-040) — the optional board, paid in Fuel.
+
+   PLACED HERE BY HAND, INSIDE the `body.expedition` section and ABOVE the mobile media query at
+   the foot of the file, for the reason every Act VII section since STORY-034 records: this file
+   ENDS inside `@media (max-width: 640px)`, so a rule appended at EOF is silently mobile-only and
+   builds clean while doing nothing on a desktop. THIS IS THE LAST OF THE SIX and the hazard has
+   fired twice during the wave; it does not fire here.
+
+   IT ADDS NO NEW PRIMITIVE. The progress bar is STORY-034's `.v7-meter` unchanged.
+
+   THE BOARD DOES NOT SHOUT. §6.4 makes this the only purely optional tab in the act, so nothing in
+   this section uses `--v7-alert` for an ordinary state and no row is given an urgency treatment: an
+   offer that is about to lapse is a missed opportunity, not a failure, and the act reschedules it
+   as a makeup game. Amber is reserved for the payout — the thing the player is being offered.
+   -------------------------------------------------------------------------------------------- */
+
+/* The statement the whole screen is built around: none of this is required. Full ink rather than
+   `.muted`, because a player skimming past it is the exact failure §9.1 guards against. */
+body.expedition .v7-contract-optional {
+  color: var(--v7-ink);
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+/* One assignment. Bordered as a card rather than separated by a rule, because a row here is a thing
+   you may pick up — the shop rows elsewhere in the act are a list you read down, and these are not
+   that. */
+body.expedition .v7-contract {
+  border: 1px solid var(--v7-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 12px;
+  background: var(--v7-chip);
+}
+
+/* A completed assignment is the one state worth marking, and it is marked as GOOD — there is money
+   on the table and the player has earned it. */
+body.expedition .v7-contract.is-claimable {
+  border-color: var(--v7-good);
+}
+
+body.expedition .v7-contract-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+body.expedition .v7-contract-name {
+  color: var(--v7-ink);
+  font-weight: 600;
+}
+
+/* Pushed to the far end of the head row, so the three states line up down the board and can be
+   read as a column without reading a single name. */
+body.expedition .v7-contract-status {
+  margin-left: auto;
+  color: var(--v7-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+body.expedition .v7-contract-status.is-claimable {
+  color: var(--v7-good);
+}
+
+body.expedition .v7-contract-status.is-active {
+  color: var(--v7-accent);
+}
+
+/* §9.4's rescheduled offer. A quiet badge and deliberately NOT a warning colour: a makeup game is
+   the act being accommodating, and dressing it as an alert would turn a second chance into a
+   reprimand. */
+body.expedition .v7-contract-makeup {
+  border: 1px solid var(--v7-border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  color: var(--v7-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Why the Office wants it. Flavour, so it is muted. */
+body.expedition .v7-contract-brief {
+  color: var(--v7-muted);
+  font-size: 0.85rem;
+  margin-top: 6px;
+}
+
+/* What you actually have to do. Full ink and set apart from the brief above it, because a player
+   deciding whether to spend one of two slots is reading THIS line and not the story. */
+body.expedition .v7-contract-terms {
+  color: var(--v7-ink);
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+/* The payout. Amber, because amber is what the player is being offered — the same colour the shop
+   rows price with, used here for the other direction of the same transaction. */
+body.expedition .v7-contract-effect {
+  color: var(--v7-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 6px;
+}
+
+/* An offer's deadline. Muted rather than urgent: see the section header — a lapsed offer comes back
+   as a makeup game, so a countdown in alert red would be promising a consequence that does not
+   exist. */
+body.expedition .v7-contract-expiry {
+  color: var(--v7-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+body.expedition .v7-contract-progress {
+  margin-top: 8px;
+}
+
+body.expedition .v7-contract-progress-label {
+  display: block;
+  color: var(--v7-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+/* The engine's refusal sentence. The ONE place this section uses the alert colour, and it earns it:
+   two of the three actionable refusals name something the player can go and fix, and the third
+   ("the payout will not fit in the tank") is the one that would otherwise silently destroy Fuel. */
+body.expedition .v7-contract-refusal {
+  color: var(--v7-alert);
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+body.expedition .v7-contract-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* The act's button shape, matching `.v7-artifact-submit` and `.v7-launch-button` — one button in
+   the act, not three. 44px because that is the tap-target floor. */
+body.expedition .v7-contract-button {
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid var(--v7-accent);
+  border-radius: 4px;
+  background: var(--v7-accent);
+  color: var(--v7-accent-ink);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+/* Filing a completed assignment is the payday, so it wears the good colour rather than the offer
+   amber — the two are different actions and the board should not make them look alike. */
+body.expedition .v7-contract-button.is-claim {
+  border-color: var(--v7-good);
+  background: var(--v7-good);
+}
+
+/* Dropping is free and should look it: an outline rather than a fill, so it never competes with the
+   action the player came here to take. NOT `danger` — §9.4 attaches no penalty, and dressing it as
+   destructive would make players hoard slots on assignments they cannot finish. */
+body.expedition .v7-contract-button.is-abandon {
+  border-color: var(--v7-border);
+  background: transparent;
+  color: var(--v7-muted);
+}
+
+body.expedition .v7-contract-button:disabled {
+  background: var(--v7-chip);
+  border-color: var(--v7-border);
+  color: var(--v7-muted);
+  cursor: default;
+}
+
+body.expedition .v7-contract-abandon-note {
+  color: var(--v7-muted);
+  font-size: 0.78rem;
+  margin-top: 6px;
+}
+
+/* --------------------------------------------------------------------------------------------
+   END CONTRACTS PANEL (STORY-040) — and with it the last of Act VII's six panels.
+   -------------------------------------------------------------------------------------------- */
+
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
      description do not share 390px with a price button and stay readable. Stacked, the price
