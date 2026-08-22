@@ -1,9 +1,21 @@
-// The SEVEN Act VII tabs: their ids, their tab-bar labels, and the copy their panels render while
-// they are still placeholders (PRD §6.4, plus §7.8's ending). Player-facing prose lives here and
-// never in a component, which is the rule that put every other string in this directory.
+// The SEVEN Act VII tabs: their ids and their tab-bar labels (PRD §6.4, plus §7.8's ending).
 //
-// §6.4 authored six. STORY-032 appended `board`, which is not a placeholder — see the note on that
-// row and on the tab ORDER below, where the reason it is last is argued.
+// ONCE THIS FILE ALSO HELD `title`, `blurb` AND A PLACEHOLDER NOTE, AND STORY-040 REMOVED ALL THREE.
+// Every one of them had exactly one reader — components/expedition/PlaceholderPanel.js, the shared
+// body each Act VII tab rendered until the story that owned it landed. STORY-040 is the last of the
+// six panel stories, so `contracts` stopped rendering that body, nothing imported it, and it was
+// deleted. Its fields went with it rather than being left behind as a registry of strings no screen
+// reads: five rows of this list carried a paragraph arguing `blurb` was kept "because the field is
+// part of this list's shape", and the moment the last reader went those paragraphs were defending a
+// field against its own absence of purpose. Verified by grep before removal — `blurb`, `title`,
+// `getActSevenPanel` and `ACT_SEVEN_PLACEHOLDER_NOTE` had no consumer left anywhere in src/.
+//
+// WHAT SURVIVES IS `id` AND `label`, and both have live readers: TabNav spreads them into its TABS
+// array, and AppShell's PANELS map is keyed by id. Each panel authors its own <h2> from its own copy
+// config — which is why `title` was dead even before the placeholder went.
+//
+// §6.4 authored six. STORY-032 appended `board` — see the note on the tab ORDER below, where the
+// reason it is last is argued.
 //
 // WHY THIS IS A SEPARATE FILE FROM data/actSevenConfig.js. That file is the act's SHAPE — the phase
 // ladder and the resource records the engine and the save format are built on. This is the act's
@@ -31,87 +43,13 @@
 // would move the ending in among the tabs the player uses to play. It is the last tab because it is
 // the last thing.
 const ACT_SEVEN_PANELS = [
-  {
-    id: 'ops',
-    label: 'Ops',
-    title: 'Ops',
-    // The tab the act opens on, and for 20-30 minutes the only one. Everything the player can do
-    // in `aftermath` is the click, which AppShell renders outside the tab switch entirely.
-    blurb: 'Net rates, the standing directive, and the log. The frequency is open; nothing is on it yet.',
-  },
-  {
-    id: 'fab',
-    label: 'Fab',
-    title: 'Fabrication',
-    // Keeps its `blurb` for the reason the `board` row below states: the field is part of this
-    // list's shape, and a row missing it would be the one row a future reader had to open a panel
-    // to check. components/expedition/FabPanel.js is a real panel as of STORY-036 and never renders
-    // PlaceholderPanel, so this line is now read only by whoever is editing this file — the shop's
-    // own heading and subtitle are authored in data/actSevenFabConfig.js.
-    blurb: 'Where Salvage becomes hardware — generators, scrubbers, farms, tanks. The bench is bare.',
-  },
-  {
-    id: 'launch',
-    label: 'Launch',
-    title: 'Launch',
-    // Keeps its `blurb` for the reason the `fab`, `sites`, `artifacts` and `board` rows all state:
-    // the field is part of this list's shape, and a row missing it would be the one row a future
-    // reader had to open a panel to check. components/expedition/LaunchPanel.js is a real panel as
-    // of STORY-039 and never renders PlaceholderPanel — the commit screen's own heading, subtitle
-    // and every other word it draws are authored in data/actSevenLaunchPanelConfig.js, and the
-    // burn's own prose in data/actSevenLaunchConfig.js.
-    blurb: 'The Fuel threshold, and the burn that spends it. You have nothing to hold Fuel in yet.',
-  },
-  {
-    id: 'sites',
-    label: 'Sites',
-    title: 'Sites',
-    // Keeps its `blurb` for the reason the `fab` row above and the `board` row below both state:
-    // the field is part of this list's shape, and a row missing it would be the one row a future
-    // reader had to open a panel to check. components/expedition/SitesPanel.js is a real panel as
-    // of STORY-037 and never renders PlaceholderPanel, so this line is now read only by whoever is
-    // editing this file — the ladder's own heading and subtitle are authored in
-    // data/actSevenSitesPanelConfig.js.
-    blurb: 'The affiliate ladder, out from the wreck. One site on it so far, and you are standing on it.',
-  },
-  {
-    id: 'artifacts',
-    label: 'Artifacts',
-    title: 'Artifacts',
-    // Keeps its `blurb` for the reason the `fab` and `board` rows above state: the field is part of
-    // this list's shape, and a row missing it would be the one row a future reader had to open a
-    // panel to check. components/expedition/ArtifactsPanel.js is a real panel as of STORY-038 and
-    // never renders PlaceholderPanel, so this line is now read only by whoever is editing this file
-    // — the puzzle surface's own heading, subtitle and every other word it draws are authored in
-    // data/actSevenArtifactsConfig.js and data/actSevenPuzzlesConfig.js.
-    blurb: 'Recovered equipment, and what can be read off it. Nothing recovered.',
-  },
-  {
-    id: 'contracts',
-    label: 'Contracts',
-    title: 'Contracts',
-    blurb: 'Organisational paperwork, paid in Fuel. The board is empty.',
-  },
-  {
-    id: 'board',
-    label: 'Board',
-    title: 'Standings',
-    // Carries a `blurb` like every other row even though components/expedition/BoardPanel.js is a
-    // real panel and never renders PlaceholderPanel. The field is part of this list's shape and a
-    // row missing it would be the one row a future reader had to check the panel for — and the tab
-    // is unreachable before `majors`, so the line is only ever read by whoever is editing this file.
-    blurb: 'Farm systems, current season. You are in it.',
-  },
+  { id: 'ops', label: 'Ops' },
+  { id: 'fab', label: 'Fab' },
+  { id: 'launch', label: 'Launch' },
+  { id: 'sites', label: 'Sites' },
+  { id: 'artifacts', label: 'Artifacts' },
+  { id: 'contracts', label: 'Contracts' },
+  { id: 'board', label: 'Board' },
 ];
 
-// One line, shown under every placeholder, and it is deliberately not written in the act's voice:
-// it is the game telling the truth about itself rather than the Office telling a story. A player
-// can only reach these panels through an injected save today, so the honest reading is the useful
-// one — a fictional "standby" line would be indistinguishable from a broken panel.
-const ACT_SEVEN_PLACEHOLDER_NOTE = 'This panel is not built yet.';
-
-function getActSevenPanel(panelId) {
-  return ACT_SEVEN_PANELS.find((panel) => panel.id === panelId) || null;
-}
-
-module.exports = { ACT_SEVEN_PANELS, ACT_SEVEN_PLACEHOLDER_NOTE, getActSevenPanel };
+module.exports = { ACT_SEVEN_PANELS };

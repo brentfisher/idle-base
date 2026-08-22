@@ -705,6 +705,129 @@ const contractCopy = {
   panelIntro:
     'Assignment issued. Terms below. Completion is credited against your transit requisition. '
     + 'Non-completion is not a mark against you; it is a scheduling matter.',
+
+  // -------------------------------------------------------------------------------------------
+  // THE PANEL'S OWN FURNITURE (STORY-040)
+  //
+  // Added HERE rather than in a new data/actSevenContractsPanelConfig.js, which is a deliberate
+  // divergence from what Sites and Launch did. Those two split their panel copy out because their
+  // engine configs carry hundreds of lines of measurement record, and a copy tweak had no business
+  // landing in the file that holds the act's tuning. This file carries no such record — and the
+  // block above already holds `boardEmpty`, `panelIntro`, the five refusal sentences and every
+  // progress label, under a header stating in as many words that it holds "the small phrases the
+  // panel needs". STORY-030 put panel prose here by design; a second file would be a second
+  // authority for contract words.
+  // -------------------------------------------------------------------------------------------
+
+  // Duplicated from the `contracts` row in data/actSevenPanels.js for the reason every other Act VII
+  // panel's copy states: that list is the TAB BAR's source, and a panel reaching into the tab
+  // registry for its own <h2> would couple the two so that renaming a tab retitles a screen.
+  title: 'Contracts',
+  subtitle: 'Organisational paperwork, paid in Fuel.',
+
+  // THE SENTENCE THIS WHOLE PANEL IS BUILT AROUND, and it is the reason the tab is last in the bar.
+  // §6.4 makes `contracts` the only purely OPTIONAL tab in the act: a player who never opens it
+  // still finishes, slowly, which is Decision 3.6 applied to the fuel economy. That is a design
+  // constraint on the SCREEN and not a footnote — a board that read as a chore list would convert
+  // an opportunity into an obligation, and would make every player who ignores it feel behind.
+  //
+  // Said at the top, once, in the Office's flat voice: this is work you may take, not work you owe.
+  optionalNote: 'Nothing on this board is required. Every one of them is a shortcut, and the run finishes without any of them.',
+
+  // The two-slot ceiling, stated where a player meets it rather than only in the refusal. §9.4:
+  // three offers on the board, two open at a time. Knowing the cap in advance is what makes the
+  // choice between two offers a choice; meeting it only as a refusal reads as a bug.
+  // Takes the cap rather than spelling it, so a retune of MAX_ACTIVE_CONTRACTS moves the sentence
+  // with it and cannot leave the screen promising two while the engine enforces three.
+  slotsNote: (max) => max + ' open at a time. One more than that is refused until one is filed or dropped.',
+
+  // The three states, as words. A FUNCTION rather than a map because the reading is ordered and the
+  // `id` rides along so the stylesheet can key on it without the component mapping words to class
+  // names — data/actSevenSitesPanelConfig.js's statusFor() is the pattern.
+  //
+  // "Offered" and not "Available": the Office issues assignments, it does not advertise them.
+  statusFor: (row) => {
+    if (row.status === 'claimable') return { id: 'claimable', label: 'Complete' };
+    if (row.status === 'active') return { id: 'active', label: 'Accepted' };
+    return { id: 'offered', label: 'Offered' };
+  },
+
+  // WHETHER A ROW GETS A BAR, and it is a rules question rather than a styling one, which is why it
+  // is answered here and not by a conditional in JSX. progressFor() says it in its own comment: a
+  // `state` contract "is a condition, not a quantity. It has no bar; it has an answer." Drawing a
+  // half-full bar for "have any three modules online" would invent a middle where the engine has
+  // none — the answer is yes or no, and the label says which.
+  showsBar: (row) => row.kind !== 'state',
+
+  // WHETHER A ROW SHOWS PROGRESS AT ALL, which is a different question from whether it shows a bar,
+  // and it exists because an OFFERED window contract reports a clock that is not running.
+  //
+  // progressFor() falls back for a `window` or `expedition` row that is not yet ACTIVE:
+  //
+  //     return { value: 0, target: total, pct: 0, label: remainingLabel(total) };
+  //
+  // which puts "10:00 remaining" on an assignment nobody has accepted. That figure is the window the
+  // player WOULD get, not time they are losing — and it is one line from `expiresLabel`'s "Offer
+  // closes in 8:00", which IS a running countdown. Two opposite time semantics in identical
+  // treatment, on the same card.
+  //
+  // NOTHING IS LOST BY HIDING IT, and that is what makes suppression the right fix rather than a
+  // rewording. Every one of these contracts states its window in its own `terms`: "600 seconds with
+  // no manual click", "within 300 seconds", "Dispatch a crew for 600 seconds". The suppressed line
+  // is a worse copy of a line already on the card.
+  //
+  // THE OTHER KINDS KEEP THEIRS WHILE OFFERED, because theirs are true and useful. A `delivery`
+  // row's "150 of 150 Provisions on hand" is computed from what the player actually holds at this
+  // instant and answers the question they are asking — can I finish this if I take it. A `state`
+  // row's "Not yet met." is simply the condition's answer, which does not depend on acceptance.
+  showsProgress: (row) => {
+    if (row.status !== 'offered') return true;
+    return row.kind !== 'window' && row.kind !== 'expedition';
+  },
+
+  // An offer's deadline. Null for the ones that have none, and the panel omits the line rather than
+  // printing "no deadline" — an absent deadline is not a fact the player needs, it is the default.
+  //
+  // ACCEPTING DISCHARGES IT. §9.4: "An accepted contract never expires. It has no deadline to miss;
+  // it has a window it is inside." engine/contracts.js sets `expiresInSeconds` to null the moment a
+  // row goes active, so this line cannot survive acceptance and no guard here is needed.
+  expiresLabel: (seconds) => 'Offer closes in ' + formatClock(seconds),
+
+  // NO makeupBadge. §9.4's rescheduled offer is ALREADY STATED TWICE on the row before any badge:
+  // `makeupName` renames it "Makeup Game: Bus Trip" and `makeupBrief` opens "Rescheduled: Bus Trip.
+  // Same terms. Longer window." A third marker would be the same fact three times on one card, and
+  // the name is both the most prominent and the one the player scans. Rendered in a fixture before
+  // this was decided, rather than reasoned about in the abstract.
+
+  // The three controls. "File it" rather than "Claim" because that is the Office's word for it and
+  // `readyLabel` above already uses it — two verbs for one action on one row would read as two
+  // different actions.
+  acceptLabel: 'Accept',
+  claimLabel: 'File it',
+
+  // TWO VERBS FOR ONE ENGINE CALL, AND THE SPLIT IS THE POINT. abandon() takes an `offered` row and
+  // an `active` row down the identical path, but they are not the same act to a player: turning down
+  // an offer you never took is DECLINING, and walking away from an assignment you accepted is
+  // DROPPING. One label for both would name whichever of the two the writer happened to be thinking
+  // about, and would be wrong on the other half of the board.
+  abandonLabel: (status) => (status === 'offered' ? 'Decline' : 'Drop'),
+
+  // Shown under an abandonable row, and SPLIT BY STATUS FOR THE SAME REASON — because the reassuring
+  // half is different in each case and one of the two sentences is false in the other state.
+  //
+  // "The slot comes back" is true of an ACTIVE row and FALSE of an offered one: the two-slot ceiling
+  // counts assignments you have accepted (acceptRefusalFor's `slots` test), so declining an offer
+  // returns nothing, because nothing was taken. Printing it on an offer would promise a resource
+  // that was never spent.
+  //
+  // What IS true of both is the part that matters: nothing is lost. abandon() writes the id into
+  // `contractBoard.missedIds`, which is exactly what §9.4's rescheduler reads to reissue it as a
+  // makeup game — so walking away is a deferral and not a forfeit. Saying so is not decoration: a
+  // player who suspects a penalty will hoard a slot on an assignment they cannot finish, which is
+  // the one way this optional board can actually cost somebody something.
+  abandonNote: (status) => (status === 'offered'
+    ? 'Declining costs nothing. The Office may reschedule it.'
+    : 'Dropping costs nothing. The slot comes back, and the Office may reschedule it.'),
 };
 
 // m:ss, and it lives here rather than in the panel because it is the only place a duration becomes
