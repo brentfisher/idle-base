@@ -37,7 +37,8 @@ const { createFeedEntry, appendFeedEntries } = require('./feed');
 const { effectiveSecondsPerGame, effectiveSecondsPerPlayoffRound } = require('./pacing');
 // The record card and the achievement evaluator. The evaluator is deliberately NOT on the event
 // clock contributor list: it is not time-driven, it runs every iteration, and it schedules nothing.
-const { recordUndefeatedSeason } = require('./records');
+const { recordUndefeatedSeason, sealRun } = require('./records');
+const { OVER_THE_WALL_MILESTONE } = require('../data/actSevenConfig');
 const { evaluateAchievements, grantAchievements } = require('./achievements');
 const { LITTLE_LEAGUE_ACT_INDEX } = require('./littleLeague');
 const {
@@ -907,6 +908,21 @@ function advance(state, deltaSeconds) {
     // something writes a counter instead (engine/records.js), and this reads them. Both halves
     // return `working` by identity when there is nothing to do, which is almost every tick.
     working = grantAchievements(working, evaluateAchievements(working));
+
+    // THE RUN ENDING, sealed here for the same reason the evaluator sits here: advance() is the one
+    // path both the live tick and the offline catch-up take, so a win crossed while the tab was
+    // closed ends the run at the moment it happened rather than at the moment the player looked.
+    //
+    // AFTER the evaluator, so `fifth-burn` and `odyssey` are on the run's card before it is sealed —
+    // a card sealed first would be promoted without the two achievements the win just earned.
+    //
+    // PURE. Sealing stamps the card and takes Act VII's split; it writes nothing to disk. The
+    // promotion into persistence/recordsStore.js is done by hooks/useGameTick.js, because a reducer
+    // may not touch localStorage and a tick that did would write on every iteration of a catch-up.
+    if ((working.progression || {}).milestones
+        && working.progression.milestones[OVER_THE_WALL_MILESTONE]) {
+      working = sealRun(working, { complete: true });
+    }
   }
 
   return working;

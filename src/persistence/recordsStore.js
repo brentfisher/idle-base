@@ -98,6 +98,34 @@ function clearRecords() {
   }
 }
 
+// PROMOTION: moving a sealed run out of the save and into the career. This is the persistence half
+// of ending a run; engine/records.js: sealRun() is the pure half.
+//
+// UPSERT BY `runId`, so promoting twice leaves one row. It happens more often than it looks: the
+// win seals the run, the hook promotes it, and then the player clears the save — which ends the
+// same run again. One row is the right answer both times.
+//
+// The run's achievements are MERGED into the career set rather than replacing it, and the run's own
+// list is left on the card untouched. The career set is what the collection screen shows and is
+// never taken away; the card's list is what STORY-043 scores, and scoring a run against every
+// achievement the player has ever earned would let a veteran's first minute outscore a newcomer's
+// whole run (PRD §6).
+//
+// NO SCORE IS STORED. The card carries facts; engine/score.js derives the number on read, so
+// retuning data/scoreConfig.js re-scores the rows already here (PRD §3.3).
+function promoteRun(card) {
+  if (!card || !card.runId) return loadRecords();
+  const records = loadRecords();
+  const runs = records.runs.filter((run) => run && run.runId !== card.runId).concat([card]);
+  const achievements = records.achievements.slice();
+  (card.achievements || []).forEach((id) => {
+    if (achievements.indexOf(id) === -1) achievements.push(id);
+  });
+  const next = { ...records, runs, achievements };
+  saveRecords(next);
+  return next;
+}
+
 module.exports = {
   STORAGE_KEY,
   CURRENT_VERSION,
@@ -106,4 +134,5 @@ module.exports = {
   loadRecords,
   saveRecords,
   clearRecords,
+  promoteRun,
 };

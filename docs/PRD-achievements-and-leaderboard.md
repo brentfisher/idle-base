@@ -241,7 +241,15 @@ ends", and §3.2's promotion moves `state.achievements.earned` into the career s
   the exact moment the player is most likely to want it kept.
 * **The ordering is promote-then-clear, and it is a hard sequencing constraint.** The run-scoped set
   lives in game state; the career set lives in the records key. A `clearSave()` that runs first has
-  already thrown away what promotion was for.
+  already thrown away what promotion was for. The order is expressed once, as
+  `persistence/runEnd.js: endRunAndClearSave()`, rather than as a comment asking callers to
+  remember it. **There is no reset UI in the game today**, so that function ships as the correct
+  path waiting for its first caller; the Records tab (§7) is its natural home.
+* **Sealing is pure; promoting is not.** `engine/records.js: sealRun()` stamps the card and takes
+  Act VII's split inside `advance()`, so a win crossed during an offline catch-up ends the run at
+  the instant it happened. The write into the records key is done by `hooks/useGameTick.js`, keyed
+  on `endedAtClock` — a reducer may not touch localStorage, and a catch-up runs the loop hundreds of
+  times.
 
 **The evaluator dedupes against the RUN set, not the career set.** An achievement already in the
 career collection can be earned again in a new run — it just does not appear twice in the
