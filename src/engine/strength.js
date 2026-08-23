@@ -1,5 +1,5 @@
 const { PLAYER_TEAM_ID } = require('./schedule');
-const { getWalkupSong } = require('../data/walkupSongsConfig');
+const { getWalkupSong, WALKUP_ALL_STATS } = require('../data/walkupSongsConfig');
 
 // The rating formula's coefficients, lifted out of playerOverall() so they can be READ as well as
 // applied. They were inline arithmetic until the walk-up songs shipped, and a song has to know
@@ -34,9 +34,20 @@ function statWeights(position) {
 // Lives in this file rather than in engine/walkupSongs.js purely to keep the module graph a DAG:
 // walkupSongs.js needs STAT_WEIGHTS above to filter its picker, so it requires this module, and a
 // require back the other way would be a cycle. Both read the same config; neither owns a number.
+//
+// THE B-SIDE CASE. A record whose `stat` is WALKUP_ALL_STATS matches every stat rather than one,
+// so its bonus lands on all of them. That is what makes it worth 800 cash per percent where a
+// power record is worth 240 — the weights of a position (STAT_WEIGHTS above) sum to 1.0, so a
+// uniform +6% on every stat is +6% of the whole rating, where +6% power is +1.8%. The arithmetic
+// is recorded in full in data/walkupSongsConfig.js over the B-side ladder.
+//
+// Checked HERE, in the one function that decides what a song multiplies, rather than by giving
+// STAT_WEIGHTS an 'all' row: the weights table is the rating formula and its rows must keep summing
+// to 1.0, which a sixth key would break for every player in the game.
 function walkupStatMultiplier(player, stat) {
   const song = getWalkupSong(player && player.walkupSongId);
-  if (!song || song.stat !== stat) return 1;
+  if (!song) return 1;
+  if (song.stat !== stat && song.stat !== WALKUP_ALL_STATS) return 1;
   return 1 + song.bonus;
 }
 

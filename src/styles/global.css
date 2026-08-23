@@ -1921,6 +1921,20 @@ input[type='range']::-moz-range-thumb {
   opacity: 0.85;
 }
 
+/* The chip in its SAVING state — rendered, sized and positioned exactly as the enabled one, and
+   that is the entire point of it. The slot is now held open by the stat (two or more upgrades left
+   before the cap) rather than by the wallet, so a purchase can no longer delete a control from
+   sixty rows at once and re-flow the grid under a thumb mid-click. See UpgradeButton.js for the
+   report this fixes.
+   Dashed rather than merely dimmed: the global `button:disabled { opacity: 0.5 }` alone reads as
+   "broken", where a dashed outline around a price reads as an outline of something not filled in
+   yet, which is what a savings target is. */
+.upgrade-chip.is-bulk.is-saving {
+  border-style: dashed;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
 /* The whole player is finished. Deliberately louder than the per-stat MAX: it answers the
    question the player is actually asking, which is whether they can stop looking at this card. */
 .player-card.is-fully-upgraded {
@@ -2239,6 +2253,20 @@ input[type='range']::-moz-range-thumb {
   font-size: 0.8rem;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
+}
+
+/* The reputation a line pays, on the offer and on the settled result. Gold, and the only thing in
+   either row that is NOT dimmed by the surrounding opacity — the cash on this page is a losing
+   proposition by construction (-25% EV, proved in data/propBetsConfig.js) and the reputation is the
+   part that is actually worth something, so it must not read as more small print after the odds.
+   Placed above the file's final `@media (max-width: 640px)` block, which is where global.css ends;
+   a rule appended at EOF is silently mobile-only. */
+.bp-offer-rep,
+.bp-result-rep {
+  color: #f4d35e;
+  font-weight: 700;
+  opacity: 1;
+  white-space: nowrap;
 }
 
 .bp-stake {
@@ -2623,6 +2651,397 @@ input[type='range']::-moz-range-thumb {
   font-style: italic;
 }
 
+/* --- The Playoffs tab: the projection, the bunting and the call-up --- */
+/*
+ * PLACED HERE, ABOVE the file's final `@media (max-width: 640px)` block. global.css ends inside that
+ * block, so a rule appended at EOF is silently mobile-only — it builds clean and reads correctly in
+ * the diff, which is why this note is on every section down here.
+ *
+ * THE REPORT THIS ANSWERS: "the tab is empty most of the time … there's no fanfare currently, make
+ * the screen have the alternate colors draw around the screen, something." Two different problems.
+ * The projection below fixes the first (the tab now has a job during the regular season); the
+ * bunting fixes the second (the postseason arriving is now something the screen DOES).
+ */
+
+/* --- the projected field --- */
+.po-sub {
+  margin: 18px 0 4px;
+  font-size: 0.95rem;
+  color: #f4d35e;
+}
+
+.po-last {
+  margin-bottom: 10px;
+}
+
+.po-last-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  opacity: 0.7;
+  margin-right: 6px;
+}
+
+.po-seed-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+/* Four columns on one 44px row: seed, name, record, and the certainty tag when there is one. The
+   name is the only flexible column — at 390px a long club name truncates rather than wrapping the
+   record onto a second line, because a table whose rows are different heights is unreadable as a
+   ladder, which is the one thing this list is for. */
+.po-seed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.po-seed-row.in-field {
+  background: rgba(106, 176, 76, 0.1);
+}
+
+/* Below the cut. Dimmed rather than hidden — the teams outside the field are the reason the field
+   is interesting, and a player chasing a berth needs to see who they are chasing. */
+.po-seed-row.out {
+  opacity: 0.62;
+}
+
+.po-seed-row.me {
+  outline: 1px solid #f4d35e;
+}
+
+.po-seed-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #f4d35e;
+  min-width: 26px;
+}
+
+.po-seed-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.po-seed-record {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.po-seed-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+}
+
+.po-seed-tag.is-in {
+  color: #6ab04c;
+}
+
+.po-seed-tag.is-out {
+  color: #e07a5f;
+}
+
+/* The cut line. A row of its own between the last team in and the first team out, because the line
+   belongs to the league rather than to the fourth-placed club — a border on that row would read as
+   a property of that team, and it would move to a different team every time the table re-sorted. */
+.po-cut-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #e07a5f;
+  opacity: 0.85;
+}
+
+.po-cut-line::before,
+.po-cut-line::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, #e07a5f 0 6px, transparent 6px 12px);
+}
+
+.po-missing {
+  color: #e07a5f;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+/* --- the projected first round --- */
+.po-matchups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.po-matchup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 160px;
+  padding: 8px 10px;
+  border: 1px solid #23522f;
+  border-radius: 8px;
+  background: #0d1f14;
+  font-size: 0.82rem;
+}
+
+.po-matchup.has-player {
+  border-color: #f4d35e;
+}
+
+.po-matchup-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.po-matchup-side {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- the fanfare --- */
+/*
+ * THE BUNTING. Ballparks hang red-white-and-blue over the railings for the postseason and take it
+ * down again in the winter, and that is exactly the semantics wanted here: it is on the screen only
+ * while `.playoffs-live` is, so its arrival IS the announcement. Drawn as a moving conic gradient
+ * behind the panel with the panel's own background floated over the middle, which gives a genuine
+ * animated border on one element with no pseudo-element stacking and nothing to lay out.
+ *
+ * The three colours are the ballpark palette (gold, clay, outfield green) rather than literal
+ * red-white-and-blue: the game has a palette and the bunting is not an excuse to leave it.
+ */
+.po-panel.playoffs-live {
+  position: relative;
+  border-color: transparent;
+  background:
+    linear-gradient(#143620, #143620) padding-box,
+    conic-gradient(from var(--bunting-angle, 0deg), #f4d35e, #e07a5f, #6ab04c, #f4d35e) border-box;
+  border: 3px solid transparent;
+  animation: bunting-spin 6s linear infinite;
+}
+
+/* Registered so the angle can be animated at all: a plain custom property is a string to the
+   animation engine and would jump from 0deg to 360deg in one step. @property makes it a real angle
+   and the gradient sweeps. Browsers without it (Firefox before 128) simply get a static ribbon of
+   the same three colours, which is a perfectly good result and the reason this is not a JS loop. */
+@property --bunting-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes bunting-spin {
+  to {
+    --bunting-angle: 360deg;
+  }
+}
+
+/* Non-negotiable for an animation that runs indefinitely on a screen a player may sit on. The
+   border stays — it is the announcement — and only the movement stops. */
+@media (prefers-reduced-motion: reduce) {
+  .po-panel.playoffs-live {
+    animation: none;
+  }
+}
+
+.po-live-banner {
+  margin: 4px 0 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #f4d35e;
+  text-shadow: 0 0 12px rgba(244, 211, 94, 0.35);
+}
+
+.po-next-round {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.po-champion {
+  margin: 6px 0 10px;
+  font-size: 1rem;
+}
+
+/* The player's own title gets the plate the MAX chip and the FULLY UPGRADED banner use — the
+   house's "there is nothing above this" treatment. Somebody else's title is a sentence. */
+.po-champion.is-you {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(244, 211, 94, 0.16);
+  border: 1px solid #f4d35e;
+}
+
+.po-champion-you {
+  display: block;
+  margin-top: 4px;
+  color: #f4d35e;
+  font-weight: 700;
+}
+
+.bracket-round-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  text-align: center;
+}
+
+.bracket-match.has-player {
+  border-color: #f4d35e;
+}
+
+/* --- the standing call-up --- */
+/*
+ * Set apart from the rest of the tab rather than styled into it. The offer is not baseball — it is
+ * the thing that ends baseball — and it borrows Act VII's cold palette so that the screen reads as
+ * having something on it that does not belong to the ballpark. See the panel component for why the
+ * offer needs a home outside the victory modal at all.
+ */
+.po-callup {
+  margin: 12px 0 16px;
+  padding: 14px;
+  border: 1px solid #7aa9c7;
+  border-radius: 10px;
+  background: rgba(20, 34, 45, 0.85);
+}
+
+.po-callup h3 {
+  margin: 0 0 8px;
+  color: #cfe4d4;
+}
+
+.po-callup p {
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+/* The one line that stands in for four paragraphs while the block is closed. See the component for
+   why closed is the default. */
+.po-callup-standing {
+  font-style: italic;
+  opacity: 0.9;
+}
+
+/* Two controls, and the ORDER matters more than the styling: the toggle is `secondary` and comes
+   first, the accept is the loud one and comes last, so the thumb's resting position on a phone is
+   under the reversible control rather than under the one that ends the baseball game. */
+.po-callup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* The live tab badge. Same shape as NEW (it replaces it, never sits beside it) in the postseason's
+   own gold, so the tab bar says which of the two states it is in without being read. */
+.tab-nav button .tab-badge.is-live {
+  background: #f4d35e;
+  color: #14210f;
+}
+
+/* --- The stat chip and the release control on the record crate --- */
+/*
+ * PLACED HERE, ABOVE the file's last `@media (max-width: 640px)` block, which is where global.css
+ * ends — a rule appended at EOF is silently mobile-only, builds clean and reads correctly in the
+ * diff. These are unconditional.
+ *
+ * WHY A CHIP AND NOT MORE PROSE. The complaint these answer is "I can't tell which stat I'm
+ * boosting". The stat was already in the effect string at the end of each row, which is exactly
+ * where the eye does not go on a phone, so it is pulled to the FRONT of the row as a tag and given
+ * a tone per stat. Colour is a second channel, never the only one: every chip states its stat in
+ * words, so nothing here depends on telling clay from gold.
+ *
+ * The five stat tones are the ballpark palette, assigned by what the stat feels like rather than
+ * arbitrarily — clay for power, gold for contact, base-path white-green for speed, outfield blue
+ * for defense, and the mound's own green for pitching. The B-side chip is the only one that is
+ * FILLED rather than outlined, because "every stat" is a different KIND of record and not a sixth
+ * stat, and a filled chip is legible as different at 11px without reading it.
+ */
+.wu-stat-chip {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  vertical-align: 1px;
+  white-space: nowrap;
+  color: #9fc6a9;
+}
+
+.wu-stat-chip.stat-power {
+  color: #e07a5f;
+}
+
+.wu-stat-chip.stat-contact {
+  color: #f4d35e;
+}
+
+.wu-stat-chip.stat-speed {
+  color: #cfe4d4;
+}
+
+.wu-stat-chip.stat-defense {
+  color: #7aa9c7;
+}
+
+.wu-stat-chip.stat-pitching {
+  color: #6ab04c;
+}
+
+/* The B-sides. Filled gold on green — the same plate `.upgrade-chip.is-max` uses for "there is
+   nothing above this", which is what a record that moves every bar is in this crate. */
+.wu-stat-chip.stat-all {
+  background: rgba(244, 211, 94, 0.18);
+  border-color: #f4d35e;
+  color: #f4d35e;
+}
+
+/* "take it back", on the crate row that names whoever is walking up to the record. It is the only
+   route from one kid to another now that the picker refuses to steal (engine/walkupSongs.js), so
+   it must not read as decoration — but it is also not the row's main event, so it is sized down
+   from the 44px buy button rather than matched to it. 32px is under the tap-target floor the
+   Mobile section sets for primary controls and that is a deliberate, bounded exception: the action
+   is reversible in one tap from the same row, and a full-height button here would make every owned
+   row taller than every unowned one, which is the layout jump the roster screen was just fixed
+   for. */
+.wu-crate-release {
+  margin-left: 8px;
+  min-height: 32px;
+  padding: 3px 8px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  border-radius: 6px;
+  opacity: 0.85;
+}
+
+.wu-crate-release:hover {
+  opacity: 1;
+}
+
 /* --- Act VII: the header resource readout --- */
 /*
  * PLACED HERE, ABOVE the file's last `@media (max-width: 640px)` block. global.css ends inside
@@ -2634,60 +3053,98 @@ input[type='range']::-moz-range-thumb {
  * question, and a CSS class per state would put six copies of that decision in a stylesheet where
  * the contrast measurements cannot live beside them.
  */
+/* REBUILT FOR LEGIBILITY, reported as "these look bad, let's make them more legible". The type was
+   the smaller half of that: a 0.62rem label at 0.72 opacity over a 0.68em capacity at 0.66 opacity
+   is four different weights of grey stacked in 74px, and the amount — the number the chip exists to
+   show — was not the most prominent thing on it. The larger half was the colour, which is dealt with
+   in data/colonyReadoutConfig.js: the chips wear the act's own dark ground now, and the state rides
+   on `--resource-accent` instead of on a saturated fill.
+
+   Everything below is sized so that the AMOUNT is the biggest thing, the label and the rate are
+   equal secondary weights, and nothing relies on opacity to establish hierarchy — a measured
+   contrast ratio that is then multiplied by 0.66 is not the ratio that was measured. */
 .resource-chip {
   /* Column, not row: the meter goes UNDER the text. At 390px there is no room for a fifth
      column, and a bar the full width of the chip is easier to judge at a glance anyway. */
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  min-width: 74px;
-  padding: 4px 7px;
+  gap: 3px;
+  min-width: 84px;
+  padding: 5px 8px;
+  /* The third channel the accent lands on, after the rate and the meter. 1px at rest so the chip
+     has an edge at all; the two bad states thicken it below. */
+  border: 1px solid var(--resource-accent, transparent);
+  /* NOT `.stat-chip`'s 999px pill. A pill is right for a one-line currency chip and wrong for a
+     three-line block: the radius cut visible corners off the meter running along the bottom edge,
+     so the bar appeared to escape the chip. 8px keeps the family resemblance without the clipping. */
+  border-radius: 8px;
 }
 
 .resource-chip .label {
-  /* The tone's ink is already high-contrast against its bg; the label rides at reduced opacity
-     rather than a different colour so it cannot drop below the measured ratio. */
-  opacity: 0.72;
-  font-size: 0.62rem;
-  letter-spacing: 0.02em;
+  /* Full opacity, because the measured ratio is the measured ratio: dimming it to 0.72 was
+     silently spending contrast that had been computed and recorded. It reads as secondary through
+     size, weight and letterspacing instead, which cost nothing. */
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.78;
 }
 
+/* The number the chip is for, and now the largest thing on it. */
 .resource-amount {
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.05;
 }
 
 /* The ceiling reads as secondary to the amount — it is context, not the number the player is
-   watching — but it is always present, including at 0, which is a real state (no tank yet). */
+   watching — but it is always present, including at 0, which is a real state (no tank yet).
+   Sized down rather than dimmed down, for the reason on `.label` above. */
 .resource-capacity {
-  opacity: 0.66;
-  font-size: 0.68em;
+  font-size: 0.72em;
+  font-weight: 500;
+  opacity: 0.75;
 }
 
+/* THE SIGNED RATE, IN THE ACCENT. This is the one number that says whether the resource is in
+   trouble, so it is the one thing on the chip wearing a colour — and it is never colour ALONE: it
+   carries a true minus sign, and the meter under it carries a length. */
 .resource-net {
-  font-size: 0.66rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  opacity: 0.86;
+  color: var(--resource-accent, currentColor);
 }
 
 .resource-track {
   width: 100%;
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
-  /* Tinted from the chip's own ink rather than a fixed colour, so the track sits correctly under
-     all six tones without six rules. */
-  background: rgba(0, 0, 0, 0.22);
+  /* A lift off the chip's own dark ground rather than a shadow into it: the ground is now near
+     black, so the old `rgba(0,0,0,0.22)` track was invisible on it. */
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 
 .resource-fill {
   display: block;
   height: 100%;
-  background: currentColor;
-  opacity: 0.75;
+  /* The accent, not `currentColor`. The text is one ink on every chip now, so a fill inheriting it
+     would paint all four meters the same grey and throw away the fastest read on the row. */
+  background: var(--resource-accent, currentColor);
   /* Matches the countdown bar's easing so the two moving elements in the header agree. */
   transition: width 0.4s linear;
+}
+
+/* The two states worth interrupting for get a second, non-colour channel: a thicker edge. Full is
+   deliberately not in this list — a full tank is information, not a problem. */
+.resource-chip.is-warning,
+.resource-chip.is-starved {
+  border-width: 2px;
+  padding: 4px 7px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3251,6 +3708,96 @@ body.expedition .v7-board-line-wins {
 
 /* The directive block. Bordered rather than merely spaced because it is the one thing on this
    screen that is not a number, and in `aftermath` it is the one thing on this screen at all. */
+/* --- Act VII: the next step --- */
+/*
+ * PLACED HERE, above the file's final `@media (max-width: 640px)` block — global.css ends inside
+ * that block and a rule appended at EOF is silently mobile-only.
+ *
+ * THE ONE WARM COLOUR RULE STILL HOLDS. Act VII's visual identity is cold and near-monochrome with
+ * exactly one warm colour, the amber instrument glow, reserved for what the player buys or reads.
+ * This block is the most instructional thing on the screen, so the amber is used on the label and
+ * on the progress fill and nowhere else in it; the body text stays --v7-ink like every other line.
+ *
+ * Deliberately QUIETER than the directive above it (no left rule, no filled ground). The Office's
+ * order is the thing on this screen; this is the terminal's footnote about which button serves it,
+ * and it must not out-shout the block it is explaining.
+ */
+body.expedition .v7-ops-next {
+  border: 1px dashed var(--v7-border);
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  margin: -0.5rem 0 1.1rem;
+}
+
+body.expedition .v7-ops-next-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+body.expedition .v7-ops-next-label {
+  color: var(--v7-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body.expedition .v7-ops-next-where {
+  color: var(--v7-muted);
+  font-size: 0.72rem;
+}
+
+body.expedition .v7-ops-next-action {
+  margin: 0.3rem 0 0;
+  color: var(--v7-ink);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+body.expedition .v7-ops-next-ready {
+  margin: 0.35rem 0 0;
+  color: var(--v7-good);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+body.expedition .v7-ops-next-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+body.expedition .v7-ops-next-progress-track {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+body.expedition .v7-ops-next-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--v7-accent);
+  /* Matches the header meter's easing so the two moving bars on screen agree. */
+  transition: width 0.4s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.expedition .v7-ops-next-progress-fill {
+    transition: none;
+  }
+}
+
+body.expedition .v7-ops-next-progress-text {
+  color: var(--v7-ink);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 body.expedition .v7-ops-directive {
   border: 1px solid var(--v7-border);
   border-left: 3px solid var(--v7-accent);
@@ -4664,5 +5211,48 @@ body.expedition .v7-contract-abandon-note {
     flex-direction: column;
     align-items: stretch;
     gap: 2px;
+  }
+
+  /* THE ACT VII RESOURCE CHIPS, COMPACTED — and this block is not a nicety, it is paying back a
+     measured regression. The legibility rework above sized the chips up (min-width 74 -> 84,
+     padding 4/7 -> 5/8, a 0.95rem/700 amount where the old one inherited 0.85rem, a 4px track).
+     Measured in a 390px viewport, that took `.header-stats` from 144px tall to 229px — 85px, on a
+     screen 844px tall, in the row that already carries Cash, Salvage, Clock, Next and the act pill,
+     and which the Mobile section at the head of this block records having had to shrink once
+     already. The extra width dropped one chip per row, and the extra height cost on every row.
+
+     So the SIZE increase is desktop-only and the rest of the rework is not. What survives at 390px
+     is everything that made the chips legible without costing pixels: the dark ground, the squared
+     corners, the full-opacity uppercase label, the accent on the rate and the meter, and the
+     thickened border on the two bad states. Re-measured with these rules: 149px, five pixels over
+     where it started.
+
+     The amount stays BOLD at close to its old size — weight is free and points are not. */
+  .resource-chip {
+    min-width: 76px;
+    padding: 4px 6px;
+    gap: 2px;
+  }
+
+  .resource-chip .label {
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+  }
+
+  .resource-amount {
+    font-size: 0.86rem;
+  }
+
+  .resource-net {
+    font-size: 0.66rem;
+  }
+
+  .resource-track {
+    height: 3px;
+  }
+
+  .resource-chip.is-warning,
+  .resource-chip.is-starved {
+    padding: 3px 5px;
   }
 }

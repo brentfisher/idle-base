@@ -5,6 +5,9 @@ const { bookieView } = require('../../engine/bookie');
 const { computeModifiers } = require('../../engine/modifiers');
 const { SIDE_FOR } = require('../../data/actFourConfig');
 const { formatNumber } = require('../../utils/formatNumber');
+// The reputation wording, from data/ rather than from this file. The two UNAVAILABLE_COPY blocks
+// below predate the house rule and are left where they are; nothing new is added to them.
+const { PROP_COPY } = require('../../data/propBetsConfig');
 
 // Act IV's table. It renders whatever engine/bookie.js says the line currently is and decides
 // nothing about odds, ceilings or availability itself — the same contract Act II's panel has
@@ -53,8 +56,9 @@ function PropBoard({ view, dispatch }) {
           <span className="bp-open-line">${formatNumber(props.pending.amount)} on: {props.pending.text}</span>
           <span className="bp-open-detail">
             {props.pending.payoutMult.toFixed(2)}x · pays $
-            {formatNumber(Math.round(props.pending.amount * props.pending.payoutMult))} if it happens. He
-            settles it after the next game.
+            {formatNumber(Math.round(props.pending.amount * props.pending.payoutMult))}
+            {props.pending.reputation ? ` and ${PROP_COPY.reputationQuote(props.pending.reputation)}` : ''} if it
+            happens. He settles it after the next game.
           </span>
         </div>
       )}
@@ -71,6 +75,12 @@ function PropBoard({ view, dispatch }) {
               <span className="bp-offer-text">{offer.text}</span>
               <span className="bp-offer-odds">
                 {offer.payoutMult.toFixed(2)}x · he gives it {Math.round(offer.winChance * 100)}%
+                {/* The second thing a win pays, quoted before the money is down. It is the only
+                    reason to open this page that survives the -25% edge, so it is on the offer and
+                    not just on the result. The number is the engine's (engine/bookie.js
+                    propReputationFor) — it scales with the payout so no line on the board is a
+                    better reputation buy than any other. */}
+                <span className="bp-offer-rep"> · {PROP_COPY.reputationQuote(offer.reputation)}</span>
               </span>
             </button>
           ))}
@@ -119,6 +129,11 @@ function PropBoard({ view, dispatch }) {
           <span className="bp-result-detail">
             {props.lastResult.delta >= 0 ? '+' : '−'}${formatNumber(Math.abs(props.lastResult.delta))} ·{' '}
             {props.lastResult.payoutMult.toFixed(2)}x
+            {/* Guarded on the value rather than on `won`: a result written before props paid
+                reputation has no such field, and saves are never migrated here. */}
+            {props.lastResult.reputation > 0 && (
+              <span className="bp-result-rep"> · {PROP_COPY.reputationWon(props.lastResult.reputation)}</span>
+            )}
           </span>
         </div>
       )}

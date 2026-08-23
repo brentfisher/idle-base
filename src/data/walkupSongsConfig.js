@@ -15,6 +15,14 @@ const WALKUP_UNLOCK_ID = 'walkup';
 
 const WALKUP_CURRENCY = 'cash';
 
+// The `stat` a B-side record declares, and the one value in that field that is NOT a key of
+// player.stats. It is a sentinel, not a stat: engine/strength.js reads it as "apply this bonus to
+// every stat" and engine/walkupSongs.js reads it as "every position can use this". It is exported
+// so neither of them spells the string themselves — a typo'd 'all' in either file is a record that
+// is silently inert in the simulation while the card claims a bonus, which is precisely the class
+// of bug the note above about `fielding` is warning about.
+const WALKUP_ALL_STATS = 'all';
+
 // ---------------------------------------------------------------------------
 // What a song does
 // ---------------------------------------------------------------------------
@@ -236,6 +244,84 @@ const WALKUP_SONGS = [
     description:
       'Saved for late innings, which is fine, except he also uses it in the first inning of a Tuesday game against nobody.',
   },
+  // ---------------------------------------------------------------------------
+  // THE B-SIDES — one record, every stat
+  // ---------------------------------------------------------------------------
+  // `stat: WALKUP_ALL_STATS` is not a sixth stat. It is a record whose bonus is applied to EVERY
+  // key of the player's stat block at once (engine/strength.js: walkupStatMultiplier), which is
+  // why engine/walkupSongs.js special-cases it in songCountsFor() rather than looking it up in
+  // STAT_WEIGHTS, where it deliberately does not appear.
+  //
+  // WHY IT IS PRICED HIGHER THAN ANYTHING ABOVE IT, AND WHY THAT IS THE SAME LINE. The pricing
+  // rule at the head of this file is `cost = bonusPercent * 800 * weight`, where `weight` is the
+  // stat's share of the rating in engine/strength.js. The weights of a position player sum to
+  // 1.00 (0.30 + 0.30 + 0.20 + 0.20) and so do a pitcher's (0.50 + 0.20 + 0.15 + 0.10 + 0.05), so
+  // a record that moves all of them at once has a weight of exactly 1.00 and prices at 800 cash
+  // per percent — 2x the dearest thing in the crate (pitching, 400) and 5x the cheapest (speed
+  // and defense, 160). Nothing about the ladder is bent to fit these four in.
+  //
+  // It also means the top rung lands where the old top rung already was. "Chariots of Fire" is
+  // +6.00% of a player's whole rating, exactly, whoever he is — a uniform percentage on every
+  // term of a weighted average that sums to 1.0 is that percentage on the average. "Enter
+  // Sandman" is +12% of a stat carrying half a pitcher's rating, which is +6.00% on a flat stat
+  // block and drifts with how lopsided the pitcher is: measured on the representative Act IV arm
+  // below (pitching 70, everything else 50) it is +7.00%. Both cost 4,800. So the dearest record
+  // in the game is still the dearest record in the game, and this is the version of it that a
+  // shortstop is allowed to buy — slightly weaker than the pitching record on the one player who
+  // can use that, identical on paper, and available to the other nine.
+  //
+  // WHAT A FULL SET IS WORTH, measured the same way the block above measures the rest of the
+  // crate (ten starters, position players at 50 across the board, a pitcher at 70 pitching, team
+  // strength 50.22): teamStrength() averages ten starters, so +6% on each of ten is +6.00% team
+  // strength for 48,000 cash. Compare the act's own strength sink — The Tournament Trophy is
+  // +10% for 3,000 — and the shape the file already defends holds: the whole jukebox, bought
+  // twice over, is still worth less than the three reputation deals and costs sixteen times as
+  // much. A player who buys every B-side still has to buy the trophy.
+  //
+  // THE JOKE IS THE POINT, and it is a different joke from the records above. Those are songs a
+  // kid PICKED to sound like somebody. These are the four records that were already in the crate
+  // when somebody's dad found it, and a twelve-year-old walking to the box to any one of them is
+  // funnier than the same kid walking out to AC/DC. Nobody chose these. They were simply there.
+  {
+    id: 'aThousandMiles',
+    title: 'A Thousand Miles',
+    artist: 'Vanessa Carlton',
+    stat: WALKUP_ALL_STATS,
+    bonus: 0.03,
+    cost: 2400,
+    description:
+      'The piano starts and the entire infield, both teams, plays it on their knees. Play stops. Nobody involved can explain later why this happened.',
+  },
+  {
+    id: 'fiveHundredMiles',
+    title: "I'm Gonna Be (500 Miles)",
+    artist: 'The Proclaimers',
+    stat: WALKUP_ALL_STATS,
+    bonus: 0.04,
+    cost: 3200,
+    description:
+      'Eleven parents sing the counting part. They are not in agreement about which part it is. He has not left the on-deck circle.',
+  },
+  {
+    id: 'totalEclipseOfTheHeart',
+    title: 'Total Eclipse of the Heart',
+    artist: 'Bonnie Tyler',
+    stat: WALKUP_ALL_STATS,
+    bonus: 0.05,
+    cost: 4000,
+    description:
+      'Eight seconds is not enough of this song and everyone knows it. The man on the PA lets it run. The umpire waits. The at-bat is now an event.',
+  },
+  {
+    id: 'chariotsOfFire',
+    title: 'Chariots of Fire',
+    artist: 'Vangelis',
+    stat: WALKUP_ALL_STATS,
+    bonus: 0.06,
+    cost: 4800,
+    description:
+      'He walks to the box in slow motion. He has decided to do this. It takes eleven seconds and he commits to every one of them, and honestly the other dugout respects it.',
+  },
   // The two pitching songs. Pitching is worth 0.50 of a pitcher's rating and exactly 0.00 of
   // anybody else's (engine/strength.js: STAT_WEIGHTS), so these are the strongest per-percent
   // songs in the crate and also the only ones that can be a no-op — which is why the picker
@@ -271,8 +357,13 @@ const WALKUP_COPY = {
   noSong: 'No walk-up song',
   pickerLabel: 'Walk-up',
   crateHeading: 'The Record Crate',
+  // REWRITTEN WHEN THE STEAL WENT AWAY. It used to promise that handing a record over took it off
+  // the kid who had it, which is no longer what happens: a record that is spoken for is not offered
+  // to anybody else at all (engine/walkupSongs.js listPickerOptions), and the way to move one is to
+  // take it back here first. The blurb is the only place that rule is stated before the player runs
+  // into it, so it says where the button is rather than merely that the record is taken.
   crateBlurb:
-    "Somebody's dad runs the PA off a car battery, and everybody gets eight seconds on the way to the box. Buy a record once and it stays in the crate — then give it to whichever kid has earned it. Two players cannot walk up to the same song, so handing one over takes it off the kid who had it.",
+    "Somebody's dad runs the PA off a car battery, and everybody gets eight seconds on the way to the box. Buy a record once and it stays in the crate — then give it to whichever kid has earned it. One record, one kid: a song somebody is already using is off the board until you take it back, which you do right here.",
   // Covers both "the crate is empty" and "the crate has records but none this kid can use" — a
   // shortstop is never offered a pitching record — so it must not claim the crate is empty.
   emptyCrate: 'Nothing in the crate for this one yet.',
@@ -286,6 +377,13 @@ const WALKUP_COPY = {
   // What an owned record says when nobody is walking up to it. Deliberately not "unassigned",
   // which is inventory language for a thing that is a stack of CDs in a dugout.
   unassigned: 'in the crate',
+  // The control that takes a record back off a kid, on the crate row that names him. It exists
+  // because the picker no longer steals: without it, a record assigned to a bench kid would be
+  // permanently unreachable from every other card in the game, which is a dead end and not a rule.
+  // Phrased as an instruction to the man with the crate rather than as a state change ("unassign"),
+  // for the same reason `unassigned` above is not called that.
+  takeBack: 'take it back',
+  takeBackTitle: (name) => `Take this record back off ${name} — it returns to the crate for anybody`,
   // Appended to a picker option that is real but does nothing for this player — see
   // listPickerOptions() in engine/walkupSongs.js for the training-camp case that produces one.
   inertSuffix: ' — does nothing here',
@@ -305,7 +403,28 @@ const WALKUP_COPY = {
   // bar in the game says "power"; giving stats a display-name vocabulary means touching every bar
   // on every screen, which is its own change. A heading inside a dropdown is a sentence-level
   // label and reads wrong in lower case, so it is capitalised here and the bars are left alone.
-  statGroup: (stat) => stat.charAt(0).toUpperCase() + stat.slice(1),
+  //
+  // WALKUP_ALL_STATS IS NOT A STAT AND MUST NOT BE TITLE-CASED INTO ONE. "All" over a block of
+  // records reads as a filter that is currently off — as in "all songs" — which is the opposite of
+  // what that block is. It gets a phrase instead, and the phrase says what the records in it do.
+  statGroup: (stat) =>
+    stat === WALKUP_ALL_STATS ? 'Every stat' : stat.charAt(0).toUpperCase() + stat.slice(1),
+
+  // THE STAT, AS A LABEL THE EYE CAN LAND ON. The complaint this exists for is "I can't tell which
+  // stat I'm boosting": the stat was previously legible only inside an effect string at the end of
+  // a row of prose, and inside an <optgroup> heading — and iOS's native <select> wheel frequently
+  // renders optgroup labels not at all, so on the target device the grouping was invisible. It is
+  // therefore ALSO printed first inside every option's own label (see listPickerOptions), and drawn
+  // as a chip on the crate rows and on the roster card.
+  //
+  // SHORT AND UPPER-CASE, because it is a tag and not a sentence — the same reason the MAX chip on
+  // the same screen is three letters. The stat bars underneath stay lower-case; see the note on
+  // statGroup above for why that boundary is deliberate.
+  statTag: (stat) => (stat === WALKUP_ALL_STATS ? 'EVERY STAT' : stat.toUpperCase()),
+
+  // What a B-side does, in the effect slot where every other record says "+8% power". Spelled out
+  // rather than rendered as "+6% all", which reads as a truncation or a typo.
+  allStatsEffect: (percent) => `+${percent}% to every stat`,
 };
 
 // Tolerates null/undefined/garbage rather than throwing: this is called with
@@ -320,6 +439,7 @@ function getWalkupSong(songId) {
 module.exports = {
   WALKUP_UNLOCK_ID,
   WALKUP_CURRENCY,
+  WALKUP_ALL_STATS,
   WALKUP_SONGS,
   WALKUP_COPY,
   getWalkupSong,

@@ -36,6 +36,12 @@ function RecordCrate() {
           {crate.map((song) => (
             <li key={song.id} className={`wu-crate-row${song.owned ? ' owned' : ''}`}>
               <div className="wu-crate-song">
+                {/* THE STAT, FIRST AND AS A CHIP. The effect string on the right already said it,
+                    at the end of a line of prose, in the corner a thumb covers — which is the
+                    complaint. `stat` is carried raw alongside the tag so the chip can take its
+                    colour from the stat without parsing the label back apart, and so the B-side
+                    chip (WALKUP_ALL_STATS) can be the one that looks different. */}
+                <span className={`wu-stat-chip stat-${song.stat}`}>{song.statTag}</span>
                 <span className="wu-crate-title">{song.title}</span>
                 <span className="muted"> — {song.artist}</span>
                 <span className="wu-crate-desc">{song.description}</span>
@@ -50,8 +56,27 @@ function RecordCrate() {
                   // a MAX chip and not a greyed-out upgrade (see UpgradeButton): a disabled button
                   // asks the player to work out WHY. It says who has it, which is the only thing
                   // left worth knowing about a record you already own.
+                  //
+                  // AND, WHEN SOMEBODY HAS IT, THE WAY TO GET IT BACK. The picker no longer steals
+                  // (engine/walkupSongs.js EXCLUSIVITY), so this button is the only route from "on
+                  // that kid" to "on this one" — without it a record assigned to a bench player
+                  // would be unreachable from every card in the game. It dispatches the assignment
+                  // action already used by every dropdown, with the HOLDER's id and no song, which
+                  // is what "put it back in the crate" is in this state shape.
                   <span className="wu-crate-owned">
                     {song.heldBy ? WALKUP_COPY.heldBy(song.heldBy) : WALKUP_COPY.unassigned}
+                    {song.heldById && (
+                      <button
+                        type="button"
+                        className="btn secondary wu-crate-release"
+                        title={WALKUP_COPY.takeBackTitle(song.heldBy)}
+                        onClick={() =>
+                          dispatch({ type: actionTypes.SET_WALKUP_SONG, playerId: song.heldById, songId: null })
+                        }
+                      >
+                        {WALKUP_COPY.takeBack}
+                      </button>
+                    )}
                   </span>
                 ) : (
                   <button

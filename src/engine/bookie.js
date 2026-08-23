@@ -58,6 +58,8 @@ const {
   PROP_REFRESH_SECONDS,
   PROP_MIN_INNING,
   PROP_MAX_INNING,
+  PROP_REPUTATION_PER_MULT,
+  MIN_PROP_REPUTATION_WIN,
   ordinalInning,
   FALLBACK_PLAYER_NAMES,
   FALLBACK_OPPONENT_NAME,
@@ -357,6 +359,17 @@ function propPayoutMultFor(winChance) {
 // Two first names off the real roster, so a line reads as being about this team. Distinct
 // where the roster allows it; a one-player or empty roster falls back rather than rendering a
 // blank, because "will have gum on his hat" with no name in front of it is not a bet.
+// What a line pays in reputation if it lands. Derived from the payout and NOT from the chance, so
+// the flat edge the board is built on survives — the arithmetic is in data/propBetsConfig.js over
+// PROP_REPUTATION_PER_MULT. Floored at one on a win: a reward that prints as zero reads as a bug.
+//
+// Quoted on the OFFER and frozen onto the pending bet alongside the odds, for the same reason the
+// odds are frozen: the player was shown a line, and the line is what they get. A retune of the rate
+// cannot reach back into a bet that is already written down.
+function propReputationFor(payoutMult) {
+  return Math.max(MIN_PROP_REPUTATION_WIN, Math.floor(payoutMult * PROP_REPUTATION_PER_MULT));
+}
+
 function propNames(state, rng) {
   const roster = (state && state.roster) || [];
   const names = roster.map((p) => (p && p.name ? String(p.name).split(' ')[0] : null)).filter(Boolean);
@@ -396,6 +409,7 @@ function propOffers(state) {
       text: drawn.line({ inning: ordinalInning(inning), player, teammate, opponent }),
       winChance,
       payoutMult: propPayoutMultFor(winChance),
+      reputation: propReputationFor(propPayoutMultFor(winChance)),
     });
   }
 
@@ -474,6 +488,7 @@ function placePropBet(state, options = {}, rng = Math.random) {
         amount,
         winChance: offer.winChance,
         payoutMult: offer.payoutMult,
+        reputation: offer.reputation,
         roll: rng(),
         placedAtClock: state.clock || 0,
       },
@@ -497,8 +512,26 @@ function settleProp(state) {
   const won = prop.roll < prop.winChance;
   const payout = won ? Math.round(prop.amount * prop.payoutMult) : 0;
 
+  // THE REPUTATION, AND WHY IT IS READ OFF THE BET RATHER THAN RECOMPUTED. `prop.reputation` was
+  // frozen at placement next to the odds. A bet written down before this shipped has no such field
+  // and falls back to the current rate — saves are never migrated in this codebase, and a wager in
+  // flight across a reload must settle to something rather than to NaN.
+  //
+  // Reputation is NOT a wallet currency. It is a plain number on the root state that
+  // engine/modifiers.js turns into a team-strength multiplier, so it is written directly, the same
+  // way engine/concessions.js writes it — and read through the guarded idiom in modifiers.js, since
+  // a save can reach this line with the field absent.
+  const reputationWon = won
+    ? Number.isFinite(prop.reputation)
+      ? prop.reputation
+      : propReputationFor(prop.payoutMult)
+    : 0;
+  const reputation =
+    (typeof state.reputation === 'number' ? state.reputation : balanceConfig.startingReputation) + reputationWon;
+
   return {
     ...state,
+    reputation,
     wallet: payout > 0 ? creditWallet(state.wallet, 'cash', payout) : state.wallet,
     bookie: {
       ...slice,
@@ -511,6 +544,9 @@ function settleProp(state) {
         text: prop.text,
         amount: prop.amount,
         payout,
+        // What the fence saw. Carried on the result so the panel and the feed report the same
+        // number the settlement actually credited, rather than re-deriving it from the multiplier.
+        reputation: reputationWon,
         // Net cash swing, so the panel never re-derives it from the multiplier.
         delta: payout - prop.amount,
         payoutMult: prop.payoutMult,

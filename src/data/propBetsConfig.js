@@ -65,6 +65,44 @@ const MAX_PROP_PAYOUT_MULT = 12;
 const PROP_PAYOUT_STEP = 0.25;
 
 // ---------------------------------------------------------------------------
+// What a prop pays that is not money
+// ---------------------------------------------------------------------------
+// A won prop also pays REPUTATION, the Act IV currency that is not in the wallet
+// (engine/modifiers.js reputationBonus, engine/sponsorships.js). The fiction is the entire
+// reason the second page is interesting: the moneyline is about who wins and nobody at the
+// fence cares that you had money on the favourite, but calling that a dog gets on the field in
+// the fourth is a thing people repeat. You do not get rich at this table. You get KNOWN at it.
+//
+// PROPORTIONAL TO THE PAYOUT, WHICH IS THE ONLY SHAPE THAT DOES NOT BREAK THE BOARD. The block
+// above proves that the cash edge is FLAT across the band — every line is -0.25 EV per unit
+// staked — so no corner of the board is worth shopping for. A flat +1 reputation per win would
+// have destroyed that: at p = 0.28 you win 3.5x as often as at p = 0.08, so the short end would
+// quietly become the reputation farm and the "arbitrary odds" claim would be false. Paying
+// `payoutMult * PROP_REPUTATION_PER_MULT` makes expected reputation per unit staked
+//     p * (1/p) * (1 - HOUSE_EDGE) * RATE  =  0.75 * RATE
+// — constant everywhere in the band, exactly like the cash. The board stays unshoppable.
+//
+// Rounded DOWN to a whole point, and never below one on a win: a line that paid "0 reputation"
+// would be a reward that reads as a bug, and the floor costs at most a fraction of a point at
+// the short end.
+//
+// THE RATE, AND WHY IT IS THIS SMALL. At 0.25, a 4x line pays 1 reputation and a 9.25x line pays
+// 2. Expected reputation is 0.75 * 0.25 = 0.1875 per bet placed, whatever the line. A prop settles
+// on the next regular-season game and only one can be open, so at Act IV's 40s-per-game pacing a
+// player who never misses a settlement places at most ~24 props a season and nets ~4.5 reputation
+// from them — 1.8% team strength at balanceConfig.reputationStrengthPerPoint, for a season of
+// deliberate attention to a board that is losing him a quarter of everything he stakes.
+//
+// Compare the sink it must not compete with, which is the same comparison the walk-up crate has to
+// pass (data/walkupSongsConfig.js): The Tournament Trophy is 3,000 cash for 25 reputation, and the
+// three reputation deals together are the act's designed answer to "my team is not good enough".
+// Five seasons of perfect prop attendance is one trophy. So the reputation is real — it is a
+// reason to open the second page at all, which the -25% cash edge alone was not — and it cannot
+// become the strategy, because the strategy loses money the whole way.
+const PROP_REPUTATION_PER_MULT = 0.25;
+const MIN_PROP_REPUTATION_WIN = 1;
+
+// ---------------------------------------------------------------------------
 // The board
 // ---------------------------------------------------------------------------
 // Three at a time — enough that there is a choice, few enough that the whole board is one
@@ -141,8 +179,23 @@ const PROP_LINES = [
   (c) => `The ${c.opponent} catcher takes his mask off to argue and immediately puts it back on.`,
 ];
 
+// What a won prop pays that is not money, in words. The number is always the engine's; the
+// phrasing is here because player-facing prose lives in data/ (same rule as PROP_LINES above).
+// It reads as something the fence would say rather than as a stat line — the joke of the second
+// page is that being right about a dog on the field is worth something to the people who watched
+// it happen, and reputation is the currency of exactly that.
+const PROP_COPY = {
+  // On an offer and on a pending bet, where it sits inside a line of odds and has to be short.
+  reputationQuote: (rep) => `+${rep} rep`,
+  // On the settled result, where there is room to say what it was for.
+  reputationWon: (rep) => `+${rep} reputation — people saw you call it`,
+};
+
 module.exports = {
   PROP_MAX_FRACTION,
+  PROP_COPY,
+  PROP_REPUTATION_PER_MULT,
+  MIN_PROP_REPUTATION_WIN,
   MIN_PROP_BET,
   PROP_MIN_WIN_CHANCE,
   PROP_MAX_WIN_CHANCE,

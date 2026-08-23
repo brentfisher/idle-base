@@ -102,6 +102,70 @@ const ACT_SEVEN_DIRECTIVES = {
   },
 };
 
+// ---------------------------------------------------------------------------------------------
+// THE NEXT STEP — one concrete thing to do, and where to do it.
+// ---------------------------------------------------------------------------------------------
+// The directives above are the Office talking, and the Office does not give instructions; it files
+// orders and expects you to work it out. That voice is correct and it is kept — but it is not
+// enough on its own, which was reported plainly: "I can't do anything right after the call up. I
+// can sift the wreck but it's not clear what's next."
+//
+// Half of that was a real deadlock (the fabrication tab was gated behind a phase only a purchase
+// inside it could reach — see the note in data/acts.js). The other half is this: a player who has
+// just been handed six new nouns needs one sentence saying which button, on which tab, moves the
+// act forward. So the terminal answers in its OWN voice, underneath the directive, the way a status
+// line does — which is also why it is not written as more prose from the Office.
+//
+// `action` is the button or purchase. `where` is the tab it is on, named exactly as
+// data/actSevenPanels.js labels it — a hint pointing at a tab that does not exist yet would be
+// worse than no hint, so every entry here names a tab that is unlocked in its own phase (checked in
+// verification against getUnlockedFeatures, since nothing else would catch it).
+//
+// `majors` has no next step and says so: the act is won, and inventing an objective for the
+// post-game would be the one thing the ending is careful not to do.
+const ACT_SEVEN_NEXT_STEPS = {
+  aftermath: {
+    action: 'Sift the wreck for Salvage, then build your first module.',
+    where: 'Fab',
+  },
+  lifeSupport: {
+    action: 'Get every bus to a net you can leave alone, then build a fuel tank and launch.',
+    where: 'Fab',
+  },
+  lunar: {
+    action: 'Colonize what the buses can carry, and build toward the next burn.',
+    where: 'Sites',
+  },
+  deepSpace: {
+    action: 'Fill the tank past the threshold, then commit the burn.',
+    where: 'Launch',
+  },
+  majors: null,
+};
+
+const nextStepCopy = {
+  heading: 'Next',
+  // The tab hint. A sentence fragment rather than "Go to the Fab tab", because it sits beside the
+  // tab bar that already has the word on it.
+  where: (tab) => `on ${tab}`,
+  // The progress line, shown only when the next step has a price the engine can put a number on.
+  // "have / need", in that order, because the question being asked is "how far off am I".
+  progress: (have, need, currency) => `${have} / ${need} ${currency}`,
+  // What the number is for. Names the thing being saved for, so a bare pair of numbers is never on
+  // screen without a subject.
+  progressFor: (name) => `toward ${name}`,
+  // When the cheapest thing on the shop is already affordable. The progress bar would read 100% and
+  // say nothing, so it says the thing worth saying instead.
+  affordable: (name) => `You can afford the ${name} now.`,
+};
+
+// Returns the next step for a phase, or null — both for an unrecognized id and for `majors`, which
+// legitimately has none. The panel omits the block either way, so the two cases need not be
+// distinguished here; see getDirective() below for the argument about not inventing a default.
+function getNextStep(phaseId) {
+  return ACT_SEVEN_NEXT_STEPS[phaseId] || null;
+}
+
 // Returns the directive for a phase, or null when the id is unrecognized.
 //
 // NULL RATHER THAN A DEFAULT LINE, matching getPhasePill() in data/actSevenPalette.js exactly —
@@ -182,4 +246,4 @@ const opsCopy = {
 
 };
 
-module.exports = { ACT_SEVEN_DIRECTIVES, getDirective, opsCopy };
+module.exports = { ACT_SEVEN_DIRECTIVES, getDirective, opsCopy, ACT_SEVEN_NEXT_STEPS, getNextStep, nextStepCopy };
