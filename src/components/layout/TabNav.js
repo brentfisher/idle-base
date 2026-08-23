@@ -29,6 +29,10 @@ const TABS = [
   { id: 'camp', label: 'Training Camp' },
   { id: 'trade', label: 'Trade Deadline' },
   { id: 'prestige', label: 'Prestige' },
+  // LAST among the baseball tabs and BEFORE the Act VII block, which is the only position that
+  // works: this is the one tab that survives the teardown, so it has to sit at a boundary rather
+  // than in the middle of a group that disappears. Short label — Act V is where the bar is widest.
+  { id: 'records', label: 'Record' },
   // Act VII. Every one of the twelve above is retired by that act's `hides` (data/acts.js), so
   // these six are never on screen beside them — the bar gets SMALLER at the biggest act in the
   // game, which is a result to defend: ten tabs already had to be converted to a scroll-snapped

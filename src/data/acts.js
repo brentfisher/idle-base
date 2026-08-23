@@ -71,7 +71,12 @@ const ACTS = [
     exit: { id: 'starterKitOwned', description: 'Buy the Starter Kit — glove, ball and bat (140 caps).' },
     rules: {},
     modifierBonuses: {},
-    unlocks: ['lot', 'hustle', 'collectors'],
+    // `records` is unlocked at the FIRST act and is never hidden again — deliberately not listed in
+    // Act VII's `hides` below. A run ENDS in Act VII, which makes that the one act where the screen
+    // has most to say, and data/acts.js's own rule is that `hides` beats a later `unlocks`: an id
+    // retired there cannot be brought back by re-listing it. The tab is present-but-empty until
+    // there is something to show, which is the same shape the odyssey PRD gives every other screen.
+    unlocks: ['lot', 'hustle', 'collectors', 'records'],
   },
   {
     id: 1,

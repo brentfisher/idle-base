@@ -22,6 +22,11 @@ const { EXPEDITION_PHASES } = require('../data/actSevenConfig');
 // The record card. Imported for one call in enterAct() — this file is where act boundaries are
 // observable, so it is the only place an act's duration can be captured.
 const { recordActSplit } = require('./records');
+// The feed line the split produces, and the par it is judged against. Prose lives in data/, the
+// target lives in data/, and this file decides only WHEN one is emitted.
+const { appendFeedEntry } = require('./feed');
+const feedMessages = require('../data/feedMessages');
+const { PAR } = require('../data/scoreConfig');
 
 // Which features are unlocked is DERIVED from the act index on every read and is never stored.
 // That makes it self-healing: retuning which act unlocks a feature takes effect immediately on
@@ -315,7 +320,33 @@ function enterAct(state, actIndex) {
     progression: { ...split.progression, act: act.id, actEnteredAtClock: split.clock },
   };
   const initializer = ACT_INITIALIZERS[act.id];
-  return initializer ? initializer(entered) : entered;
+  const opened = initializer ? initializer(entered) : entered;
+  return narrateSplit(opened, state, actIndex);
+}
+
+// One feed line per act split, appended only when a split was actually WRITTEN. That test is the
+// whole function: recordActSplit() declines on a same-index re-entry (prestige), on an act already
+// timed by a faster run, and on a save with no stamp to subtract — and it returns a CHANGED state
+// on a negative delta, where it counts an integrity violation instead. Reading the key back is the
+// only way to tell "recorded" from "did something else", and a line saying an act was cleared in a
+// time nothing recorded would be the worst kind of wrong.
+//
+// The par is read from data/scoreConfig.js so the feed and the Records tab quote the same target;
+// an act with no par (nothing today) narrates nothing rather than printing `undefined`.
+function narrateSplit(state, previous, enteringActIndex) {
+  const leavingActIndex = (previous.progression || {}).act;
+  if (typeof leavingActIndex !== 'number' || leavingActIndex === enteringActIndex) return state;
+  const before = ((previous.record || {}).actSeconds || {})[leavingActIndex];
+  const after = ((state.record || {}).actSeconds || {})[leavingActIndex];
+  if (after === undefined || after === before) return state;
+  const par = PAR[leavingActIndex];
+  if (!(par > 0)) return state;
+  return appendFeedEntry(
+    state,
+    state.clock || 0,
+    'achievement',
+    feedMessages.actSplitLine(getActConfig(leavingActIndex).shortLabel, after, par)
+  );
 }
 
 // Called from advance() once per loop iteration, so transitions fire during offline catch-up

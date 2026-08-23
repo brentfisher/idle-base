@@ -87,8 +87,17 @@ function runScore(record) {
     scored[actIndex] = actPointsFor(actIndex, seconds);
   });
 
+  // THE FRONTIER: the furthest point the run is known to have reached. An act BEHIND it with no
+  // entry was played and never timed; an act ahead of it has not been played. Taking the later of
+  // the two signals matters for exactly one case, and it is the commonest one there is — a save
+  // that predates the record card has an EMPTY `actSeconds` and a `reachedAct` of 3 or 4, and
+  // without `reachedAct` every act behind the player would read as unplayed.
+  //
+  // `reachedAct` itself is excluded: the act being played right now is neither timed nor missing.
+  const reached = typeof card.reachedAct === 'number' ? card.reachedAct : -1;
+  const frontier = Math.max(highestRecorded, reached);
   const unrecorded = ACT_INDICES.filter(
-    (actIndex) => actIndex < highestRecorded && scored[actIndex] === undefined
+    (actIndex) => actIndex < frontier && scored[actIndex] === undefined
   );
 
   const actTotal = Object.keys(scored).reduce((sum, key) => sum + scored[key], 0);
