@@ -62,8 +62,13 @@ function formatPercent(fraction) {
 // surfaces read. Extracting three lines of string-building into a shared module would mean editing
 // a header component that STORY-036 is working beside, to save nothing that can drift.
 //
-// Zero prints as '0/s' unsigned, which is what a pinned rate must read as: the sign of a clamped
-// rate is a fiction, and the pin's colour and badge are what distinguish it from a colony at rest.
+// Zero prints as '0/s' unsigned, and it now means what it says — nothing is happening to this
+// resource. It used to be what a rate clamped at the FULL end read as too, which was the reading
+// that made a colony with fifteen idle Power/s look identical to a colony with no reactors at all.
+// The row below prints `shownNet`, which is the production figure on a full tank, and the vent line
+// says the surplus is not being kept. The EMPTY pin still reads '0/s' and still relies on its badge
+// and colour to be told apart from rest: a starved bus is producing nothing, so there is no hidden
+// number there to reveal.
 function formatNet(net) {
   if (!Number.isFinite(net) || net === 0) return '0/s';
   const magnitude = Math.abs(net) < 10 ? Math.abs(net).toFixed(1) : formatNumber(Math.abs(net));
@@ -86,7 +91,10 @@ function RateRow({ row }) {
           {formatNumber(row.amount)}
           <span className="v7-ops-rate-cap">/{formatNumber(row.capacity)}</span>
         </span>
-        <span className={('v7-rate ' + rateClass(row)).trim()}>{formatNet(row.net)}</span>
+        {/* `shownNet` — the engine's choice between the pinned rate and the rate the bus would run
+            at with headroom, made once in engine/colonyReadout.js so this panel and the header chip
+            cannot hold different opinions about a full tank. */}
+        <span className={('v7-rate ' + rateClass(row)).trim()}>{formatNet(row.shownNet)}</span>
       </div>
 
       {/* DIVS, NOT SPANS, AND THAT IS LOAD-BEARING RATHER THAN ARBITRARY. STORY-034's `.v7-meter`
@@ -110,6 +118,22 @@ function RateRow({ row }) {
         <div className="v7-ops-rate-pin">
           <span className="v7-ops-pin-badge">{opsCopy.pinBadge[row.pinned]}</span>
           <span>{opsCopy.pinNote[row.pinned]}</span>
+        </div>
+      ) : null}
+
+      {/* THE VENT, WHICH IS WIDER THAN THE CAPACITY PIN AND HAD TO BE. `pinned === 'capacity'` fires
+          only where production CANNOT back off — a site's atmosphere — because a bus filled by
+          modules load-follows until the surplus is exactly 0 and the pin branch never runs. That is
+          the commonest full tank in the act, and until this line it printed nothing at all: no
+          badge, no note, and a rate of 0/s beside a bar at 100%. `venting` covers both, so the
+          panel now explains every full tank rather than the rarer half of them.
+
+          Suppressed when the capacity pin already rendered above, which says the same thing in a
+          longer sentence. Two lines about one tank is the panel arguing with itself. */}
+      {row.venting && row.pinned !== 'capacity' ? (
+        <div className="v7-ops-rate-pin">
+          <span className="v7-ops-pin-badge">{opsCopy.ventBadge}</span>
+          <span>{opsCopy.ventNote}</span>
         </div>
       ) : null}
 

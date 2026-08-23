@@ -244,6 +244,19 @@ const opsCopy = {
     capacity: 'pinned full',
   },
 
+  // THE FULL TANK THE CAPACITY PIN DOES NOT COVER. A bus filled by MODULES never trips
+  // `pinned = 'capacity'`: load-follow throttles its producers until the surplus is exactly zero,
+  // so the pin branch in engine/colony.js never fires and the row used to render nothing — a rate
+  // of 0/s beside a bar at 100%, which reads as a colony at rest rather than as a colony whose
+  // generation is being thrown away. The rate now shows what is being made; this says where it is
+  // going, which is nowhere.
+  //
+  // Worded as the FIX rather than as the fault, because unlike the empty pin this is not a crisis:
+  // a full tank is a colony that outgrew its storage, and the answer is a purchase the player can
+  // already afford more often than not.
+  ventBadge: 'not banked',
+  ventNote: 'Full, so this is being made and thrown away — the producers have throttled back to match the draw. Storage, or anything that spends it, keeps it.',
+
 };
 
 module.exports = { ACT_SEVEN_DIRECTIVES, getDirective, opsCopy, ACT_SEVEN_NEXT_STEPS, getNextStep, nextStepCopy };

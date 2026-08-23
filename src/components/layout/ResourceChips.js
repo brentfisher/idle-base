@@ -50,10 +50,14 @@ function ResourceChips() {
             // stylesheet decide WHERE the accent lands while this file decides only what it is.
             style={{ background: tone.bg, color: tone.ink, '--resource-accent': tone.accent }}
             title={`${row.label}: ${formatNumber(row.amount)} of ${formatNumber(row.capacity)}`
-              + ` · ${formatNet(row.net)}`
+              + ` · ${formatNet(row.shownNet)}`
               + (row.starved ? ' · empty and not recovering' : '')
               + (row.warning ? ` · empties in ${formatRunway(row.secondsUntilEmpty)}` : '')
-              + (row.full ? ' · at capacity' : '')}
+              + (row.full ? ' · at capacity' : '')
+              // The tooltip is where the chip has room to say the second half of it. The rate
+              // above now reads the production figure on a full tank, and a number that is being
+              // made but not banked has to say so somewhere or it is just a wrong reading.
+              + (row.venting ? ' · surplus discarded — build storage to keep it' : '')}
           >
             <span className="label">{row.label}</span>
             <span className="resource-amount">
@@ -63,8 +67,16 @@ function ResourceChips() {
               <span className="resource-capacity">/{formatNumber(row.capacity)}</span>
             </span>
             {/* The rate takes the accent, so the one number that says whether this resource is in
-                trouble is also the one thing on the chip wearing a colour. */}
-            <span className="resource-net">{formatNet(row.net)}</span>
+                trouble is also the one thing on the chip wearing a colour.
+
+                `shownNet`, NOT `net`, AND THE ENGINE CHOSE BETWEEN THEM. On a full tank the two
+                differ: `net` is 0 because nothing is landing, `shownNet` is what the colony is
+                making anyway. The chip prints the production figure and keeps every other full-tank
+                signal exactly as it was — `100/100`, a bar at 100%, the `full` tone and `is-full` —
+                so the reading is "making +15.0/s, tank is full", which is two facts rather than
+                one silence. Which of the two rates this is remains engine/colonyReadout.js's
+                decision; this line only puts the result on screen. */}
+            <span className="resource-net">{formatNet(row.shownNet)}</span>
             {/* The meter is the fastest read on the chip and the only part that survives being
                 glanced at. Rendered under the text rather than beside it: 390px has no room for a
                 fifth column, and a bar the full width of the chip is easier to judge anyway. */}

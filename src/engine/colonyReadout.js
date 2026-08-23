@@ -39,6 +39,25 @@ function listResources(state, modifiers) {
   return resourceRows(expeditionSlice(state), colonyRates(state, resolved));
 }
 
+// The one condition under which a surface prints `unclamped` instead of `net`: the resource is at
+// its ceiling and the colony is making more than it is banking.
+//
+// `> net` rather than `> 0` is the whole test. A full tank whose colony is running a deficit has
+// `unclamped` below `net` — it is draining off the top, `net` is already negative and already true
+// — and swapping in a smaller number there would be inventing a worse reading than the real one.
+// The swap only ever moves the display UP, toward the supply the ceiling is hiding.
+//
+// The `capacity > 0` guard is the same one `full` carries and it is load-bearing for the same
+// reason: Fuel before the first tank is 0 amount against 0 capacity, which is unbuilt rather than
+// full, and an Electrolysis Stack bought before a tank would otherwise report a cheerful +0.35/s
+// on a resource that cannot store a single unit.
+function showsUnclamped(slice, rates, id) {
+  const capacity = rates.capacity[id];
+  if (!(capacity > 0)) return false;
+  if (slice.resources[id].amount < capacity - RESOURCE_FULL_EPSILON) return false;
+  return rates.unclamped[id] > rates.net[id];
+}
+
 // The rows, given a slice and a solve that has ALREADY HAPPENED. Split out of listResources() by
 // STORY-035 so that opsReadout() below can share it, and the split is the whole point rather than
 // tidiness: the Ops panel needs the rows AND the three scalars beside them, and the obvious way to
@@ -71,6 +90,38 @@ function resourceRows(slice, rates) {
       // other state depends on this.
       fraction: capacity > 0 ? Math.max(0, Math.min(1, amount / capacity)) : 0,
       net,
+      // THE RATE THE SURFACES ACTUALLY PRINT, and it is `net` in every case but one.
+      //
+      // A resource sitting on its ceiling reads `0/s` on `net` by construction — the engine either
+      // pinned it there or load-follow backed its producers off until it landed there — and that is
+      // an honest statement about the STOCK that leaves a false impression about the COLONY. Five
+      // RTGs against a full Power tank put `net` at exactly 0, so the header shows a player who
+      // owns 15 Power/s of generation the same reading it shows a player who owns nothing. The rate
+      // is the one number on the chip that says whether the resource is worth anything, and going
+      // blank at the ceiling is the moment it has the most to say.
+      //
+      // So at the full end the surfaces print `unclamped` — what the bus would run at with
+      // headroom — and `venting` below tells them that is what they are printing. The stock, the
+      // meter and the `full` flag are untouched: the tank still reads 100/100 with a full bar,
+      // because it IS full. The rate says +15.0/s because that much is being made.
+      //
+      // ONLY THE FULL END. The empty end's `0/s` is a different statement with its own argument
+      // (see `starved` below and the note at the head of this file): a starved resource is not
+      // "producing 15/s that isn't landing", it is producing nothing, and the negative `unclamped`
+      // there is unmet DRAW rather than discarded supply. Printing it would turn "this has run out"
+      // into a countdown that never ticks.
+      //
+      // DECIDED HERE RATHER THAN IN THE TWO COMPONENTS, for the reason this file's header gives:
+      // the header chip and the Ops panel must not each hold their own opinion about which of two
+      // rates to show, or they will eventually disagree in front of the player.
+      shownNet: showsUnclamped(slice, rates, id) ? rates.unclamped[id] : net,
+      // Whether `shownNet` is supply being thrown away rather than supply being banked. The two
+      // surfaces word it differently — a tooltip and a sentence — but neither may work it out, and
+      // it deliberately does NOT key off `pinned === 'capacity'`, which is a narrower condition
+      // than it looks: a bus filled by MODULES load-follows to a dead stop, `gross - draw` lands on
+      // 0, the capacity branch never fires and `pinned` comes back null. That is the commonest full
+      // tank in the act and it is exactly the one the player asked to be able to see.
+      venting: showsUnclamped(slice, rates, id),
       // The SIGN, not the number, is what the chip colours on. Separated out so the component
       // never applies a threshold of its own: a component asking `net < 0` is a component deciding
       // what counts as falling, which is a rules question the moment a hysteresis band is wanted.
