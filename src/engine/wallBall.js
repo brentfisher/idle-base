@@ -54,6 +54,8 @@ const {
   EXIT_CREW_REQUIRED,
 } = require('../data/wallBallConfig');
 const { STARTER_KIT_ITEMS } = require('../data/actOneConfig');
+// The record card's counters. engine/records.js owns what a counter means; this file owns when.
+const { recordRally } = require('./records');
 
 // Every read of the two Act II slices goes through these. A save written before Act II
 // existed has neither, and this codebase tolerates an absent slice rather than migrating
@@ -67,6 +69,11 @@ function wallBallSlice(state) {
     challengerId: slice.challengerId || CHALLENGERS[0].id,
     nextChallengeAtClock: slice.nextChallengeAtClock || 0,
     lastResult: slice.lastResult || null,
+    // How many in a row, right now. NOT recoverable from `wins` and `losses` after the fact, which
+    // is why it had to become state rather than a derivation: two players on 9-3 can have run three
+    // straight or never won twice in a row, and the counters cannot tell them apart. Absent reads
+    // as 0, so a save written before this existed starts its first streak at the next win.
+    streak: slice.streak || 0,
   };
 }
 
@@ -247,15 +254,20 @@ function resolveChallenge(state, options = {}, rng = Math.random) {
   const payout = won ? Math.floor(stake * approach.payoutMult) : 0;
   if (payout > 0) wallet = creditWallet(wallet, 'caps', payout);
 
+  const streak = won ? slice.streak + 1 : 0;
   const respect = Math.max(0, slice.respect + (won ? approach.respect : 0));
   const crew = syncCrew(state, respect, rng);
   const recruited = crew.length - crewList(state).length;
 
-  return {
+  // The counters the achievement evaluator reads, written here because this is where the streak
+  // exists and nowhere else (PRD §3.4: instants write counters, the tick loop unlocks). This
+  // function still knows nothing about achievements, and must not.
+  return recordRally({
     ...state,
     wallet,
     crew,
     wallBall: {
+      streak,
       wins: slice.wins + (won ? 1 : 0),
       losses: slice.losses + (won ? 0 : 1),
       respect,
@@ -283,7 +295,7 @@ function resolveChallenge(state, options = {}, rng = Math.random) {
         recruited,
       },
     },
-  };
+  }, { won, approachId: approach.id, streak });
 }
 
 // Act II's exit, registered under `crewAssembled` in engine/progression.js. Reads what the

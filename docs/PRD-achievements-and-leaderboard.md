@@ -263,7 +263,8 @@ record: {
   counters: {            // instants, written by handlers, read by the evaluator
     bookieWins: 0, bestBookiePayoutMult: 0, bestPropPayoutMult: 0,
     wallBallStreak: 0, bestWallBallStreak: 0, showboatStreak: 0,
-    manualSalvageEarned: 0, moduleSalvageEarned: 0, undefeatedSeasons: 0,
+    undefeatedSeasons: 0, firstModuleAtClock: 0,
+    bestShowboatStreak: 0,
     integrityViolations: 0,   // states that could not have been reached by playing — see `cheater`
   },
 },
@@ -310,7 +311,7 @@ other act config in this repo uses.
 | `undefeated` | Nobody Beat Us | Finish a Little League season with zero losses | 25 |
 | `pennant` | The Pennant | Win the minor-league pennant | 20 |
 | `call-up` | You Said Yes | Accept the call-up into Act VII | 20 |
-| `sifter` | Hands in the Wreck | Fund the first Reclaimer Drone from manual presses alone | 15 |
+| `sifter` | Hands in the Wreck | Fund the first Reclaimer Drone within 60s of entering Act VII | 15 |
 | `fifth-burn` | The Fifth Burn | Commit the fifth burn — win Act VII | 60 |
 | `odyssey` | The Whole Way | Clear all seven acts in a single run | 80 |
 | `cheater` | Nice Try | Reach a state the game cannot produce — see §5.3 | 0 |
@@ -324,12 +325,16 @@ different thresholds; adding a streak achievement to a later act costs a table r
 
 ### 5.2 No achievement may count raw presses
 
-`sifter` reads "funded the first Drone before any module produced anything", not "pressed *n* times",
-and the distinction is now load-bearing: **Act VII declares no click cooldown** (`data/acts.js`, which
-argues the case), so a press count is bounded by thumb speed rather than by time and any threshold set
-against it is either trivial or a wrist injury. The click is a flat 8 that never improves, so what a
-press count would have measured — the size of the manual opening — is measured directly by the
-Salvage that bought the first module.
+`sifter` measures **how long the opening took**, not how many times the button was hit: the first
+Reclaimer Drone, inside 60 seconds of entering Act VII. **Act VII declares no click cooldown**
+(`data/acts.js`, which argues the case), so a press count is bounded by thumb speed rather than by
+time and any threshold set against it is either trivial or a wrist injury.
+
+The first draft read "funded from manual presses alone" and was **structurally always true**: before
+the first module there is no other Salvage faucet in the act, so every player earns it by existing.
+A time window is the same intent — did you actually work the opening? — expressed as something a
+player can miss. 40 presses fund the Drone, so 60 seconds is about 1.5 presses a second: reachable
+by anyone pressing, unreachable by anyone waiting.
 
 The general rule: a predicate keyed on an **unthrottled player input** is not a record of anything.
 Count outcomes, not inputs.

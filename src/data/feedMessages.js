@@ -27,6 +27,9 @@ const FEED_CATEGORIES = {
   colony: { label: 'Colony', icon: '🛠️' },
   transit: { label: 'Transit', icon: '🛰️' },
   contract: { label: 'Assignment', icon: '📄' },
+  // Not tied to an act. An unlock can land in any of the seven, which is why this sits below the
+  // Act VII block rather than inside it.
+  achievement: { label: 'For the Record', icon: '🎖️' },
   office: { label: 'The Office', icon: '📡' },
   dispatch: { label: 'Earth', icon: '📻' },
 };

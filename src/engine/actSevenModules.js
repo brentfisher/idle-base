@@ -7,6 +7,8 @@ const { ACT_SEVEN_MODULES, moduleCost, getModuleDefinition } = require('../data/
 const { phaseRank } = require('../data/actSevenConfig');
 const { expeditionSlice, resolvedSites } = require('./colony');
 const { balanceOf, debitWallet, canAfford } = require('./wallet');
+// The record card's counters. engine/records.js owns what a counter means; this file owns when.
+const { recordFirstModule } = require('./records');
 
 // Act VII's fabrication shop, in the house shop contract: listOffers(state) returns rows with
 // cost, ownership and affordability ALREADY RESOLVED, and purchase(state, id) returns new state or
@@ -254,11 +256,14 @@ function purchase(state, moduleId) {
     ? slice.modules.map((module) => (module.id === moduleId ? { ...module, count: module.count + 1 } : module))
     : [...slice.modules, { id: moduleId, count: 1 }];
 
-  return {
+  // Stamp the FIRST module of the run, for `sifter` (PRD §5.2). Written once and never
+  // overwritten — engine/records.js holds that rule — so the achievement asks how fast the opening
+  // was worked rather than when the most recent purchase happened.
+  return recordFirstModule({
     ...state,
     wallet: debitWallet(state.wallet, MODULE_CURRENCY, cost),
     expedition: { ...slice, modules },
-  };
+  }, state.clock || 0);
 }
 
 module.exports = { listOffers, listGoals, purchase, MODULE_CURRENCY };

@@ -30,8 +30,6 @@ function emptyCounters() {
     wallBallStreak: 0,
     bestWallBallStreak: 0,
     showboatStreak: 0,
-    manualSalvageEarned: 0,
-    moduleSalvageEarned: 0,
     undefeatedSeasons: 0,
     // THINGS THAT CANNOT HAPPEN, COUNTED RATHER THAN IGNORED. A clock that runs backwards across
     // an act boundary is not a bug the game can produce: `state.clock` only ever increases, in
@@ -42,6 +40,27 @@ function emptyCounters() {
     // by hand look different, and a number can tell them apart later. Nothing is ever taken away
     // from the player for it — see the note on the predicate in data/achievementsConfig.js.
     integrityViolations: 0,
+    // Act II's Showboat streak, best-of. Kept beside the plain streak for the same reason
+    // `bestWallBallStreak` is: a streak is destroyed by the loss that ends it, so a predicate that
+    // only ever sees the live value can miss a run that happened between two ticks.
+    bestShowboatStreak: 0,
+    // The clock at which Act VII's FIRST module was bought, written once and never overwritten.
+    // `sifter` subtracts the act's entry stamp from it; 0 means no module has been bought yet.
+    firstModuleAtClock: 0,
+  };
+}
+
+// One writer for the counters bag, so the immutable spread is written once rather than at every
+// call site. `patch` receives the fully-defaulted counters and returns the fields it is changing —
+// a caller that returns a whole bag would silently delete any key it had not heard of, which is the
+// failure engine/concessions.js records in full.
+function bumpCounters(state, patch) {
+  const slice = recordSlice(state);
+  const changes = patch(slice.counters);
+  if (!changes) return state;
+  return {
+    ...state,
+    record: { ...slice, counters: { ...slice.counters, ...changes } },
   };
 }
 
@@ -143,4 +162,71 @@ function flagIntegrityViolation(state) {
   };
 }
 
-module.exports = { emptyCounters, recordSlice, achievementsSlice, recordActSplit, flagIntegrityViolation };
+// A resolved wall-ball rally (engine/wallBall.js). Takes the streak the resolution just produced
+// rather than re-deriving it, so this file and that one cannot disagree about what a streak is.
+//
+// The Showboat streak is keyed on the APPROACH ID and not on the payout multiplier: Showboat's
+// `payoutMult: 3` is numerically the Bookie's `long-shot` threshold, and letting the two share a
+// number would eventually let one system's tuning unlock the other system's achievement.
+function recordRally(state, { won, approachId, streak }) {
+  return bumpCounters(state, (counters) => {
+    const showboat = won && approachId === 'showboat' ? counters.showboatStreak + 1 : 0;
+    return {
+      wallBallStreak: streak,
+      bestWallBallStreak: Math.max(counters.bestWallBallStreak, streak),
+      showboatStreak: showboat,
+      bestShowboatStreak: Math.max(counters.bestShowboatStreak, showboat),
+    };
+  });
+}
+
+// A settled Bookie wager (engine/bookie.js). ONLY A WIN IS RECORDED, and only the multiplier that
+// was frozen onto the wager at placement: a player who buys reputation after placing has already
+// been quoted their line, and re-deriving it here would either cheapen or inflate an achievement
+// against odds nobody was offered.
+//
+// The moneyline and the prop board write DIFFERENT counters, and neither may fall through to the
+// other — the prop board quotes a far wider spread, so a shared counter would make `long-shot`
+// farmable off the other page (PRD §5.4).
+function recordWagerSettled(state, { won, payoutMult, prop }) {
+  if (!won) return state;
+  const mult = typeof payoutMult === 'number' && Number.isFinite(payoutMult) ? payoutMult : 0;
+  return bumpCounters(state, (counters) => (prop
+    ? { bestPropPayoutMult: Math.max(counters.bestPropPayoutMult, mult) }
+    : {
+      bookieWins: counters.bookieWins + 1,
+      bestBookiePayoutMult: Math.max(counters.bestBookiePayoutMult, mult),
+    }));
+}
+
+// A season that ended with the player unbeaten. Counted at the offseason rollover, which is the
+// last moment the standings exist to be read — engine/tickEngine.js nulls them a few lines later.
+function recordUndefeatedSeason(state) {
+  return bumpCounters(state, (counters) => ({ undefeatedSeasons: counters.undefeatedSeasons + 1 }));
+}
+
+// Act VII's first module purchase, stamped once. WRITTEN ONCE AND NEVER OVERWRITTEN: `sifter` asks
+// how fast the opening was worked, and a second module bought an hour later must not answer it.
+function recordFirstModule(state, nowClock) {
+  return bumpCounters(state, (counters) => {
+    if (counters.firstModuleAtClock > 0) return null;
+    if (typeof nowClock !== 'number' || !Number.isFinite(nowClock)) return null;
+    // A first module at clock 0 is indistinguishable from "none yet" in a bag whose absent reading
+    // is 0. It cannot happen in play — Act VII is entered thousands of seconds in — and a harness
+    // that manufactures it gets the honest answer rather than a false unlock.
+    return { firstModuleAtClock: Math.max(nowClock, Number.MIN_VALUE) };
+  });
+}
+
+module.exports = {
+  emptyCounters,
+  recordSlice,
+  achievementsSlice,
+  recordActSplit,
+  flagIntegrityViolation,
+  bumpCounters,
+  recordRally,
+  recordWagerSettled,
+  recordUndefeatedSeason,
+  recordFirstModule,
+};
