@@ -13,6 +13,8 @@ const TeamNameEditor = require('./TeamNameEditor');
 // lookups below — the display name and which row is the player's — stay here, in the file that
 // knows what a team is. See the long note at its definition.
 const StandingsTable = require('./StandingsTable');
+const { seasonOutcomeParts } = require('../../data/playoffsConfig');
+const { playoffRoundLabel } = require('../../data/feedMessages');
 
 // Last season's result, in one line. Deliberately POSITIVE-ONLY — it prints what happened and
 // says nothing when nothing did.
@@ -22,9 +24,14 @@ const StandingsTable = require('./StandingsTable');
 // this one describes a season played under whatever act was active THEN. A player who finished
 // Act III and moved on would otherwise have last season re-narrated under the new act's rules.
 // The summary's own flags are the only act-correct source, and they already encode the care —
-// `finishedFirst` is set at engine/tickEngine.js:298 precisely because topping the table IS the
-// title in a league with no postseason. Same phrasing as the recap modal in layout/AppShell.js,
-// so the League tab and the modal never disagree about what a season was.
+// `finishedFirst` is set in engine/tickEngine.js precisely because topping the table IS the title
+// in a league with no postseason.
+//
+// THE PHRASING IS NO LONGER RESTATED HERE. It was "the same phrasing as the recap modal", by hand,
+// in three files — and all three were wrong in the same way: a team that topped the table and then
+// lost in the semifinal read as "Made the playoffs · 🥇 First place!", which a player reported as
+// having won the championship. seasonOutcomeParts() is the one reading, and it names the round the
+// bracket actually ended in.
 function LastSeason({ summary }) {
   if (!summary) return null;
   return (
@@ -32,9 +39,9 @@ function LastSeason({ summary }) {
       <span className="last-season-label">Last season</span>
       <span className="last-season-body">
         Season {summary.seasonNumber}: {summary.wins}-{summary.losses}
-        {summary.madePlayoffs ? ' · Made the playoffs' : ''}
-        {summary.finishedFirst ? ' · 🥇 First place!' : ''}
-        {summary.wonChampionship ? ' · 🏆 Champions!' : ''}
+        {seasonOutcomeParts(summary, playoffRoundLabel)
+          .map((part) => ` · ${part}`)
+          .join('')}
       </span>
     </p>
   );

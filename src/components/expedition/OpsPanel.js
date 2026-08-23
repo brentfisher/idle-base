@@ -3,7 +3,8 @@ const { useGame } = require('../../state/GameContext');
 const { opsReadout } = require('../../engine/colonyReadout');
 const { rateClass, meterClass } = require('../../data/colonyReadoutConfig');
 const { getPhasePill } = require('../../data/actSevenPalette');
-const { getDirective, opsCopy } = require('../../data/actSevenOpsConfig');
+const { getDirective, opsCopy, nextStepCopy } = require('../../data/actSevenOpsConfig');
+const { nextObjective } = require('../../engine/expeditionObjective');
 const { formatNumber, formatDuration } = require('../../utils/formatNumber');
 
 // The terminal: net rates, the ration, the phase and the standing directive (PRD §6.4). The tab
@@ -157,6 +158,10 @@ function OpsPanel() {
   const readout = opsReadout(state);
   const directive = getDirective(readout.phase);
   const pill = getPhasePill(readout.phase);
+  // The one concrete thing to do next, decided by engine/expeditionObjective.js — including which
+  // shop row it is measured against and whether it can be afforded yet. Null in `majors` and for an
+  // unrecognized phase, and the block is omitted either way.
+  const objective = nextObjective(state);
 
   return (
     <div className="panel">
@@ -190,6 +195,36 @@ function OpsPanel() {
           <p className="muted">{directive.note}</p>
         </div>
       ) : null}
+
+      {/* THE NEXT STEP, UNDER THE DIRECTIVE AND IN THE TERMINAL'S OWN VOICE. The Office files orders
+          and does not explain them, which is the right voice and is left alone; this is the status
+          line underneath saying which button, on which tab. It exists because a player who had just
+          accepted the call-up reported having nothing to do but press the Salvage button, with
+          nothing on screen connecting that button to anything.
+
+          The progress bar appears only where a price is what stands between the player and the next
+          step — see engine/expeditionObjective.js for why the later phases get the sentence and no
+          bar rather than a bar measuring the wrong thing. */}
+      {objective && (
+        <div className="v7-ops-next">
+          <div className="v7-ops-next-head">
+            <span className="v7-ops-next-label">{nextStepCopy.heading}</span>
+            <span className="v7-ops-next-where">{objective.whereLabel}</span>
+          </div>
+          <p className="v7-ops-next-action">{objective.action}</p>
+          {objective.ready && <p className="v7-ops-next-ready">{objective.ready}</p>}
+          {objective.progress && (
+            <div className="v7-ops-next-progress">
+              <span className="v7-ops-next-progress-track">
+                <span className="v7-ops-next-progress-fill" style={{ width: `${objective.progress.pct}%` }} />
+              </span>
+              <span className="v7-ops-next-progress-text">
+                {objective.progress.label} <span className="muted">{objective.progress.forLabel}</span>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <h3>{opsCopy.ratesTitle}</h3>
       <p className="muted">{opsCopy.ratesNote}</p>

@@ -14,7 +14,7 @@ const {
   buildTradeWindows,
 } = require('./schedule');
 const { applyGameResult, sortStandings } = require('./standings');
-const { generateBracket, resolveCurrentRound } = require('./playoffs');
+const { generateBracket, resolveCurrentRound, playoffFieldSize } = require('./playoffs');
 const { generateTradeCandidates } = require('./tradeDeadline');
 const { processCampCompletions } = require('./trainingCamp');
 const { checkRetirements } = require('./retirement');
@@ -48,17 +48,12 @@ function teamDisplayName(working, teamId) {
   return team ? team.name : 'unknown club';
 }
 
-// generateBracket() halves each round down to a single final, so it requires a power-of-2
-// field. `playoffTeams` was hardcoded to balanceConfig's 4 before rules resolution made it
-// authorable, and an odd size (6 teams, or 8 declared in a 6-team little league) builds a
-// bracket whose final match never gets both slots filled — leaving the season stuck in the
-// playoffs phase forever. Round down to the nearest power of 2; anything under 2 means no
-// postseason at all, which is what `playoffTeams: 0` declares.
-function playoffFieldSize(declared, availableTeams) {
-  const n = Math.min(declared || 0, availableTeams);
-  if (n < 2) return 0;
-  return 2 ** Math.floor(Math.log2(n));
-}
+// playoffFieldSize() MOVED TO engine/playoffs.js and is imported above. It was defined here, beside
+// its only caller, until the Playoffs tab grew a projection of the field — and a projection that
+// computed the size differently from the bracket would promise berths the bracket then refuses (a
+// league declaring 6 qualifiers actually sends 4). It belongs next to generateBracket(), whose
+// power-of-2 requirement is the entire reason it exists; the note explaining that requirement moved
+// with it.
 
 // Winning a game pays. The amount is act-scaled and every number behind it, including the
 // arithmetic that says it can never become the primary income stream, lives in
@@ -523,6 +518,29 @@ function resolvePlayoffRound(working, modifiers) {
   return appendFeedEntries(purse > 0 ? addRevenue(resolvedState, purse) : resolvedState, entries);
 }
 
+// Where the player's postseason ended, as `{ roundIndex, totalRounds, wonChampionship }`, or null
+// when there was no bracket. Reads the bracket the same way the feed does: the player's last match
+// is the deepest round they appear in, and losing it is the exit.
+//
+// Pure and total — it is handed a bracket that may be null, may be from a save written before some
+// field existed, and may (in an offline catch-up that resolved the whole postseason in one
+// iteration) be fully played out. It never throws and never invents a round.
+function playoffExitFor(playoffs) {
+  if (!playoffs || !Array.isArray(playoffs.rounds) || playoffs.rounds.length === 0) return null;
+
+  let roundIndex = -1;
+  playoffs.rounds.forEach((round, index) => {
+    if (round.some((m) => m.teamA === PLAYER_TEAM_ID || m.teamB === PLAYER_TEAM_ID)) roundIndex = index;
+  });
+  if (roundIndex < 0) return null;
+
+  return {
+    roundIndex,
+    totalRounds: playoffs.rounds.length,
+    wonChampionship: playoffs.champion === PLAYER_TEAM_ID,
+  };
+}
+
 function runOffseasonTransition(working, modifiers) {
   // The offseason transition is where the next season's shape is decided, so it is the one place
   // rules are re-resolved: balanceConfig <- act.rules <- era.rules (see engine/modifiers.js).
@@ -541,6 +559,21 @@ function runOffseasonTransition(working, modifiers) {
 
   const wonChampionship = !!(working.season.playoffs && working.season.playoffs.champion === PLAYER_TEAM_ID);
   const playerRow = working.season.standings.find((s) => s.teamId === PLAYER_TEAM_ID);
+
+  // HOW THE POSTSEASON ACTUALLY ENDED, captured here for the same reason `finishedFirst` below is:
+  // `season.playoffs` is nulled by the rollover a few lines down, so this is the last moment the
+  // bracket exists to be read.
+  //
+  // A PLAYER REPORTED WINNING A CHAMPIONSHIP THEY DID NOT WIN, and this is the fix. The recap said
+  // "41-4 · Made the playoffs · 🥇 First place!" for a team that topped the table and then lost in
+  // the semifinal, which is a true sentence that any reader would take as a title — nothing on the
+  // screen mentioned the bracket at all. In an act with a postseason, first place and the trophy are
+  // different achievements and the recap has to say which one happened.
+  //
+  // Recorded as a ROUND INDEX and not as a phrase: prose belongs in data/ (feedMessages.js already
+  // owns playoffRoundLabel, which names the same round for the feed), and a stored sentence is a
+  // sentence that cannot be re-worded without rewriting old saves.
+  const playoffExit = playoffExitFor(working.season.playoffs);
 
   // Topping the table, which in a league with no postseason (Act III declares `playoffTeams: 0`)
   // IS the title. Captured here because the standings this reads are reset three lines below —
@@ -565,6 +598,9 @@ function runOffseasonTransition(working, modifiers) {
     madePlayoffs: !!working.season.playoffs,
     wonChampionship,
     finishedFirst,
+    // `null` in every act with no bracket, and on every save written before this shipped — every
+    // reader treats an absent exit as "there is nothing to say about a postseason".
+    playoffExit,
     retired,
     rookies: rookies.map((r) => ({ id: r.id, name: r.name, position: r.position })),
   };

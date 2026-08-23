@@ -36,9 +36,19 @@ function ResourceChips() {
         const tone = resourceTone(row);
         return (
           <span
-            className="stat-chip resource-chip"
+            // The state modifiers ride as classes as well as as inline colour: `is-warning` and
+            // `is-starved` are what the stylesheet keys the badge and the emphasis off, and a chip
+            // whose only signal was a hue would be exactly the colour-only encoding the readout is
+            // careful to avoid everywhere else.
+            className={
+              `stat-chip resource-chip${row.starved ? ' is-starved' : ''}` +
+              `${row.warning ? ' is-warning' : ''}${row.full ? ' is-full' : ''}`
+            }
             key={row.id}
-            style={{ background: tone.bg, color: tone.ink }}
+            // `--resource-accent` rather than three inline colours: the meter fill, the signed rate
+            // and the border all take the same value, and threading it as a custom property lets the
+            // stylesheet decide WHERE the accent lands while this file decides only what it is.
+            style={{ background: tone.bg, color: tone.ink, '--resource-accent': tone.accent }}
             title={`${row.label}: ${formatNumber(row.amount)} of ${formatNumber(row.capacity)}`
               + ` · ${formatNet(row.net)}`
               + (row.starved ? ' · empty and not recovering' : '')
@@ -52,6 +62,8 @@ function ResourceChips() {
                   is 0, which is a real state (no tank built yet) and not a missing value. */}
               <span className="resource-capacity">/{formatNumber(row.capacity)}</span>
             </span>
+            {/* The rate takes the accent, so the one number that says whether this resource is in
+                trouble is also the one thing on the chip wearing a colour. */}
             <span className="resource-net">{formatNet(row.net)}</span>
             {/* The meter is the fastest read on the chip and the only part that survives being
                 glanced at. Rendered under the text rather than beside it: 390px has no room for a

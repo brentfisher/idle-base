@@ -29,39 +29,71 @@ const RESOURCE_WARNING_SECONDS = 90;
 // Without the slack the FULL badge would flicker on and off every tick.
 const RESOURCE_FULL_EPSILON = 1e-6;
 
-// Chip colours, as { bg, ink } pairs in the same shape data/eras.js uses for its era pill — and
-// held to the same standard, which that file states: chips render at ~0.78rem on a phone, which
-// is NORMAL-size text for contrast purposes, so 4.5:1 is the bar and these clear it with room.
+// Chip colours. `{ bg, ink, accent }` — a dark ground, one readable ink, and a per-state ACCENT
+// that the meter fill, the rate and the chip's edge all take.
 //
-// CONTRAST RATIOS COMPUTED, NOT ASSERTED. Measured with the WCAG 2.1 relative-luminance formula
-// (sRGB, the 0.03928/12.92 piecewise transform, (L1+0.05)/(L2+0.05)) under `node`:
+// ---------------------------------------------------------------------------------------------
+// THIS TABLE WAS SIX SATURATED PASTEL FILLS AND IT WAS REPLACED. WHY.
+// ---------------------------------------------------------------------------------------------
+// The original pairs were bright grounds with dark ink — #9fd8b4, #e0a35c, #e8837f and so on — in
+// the { bg, ink } shape data/eras.js uses for the era pill, and every one of them cleared 4.5:1 by
+// a wide margin. They were still wrong, and reported as such: "these look bad, let's make them more
+// legible."
 //
-//   steady    #14301f on #9fd8b4  ->   8.80:1
-//   rising    #0d2418 on #7fd7a0  ->   9.46:1
-//   falling   #2a1508 on #e0a35c  ->   7.91:1
-//   warning   #2b1206 on #f0a65a  ->   8.65:1
-//   starved   #2d0b0b on #e8837f  ->   6.86:1   <- worst pair
-//   full      #101f2e on #8fbfe0  ->   8.51:1
+// TWO SEPARATE FAULTS, and the contrast arithmetic could not have caught either.
 //
-// Worst pair 6.86:1 against a 4.5:1 bar. These are the computed figures, not estimates — the
-// first draft of this comment carried guessed numbers that were all 0.5-1.4 high, which is exactly
-// why the story asked for them to be computed.
+// 1. THEY BELONGED TO THE WRONG ACT. Act VII's visual identity is a rule and not a mood: cold,
+//    near-monochrome, with exactly ONE warm colour — the amber instrument glow — and everything
+//    else blue-grey (see the `--v7-*` tokens in styles/global.css and the palette note in
+//    conventions). Four saturated pastels sitting in that header were four of the brightest objects
+//    on a screen otherwise built out of #0e1622, and they read as belonging to the ballpark the act
+//    had just torn down. The comment they replace argued the opposite in as many words — "the
+//    Act VII header still looks like this game's header" — and that was the mistake: at this point
+//    in the game it is not supposed to.
 //
-// The palette stays inside the ballpark world the rest of global.css builds — deep greens, the
-// #f4d35e gold family, clay and outfield blue — rather than a generic status rainbow, so the
-// Act VII header still looks like this game's header.
+// 2. FOUR CHIPS AT MAXIMUM SALIENCE IS NO SALIENCE AT ALL. A status colour has one job, which is to
+//    make the ONE resource in trouble jump out of the row. When every chip is a filled block, the
+//    starved one is competing with three healthy ones for the same attention, and the reading a
+//    player actually needs — "which of these four is the problem" — is the hardest one on the chip.
+//    Now the quiet states are quiet: a resource at rest is grey text on the panel's own ground, and
+//    a colour in this row means something is happening.
 //
-// WHY THE PAIRS RUN SO FAR ABOVE 4.5:1. These are the six states a player reads at a glance while
-// something is draining. The failure mode for a status colour is not "unreadable" — it is
-// "distinguishable in the design tool, ambiguous on a phone at arm's length in daylight" — and the
-// margin is what buys that. There is no reason to spend it: nothing else competes for these hues.
+// The ink is the same on every chip because legibility should not be a function of state, and the
+// state is carried by the accent instead — on the meter fill, on the signed rate, and on the chip's
+// border, which is three channels rather than one and none of them colour-only (the rate carries a
+// sign, the meter carries a length, and the badge text says the word).
+//
+// CONTRAST RATIOS COMPUTED, NOT ASSERTED, the same way the table before it did — WCAG 2.1 relative
+// luminance (sRGB, the 0.03928/12.92 piecewise transform, (L1+0.05)/(L2+0.05)), under `node`,
+// against the #0a1018 chip ground:
+//
+//   ink       #dbe6f2   15.10:1     <- every chip's text, whatever state it is in
+//   steady    #9db4cc    8.94:1
+//   rising    #5ad1a0   10.05:1
+//   falling   #ffb340   10.70:1
+//   warning   #ff8a66    8.25:1
+//   starved   #ff6b57    6.81:1     <- worst pair
+//   full      #6fa8d0    7.44:1
+//
+// Worst pair 6.81:1 against a 4.5:1 bar (chips render at ~0.78rem, which is normal-size text for
+// contrast purposes). The accents are the act's own `--v7-*` tokens wherever one exists —
+// `--v7-good`, `--v7-accent`, `--v7-drain`, `--v7-alert` — so the header and the Ops panel are
+// literally the same four colours meaning the same four things. `full` and `steady` are the two
+// states the panel has no token for and are the only literals here.
+//
+// THE ESCALATION IS THE POINT OF THE ORDER: amber (falling — you have time), then drain (warning —
+// the time is nearly gone), then alert (starved — it is gone). A player who learns the ramp on the
+// Ops panel reads it in the header without being taught twice.
+const RESOURCE_CHIP_GROUND = '#0a1018';
+const RESOURCE_CHIP_INK = '#dbe6f2';
+
 const RESOURCE_TONES = {
-  steady: { bg: '#9fd8b4', ink: '#14301f' },
-  rising: { bg: '#7fd7a0', ink: '#0d2418' },
-  falling: { bg: '#e0a35c', ink: '#2a1508' },
-  warning: { bg: '#f0a65a', ink: '#2b1206' },
-  starved: { bg: '#e8837f', ink: '#2d0b0b' },
-  full: { bg: '#8fbfe0', ink: '#101f2e' },
+  steady: { bg: RESOURCE_CHIP_GROUND, ink: RESOURCE_CHIP_INK, accent: '#9db4cc' },
+  rising: { bg: RESOURCE_CHIP_GROUND, ink: RESOURCE_CHIP_INK, accent: '#5ad1a0' },
+  falling: { bg: RESOURCE_CHIP_GROUND, ink: RESOURCE_CHIP_INK, accent: '#ffb340' },
+  warning: { bg: RESOURCE_CHIP_GROUND, ink: RESOURCE_CHIP_INK, accent: '#ff8a66' },
+  starved: { bg: RESOURCE_CHIP_GROUND, ink: RESOURCE_CHIP_INK, accent: '#ff6b57' },
+  full: { bg: RESOURCE_CHIP_GROUND, ink: RESOURCE_CHIP_INK, accent: '#6fa8d0' },
 };
 
 // Which tone a row wears, in priority order. Ordered rather than a lookup because the states are
@@ -128,3 +160,23 @@ module.exports = {
   rateClass,
   meterClass,
 };
+
+
+// ---------------------------------------------------------------------------------------------
+// VERIFIED — the contrast figures in the block over RESOURCE_TONES are RECOMPUTED in the harness
+// rather than trusted from the comment (the table they replaced carried guessed numbers once).
+// Part of the 125-assertion run recorded in components/playoffs/PlayoffBracket.js.
+//
+//   · every tone supplies bg, ink AND accent — a missing accent is a chip that silently loses
+//     its state colour and its meter                                                         PASS
+//   · ink clears 4.5:1 on every tone (15.10:1 — it is one ink on one ground)                 PASS
+//   · every accent clears 4.5:1 on the chip ground; worst is `starved` at 6.81:1             PASS
+//   · resourceTone()'s priority survives the reshape: starved > warning > full > falling >
+//     rising > steady                                                                        PASS
+//   · ResourceChips threads `--resource-accent`, and HeaderStats renders whole                PASS
+//
+// LAYOUT, measured in a 390x844 iframe rather than assumed. The desktop sizing took
+// `.header-stats` from 144px to 229px at that width — 85px on the target device, in the row the
+// Mobile section records having had to shrink once already. The mobile block at the foot of
+// global.css compacts the chips back: re-measured at 147px, with no horizontal overflow.
+// ---------------------------------------------------------------------------------------------

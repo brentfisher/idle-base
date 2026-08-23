@@ -35,6 +35,9 @@ const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
 const TeardownOverlay = require('../expedition/TeardownOverlay');
 const { getActIntroBeat, getStoryBeat } = require('../../data/storyBeats');
+// The one shared reading of a season recap, plus the one function that names a playoff round.
+const { seasonOutcomeParts } = require('../../data/playoffsConfig');
+const { playoffRoundLabel } = require('../../data/feedMessages');
 
 // Tab id === feature id in an act's `unlocks` array (data/acts.js). This is the single point of
 // coupling between the tab bar and the act config: if the real acts name a feature differently,
@@ -264,6 +267,7 @@ function AppShell() {
         onChange={setActiveTab}
         tradeOpen={tradeOpen}
         playoffsActive={playoffsActive}
+        callUpPending={callUpOffered}
       />
       {ActivePanel && <ActivePanel />}
       {/* The manual click, in every act. It lived inside LotPanel, which only renders in the
@@ -357,12 +361,16 @@ function AppShell() {
           closeLabel="Continue"
         >
           <p>
+            {/* One shared reading of a recap (data/playoffsConfig.js seasonOutcomeParts), used here,
+                on the League tab and on the Playoffs tab. Each screen used to assemble its own
+                ternary chain, and all three therefore told a team that lost in the semifinal that it
+                had made the playoffs and finished first — with nothing anywhere saying what happened
+                in the bracket. The helper keeps the positive-only rule (an act with no postseason
+                cannot have missed one) and adds the exit round. */}
             Record: {summary.wins}-{summary.losses}
-            {/* In a league with no postseason (Act III), finishing first is the whole title,
-                so "Missed the playoffs" would be reporting a competition that never existed. */}
-            {summary.madePlayoffs ? ' · Made the playoffs' : ''}
-            {summary.finishedFirst ? ' · 🥇 First place!' : ''}
-            {summary.wonChampionship ? ' · 🏆 Champions!' : ''}
+            {seasonOutcomeParts(summary, playoffRoundLabel)
+              .map((part) => ` · ${part}`)
+              .join('')}
           </p>
           {summary.retired.length > 0 && (
             <>

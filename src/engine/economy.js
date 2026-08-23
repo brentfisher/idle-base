@@ -75,6 +75,34 @@ function planMaxStatUpgrades(currentStatValue, cash, modifiers) {
   return { steps, totalCost, endValue: value, gain: value - currentStatValue };
 }
 
+// WHAT A FIXED NUMBER OF UPGRADES WOULD COST, whether or not the player can afford it — the
+// savings target the disabled bulk chip prints (components/roster/UpgradeButton.js).
+//
+// The bulk chip is now rendered whenever a stat has two or more upgrades left BEFORE the cap,
+// rather than whenever the wallet can pay for two, because a control that appears and disappears
+// as the balance moves re-lays out the row under a thumb that is mid-click. So the chip has a
+// disabled state, and a disabled control with no number on it is the "work out why" problem the
+// MAX chip exists to avoid — this is the number that answers it: what the wallet has to reach for
+// the button to turn on.
+//
+// SAME LOOP AND SAME CLAMPS AS planMaxStatUpgrades() ABOVE, bounded by a step count instead of by
+// cash, so the two can never quote different prices for the same purchase. Returns the identical
+// shape for the same reason.
+function statUpgradeRunCost(currentStatValue, steps, modifiers) {
+  const { statCap, statUpgradeAmount } = modifiers.rules;
+  let value = currentStatValue;
+  let totalCost = 0;
+  let taken = 0;
+
+  while (value < statCap && taken < steps) {
+    totalCost += statUpgradeCost(value, modifiers);
+    value = Math.min(statCap, value + statUpgradeAmount);
+    taken += 1;
+  }
+
+  return { steps: taken, totalCost, endValue: value, gain: value - currentStatValue };
+}
+
 function stadiumUpgradeCost(currentLevel, modifiers) {
   const raw = balanceConfig.stadiumUpgradeBaseCost * balanceConfig.stadiumUpgradeCostGrowth ** (currentLevel - 1);
   return Math.round(raw * modifiers.upgradeCostMult);
@@ -86,6 +114,7 @@ function stadiumCapacityGain(currentLevel) {
 
 module.exports = {
   planMaxStatUpgrades,
+  statUpgradeRunCost,
   computeRecentWinPct,
   attendanceFraction,
   revenuePerSecond,

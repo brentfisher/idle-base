@@ -1,5 +1,6 @@
 const React = require('react');
 const { ACT_SEVEN_PANELS } = require('../../data/actSevenPanels');
+const { PLAYOFF_COPY } = require('../../data/playoffsConfig');
 
 // Labels and ordering for every tab the game can ever show. Which of these are actually
 // rendered is decided by AppShell from the unlocked features for the current act and passed
@@ -35,22 +36,34 @@ const TABS = [
   ...ACT_SEVEN_PANELS.map((panel) => ({ id: panel.id, label: panel.label })),
 ];
 
-function TabNav({ activeTab, visibleTabs, seenTabs, onChange, tradeOpen, playoffsActive }) {
+// `callUpPending` is engine/progression.js's isCallUpOffered(), resolved once by AppShell. It rings
+// the Playoffs tab because that is where the standing offer is rendered — and the offer previously
+// had no home outside a modal that a stray tap could dismiss for good.
+function TabNav({ activeTab, visibleTabs, seenTabs, onChange, tradeOpen, playoffsActive, callUpPending }) {
   const visible = visibleTabs || TABS.map((tab) => tab.id);
   const seen = seenTabs || [];
 
   return (
     <div className="tab-nav">
       {TABS.filter((tab) => visible.indexOf(tab.id) !== -1).map((tab) => {
-        const attention = (tab.id === 'trade' && tradeOpen) || (tab.id === 'playoffs' && playoffsActive);
+        const playoffsRinging = tab.id === 'playoffs' && (playoffsActive || callUpPending);
+        const attention = (tab.id === 'trade' && tradeOpen) || playoffsRinging;
         const classes = ['', tab.id === activeTab ? 'active' : '', attention ? 'attention' : ''].join(' ').trim();
         // Unlocked but never visited — the badge marks the reveal and never comes back once
         // the tab is in progression.seenTabs, which persists with the save.
         const isNew = seen.indexOf(tab.id) === -1;
+        // THE POSTSEASON'S OWN BADGE, and it TAKES PRECEDENCE over NEW rather than sitting beside
+        // it. The reported gap — "there's no fanfare, the playoffs just start" — is that the tab
+        // looked identical in October and in July. NEW cannot fill that role: it is spent the first
+        // time the tab is opened and never returns, where this comes back every postseason. Two
+        // badges on one button at 390px is also simply two badges too many; the live one wins
+        // because it is the one that is true today.
+        const isLive = tab.id === 'playoffs' && playoffsActive;
+        const badge = isLive ? PLAYOFF_COPY.liveTabBadge : isNew ? 'NEW' : null;
         return (
           <button key={tab.id} className={classes || undefined} onClick={() => onChange(tab.id)}>
             {tab.label}
-            {isNew && <span className="tab-badge">NEW</span>}
+            {badge && <span className={`tab-badge${isLive ? ' is-live' : ''}`}>{badge}</span>}
           </button>
         );
       })}

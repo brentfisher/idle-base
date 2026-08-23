@@ -421,10 +421,11 @@ const ACTS = [
     // a routing change. The Salvage chip appears on its own the moment the click credits any, and
     // the header's Act VII re-fit is PRD §6.7's story.
     unlocks: ['ops', 'fab', 'launch', 'sites', 'artifacts', 'contracts', 'board'],
-    // The intra-act reveal. `ops` is absent on purpose: the act opens on exactly one tab and
-    // nothing else for 20-30 minutes, which is the deliberate echo of Act I, where the whole game
-    // was one button on one screen. One screen is not a punishment; it is the only state a reveal
-    // can build from.
+    // The intra-act reveal. `ops` is absent on purpose: it is the act's fallback tab and the screen
+    // the player reads for the first 20-30 minutes, which is the deliberate echo of Act I, where
+    // the whole game was one button on one screen. One screen is not a punishment; it is the only
+    // state a reveal can build from — but it must not be the only DOOR. See `fab` below, which was
+    // held back for that same aesthetic and made the act unplayable.
     //
     // `launch` and `sites` key on `lifeSupport` rather than on PRD §7's `launchReady` capability
     // flag. R4 lets that flag stand as a design ruling, but nothing writes it yet — engine/sites.js
@@ -436,7 +437,23 @@ const ACTS = [
     // would be a player who cannot find the button that ends the phase. The sites story may
     // tighten these two entries to the flag once it owns a writer for it.
     unlockedBy: {
-      fab: 'lifeSupport',
+      // `fab` IS DELIBERATELY ABSENT, AND IT USED TO BE HERE AT `lifeSupport`. That was a hard
+      // deadlock and it shipped: `lifeSupport` is reached by OWNING A MODULE
+      // (engine/colony.js isLifeSupportPhase — "the first generator bought, deliberately the
+      // crudest possible test"), and the only place in the game a module can be bought is the
+      // fabrication tab. So the tab that ends the phase was gated behind the phase it ends. A
+      // player who accepted the call-up got the Ops readout, the Salvage click, and no way
+      // forward, ever — which is exactly how it was reported: "I can't do anything right after
+      // the call up. I can sift the wreck but it's not clear what's next."
+      //
+      // The note under `launch` and `sites` below states the rule this violated, three lines
+      // from the violation: "the cost of being late would be a player who cannot find the button
+      // that ends the phase." Fab IS that button for the first rung, so it opens with the act.
+      //
+      // The act still opens on one SCREEN in the sense that mattered — Ops is the fallback tab and
+      // the readout is what the player looks at — but the thing to do with the Salvage is now
+      // reachable while it is being earned. A shop the act's own directive tells you to open
+      // ("there is a generator design in the fabrication index") must be openable.
       launch: 'lifeSupport',
       sites: 'lifeSupport',
       artifacts: 'lunar',

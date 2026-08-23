@@ -130,6 +130,10 @@ function PlayerCard({
         <div className="wu-row">
           {walkup && (
             <div className="wu-now-playing">
+              {/* The same chip the crate rows carry, and for the same reason: on a card with four
+                  stat bars under it, "which bar is this record moving" should be answerable without
+                  reading to the end of the line. A B-side answers "all of them". */}
+              <span className={`wu-stat-chip stat-${walkup.stat}`}>{walkup.statTag}</span>
               <span className="wu-now-title">{walkup.title}</span>
               <span className="muted"> — {walkup.artist}</span>
               {walkup.effect && <span className="wu-now-effect"> {walkup.effect}</span>}

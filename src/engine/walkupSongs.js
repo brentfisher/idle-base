@@ -6,7 +6,13 @@
 // listCrate() and listPickerOptions() return presentation-ready lists with cost, ownership,
 // affordability and eligibility already decided, and the components render them without
 // recomputing any of it.
-const { WALKUP_SONGS, WALKUP_CURRENCY, WALKUP_COPY, getWalkupSong } = require('../data/walkupSongsConfig');
+const {
+  WALKUP_SONGS,
+  WALKUP_CURRENCY,
+  WALKUP_COPY,
+  WALKUP_ALL_STATS,
+  getWalkupSong,
+} = require('../data/walkupSongsConfig');
 const { statWeights } = require('./strength');
 const { canAfford, debitWallet } = require('./wallet');
 
@@ -38,12 +44,28 @@ const { canAfford, debitWallet } = require('./wallet');
 //    prestige keeps the crate exactly as it keeps the concessions stands and the caps shop, and
 //    clears every assignment for free. There is no reconciliation pass anywhere in this file.
 //
-// EXCLUSIVITY. One record, one kid: assigning a song that somebody else is using takes it off
-// them. Fiction aside (two players do not share a walk-up song), this is the balance backbone —
-// without it a single 2,400-cash purchase would put +10% power on all nine position starters, and
-// a whole lineup would cost one purchase instead of ten. Assign() does the handover itself rather
-// than refusing, because "go and un-set the other kid first" is two trips through a dropdown on a
-// 390px screen, and the picker labels who currently holds each record so it is never a surprise.
+// EXCLUSIVITY. One record, one kid. Fiction aside (two players do not share a walk-up song), this
+// is the balance backbone — without it a single 2,400-cash purchase would put +10% power on all
+// nine position starters, and a whole lineup would cost one purchase instead of ten.
+//
+// A SPOKEN-FOR RECORD IS NOT OFFERED, WHERE IT USED TO BE STOLEN. The first version of this file
+// let assignSong() do the handover itself: the picker listed every owned record, labelled the ones
+// somebody else was using "with Marcus", and quietly took it off Marcus if you chose it. The
+// argument was that "go and un-set the other kid first" is two trips through a dropdown on a phone.
+//
+// It was the wrong trade, and the reason is what a <select> is. A dropdown is a list of things you
+// may have, and every row in it that is already taken is a row that does nothing but re-state the
+// same fact fifteen times over — once per card — while being one thumb-brush away from silently
+// removing a bonus from a player on a different part of the screen, with no confirmation and no
+// undo. The record is the scarce thing, so scarcity belongs where the records are: taken records
+// leave every OTHER player's picker entirely (listPickerOptions), assignSong() refuses a steal
+// outright rather than performing it, and the crate row that says who has it grows the one control
+// that takes it back (WALKUP_COPY.takeBack). The two trips are still two trips; they now both
+// happen in the crate, which is the screen the player already opens to think about records, and
+// neither of them can happen by accident.
+//
+// The picker still lists the record its OWN player is holding — that is how you take it off him
+// without going to the crate at all, and it is what the <select> must match its own value against.
 
 // Every read of the walk-up slice goes through this. A save written before walk-up songs existed
 // has no `walkup` key at all, and this codebase tolerates an absent slice rather than migrating
@@ -65,7 +87,18 @@ function ownsSong(state, songId) {
 // than restated here. Today this only ever excludes `pitching` from a position player, but it is
 // written as a lookup so that re-weighting the formula re-filters the shop automatically instead
 // of leaving a stale hard-coded exception behind.
+//
+// WALKUP_ALL_STATS SHORT-CIRCUITS TO TRUE, and this one line is what makes the B-side ladder work
+// at all. The sentinel is deliberately not a key of STAT_WEIGHTS (engine/strength.js keeps its rows
+// summing to 1.0), so the lookup below returns 0 for it and every gate in this file that asks
+// "can this player use this record" would answer no. There are five of them and they fail in five
+// different ways: assignSong() REFUSES the assignment outright, listPickerOptions() never lists the
+// record, its `inert` flag appends "does nothing here" to a record that does everything,
+// listCrate() labels it pitchers-only, and songSummaryFor() blanks the effect on the roster card.
+// One of those is a silent no-op the player pays 4,800 cash for. Hence the check here, in the one
+// place all five read.
 function songCountsFor(position, stat) {
+  if (stat === WALKUP_ALL_STATS) return true;
   return (statWeights(position)[stat] || 0) > 0;
 }
 
@@ -78,8 +111,14 @@ function holderOf(roster, songId) {
 
 // "+10% power". One short line saying what the money does, in the same register as
 // engine/concessions.js describe().
+//
+// A B-side gets its own sentence from the config rather than "+6% all", which reads as a string
+// that was cut off. Both branches take their prose from WALKUP_COPY for the house reason: no
+// player-facing wording is assembled in an engine.
 function describe(song) {
-  return `+${Math.round(song.bonus * 100)}% ${song.stat}`;
+  const percent = Math.round(song.bonus * 100);
+  if (song.stat === WALKUP_ALL_STATS) return WALKUP_COPY.allStatsEffect(percent);
+  return `+${percent}% ${song.stat}`;
 }
 
 // The crate, for the shop at the top of the roster screen: every record in the game, cheapest
@@ -106,6 +145,17 @@ function listCrate(state) {
       // than after, when the dropdown it was bought for turns out not to list it.
       pitchersOnly: !songCountsFor('DEFAULT', song.stat),
       heldBy: holder ? holder.name : null,
+      // The holder's ID, and it is what makes the crate row's "take it back" control possible at
+      // all: releasing a record is an assignment of NO song to the player who has it, which is
+      // setWalkupSong({ playerId: holder.id, songId: null }) — an action that already exists and
+      // already has a reducer case. Carried here rather than looked up in the component, because a
+      // component that searched the roster for whoever is holding a record would be a second
+      // implementation of holderOf() that can disagree with the name printed beside it.
+      heldById: holder ? holder.id : null,
+      // The boosted stat, carried raw AND as a display tag. Raw so the component can key a colour
+      // off it without parsing the label back apart; tagged so the wording stays in data/.
+      stat: song.stat,
+      statTag: WALKUP_COPY.statTag(song.stat),
     };
   })
     // UNOWNED FIRST, THEN OWNED, EACH CHEAPEST FIRST — and the first half of that is the point.
@@ -142,7 +192,15 @@ function listCrate(state) {
 // pitching, defense, contact, power, speed and everybody else reads power, contact, speed, defense
 // — so the dropdown and the bars beneath it agree by construction. Restating the order here would
 // be a second copy that drifts the first time a position's weights are retuned, and it is why the
-// picker deliberately orders differently for a pitcher than for a shortstop.
+// picker deliberately orders differently for a pitcher than for a shortstop. The B-side block is
+// the one exception and it is placed EXPLICITLY, first, below: WALKUP_ALL_STATS is not a key of
+// statWeights() and must not reach the orphan path at the foot of this function, which means "this
+// record does nothing for this player" and is the opposite of what a B-side is.
+//
+// RECORDS SOMEBODY ELSE IS USING ARE NOT LISTED AT ALL. See the EXCLUSIVITY note at the head of the
+// file for the argument; the mechanical consequence is that this list is now per-player in a second
+// way — two cards side by side offer different records — and that assignSong() below can be a
+// straight refusal, because nothing this function returns can ever be a steal.
 function listPickerOptions(state, player) {
   const roster = (state && state.roster) || [];
   const options = walkupSlice(state)
@@ -157,10 +215,18 @@ function listPickerOptions(state, player) {
     // the browser would silently display the first row instead, and the card would be claiming he
     // has no song while the state says he has one. It stays listed so he can be moved off it.
     .filter((song) => song && (songCountsFor(player.position, song.stat) || song.id === player.walkupSongId))
+    // SPOKEN FOR, SO NOT ON OFFER. The `|| this player holds it` half is not optional: without it
+    // the record a player is currently walking up to would be filtered out of his own dropdown, the
+    // <select> would have no option matching its own value, and the browser would display the first
+    // row instead — the card claiming he has no song while the state says he has one. That is the
+    // same failure mode the training-camp clause above exists to prevent, reached from the other
+    // direction, and it is also how a player is taken OFF a record from his own card.
+    .filter((song) => {
+      const holder = holderOf(roster, song.id);
+      return !holder || holder.id === player.id;
+    })
     .sort((a, b) => a.cost - b.cost)
     .map((song) => {
-      const holder = holderOf(roster, song.id);
-      const takenBy = holder && holder.id !== player.id ? holder.name : null;
       const inert = !songCountsFor(player.position, song.stat);
       return {
         id: song.id,
@@ -171,13 +237,15 @@ function listPickerOptions(state, player) {
         stat: song.stat,
         effect: describe(song),
         selected: player.walkupSongId === song.id,
-        // Named rather than hidden: the record is still choosable, and choosing it takes it off
-        // the kid named here. See the EXCLUSIVITY note above.
-        takenBy,
         inert,
-        label:
-          `${song.title} — ${song.artist} (${describe(song)})` +
-          `${inert ? WALKUP_COPY.inertSuffix : ''}${takenBy ? ` ${WALKUP_COPY.heldBy(takenBy)}` : ''}`,
+        // THE STAT COMES FIRST, before the title, and that is the whole answer to "I can't tell
+        // which stat I'm boosting". The <optgroup> headings below say the same thing and are the
+        // better answer on paper — but iOS renders a <select> as a native picker wheel that
+        // frequently does not surface optgroup labels at all, and the phone is the target device
+        // (see the Mobile section of conventions). So the grouping stays for every browser that
+        // honours it, and the tag makes each row answer the question on its own.
+        label: `${WALKUP_COPY.statTag(song.stat)} · ${song.title} — ${song.artist} (${describe(song)})` +
+          `${inert ? WALKUP_COPY.inertSuffix : ''}`,
       };
     });
 
@@ -191,7 +259,6 @@ function listPickerOptions(state, player) {
     artist: '',
     effect: '',
     selected: !player.walkupSongId,
-    takenBy: null,
     inert: false,
     label: WALKUP_COPY.noSong,
   };
@@ -199,7 +266,16 @@ function listPickerOptions(state, player) {
   // One block per stat that actually has a record in it. A group with nothing in it is dropped
   // rather than rendered empty — a heading over no rows is the shape of a bug, and which stats are
   // represented depends entirely on what the player has bought.
-  const groups = Object.keys(statWeights(player.position))
+  //
+  // THE B-SIDES ARE PLACED FIRST, EXPLICITLY. They cannot come from statWeights() — WALKUP_ALL_STATS
+  // is not one of its keys and deliberately never will be (engine/strength.js keeps each row summing
+  // to 1.0) — so without this line they would fall through to the orphan path below, whose meaning
+  // is "this record does nothing for this player". First rather than last because a record that
+  // moves every bar on the card is the answer to a question the player has not narrowed down yet,
+  // and because it is the most expensive block: putting it at the bottom of a wheel that has to be
+  // SCROLLED on a phone is how a shop hides its own top rung.
+  const groups = [WALKUP_ALL_STATS]
+    .concat(Object.keys(statWeights(player.position)))
     .map((stat) => ({
       stat,
       label: WALKUP_COPY.statGroup(stat),
@@ -240,6 +316,8 @@ function songSummaryFor(player) {
     title: song.title,
     artist: song.artist,
     stat: song.stat,
+    // The same chip the crate rows carry, so the card and the shop label a record identically.
+    statTag: WALKUP_COPY.statTag(song.stat),
     inert,
     effect: inert ? null : describe(song),
   };
@@ -278,14 +356,15 @@ function assignSong(state, playerId, songId) {
   if (!songCountsFor(player.position, song.stat)) return null;
   if (player.walkupSongId === songId) return null;
 
-  // One pass does both halves of the handover: the new owner gets it, and whoever had it loses
-  // it. Written as a single map so there is no window in which two players hold the same record.
-  const roster = state.roster.map((p) => {
-    if (p.id === playerId) return { ...p, walkupSongId: songId };
-    if (p.walkupSongId === songId) return { ...p, walkupSongId: null };
-    return p;
-  });
-  return { ...state, roster };
+  // A RECORD SOMEBODY ELSE IS USING IS REFUSED, NOT TAKEN. listPickerOptions() no longer offers
+  // one, so this is unreachable through the UI and is exactly the kind of refusal the house rule
+  // describes: an action the player could not have made through the interface is a no-op, not an
+  // error. It is not therefore dead code — it is what keeps a stale render from silently stripping
+  // a bonus off a player somewhere else on the screen, which is the failure the steal could produce
+  // and the reason it went away. The way to move a record is to take it back in the crate first.
+  if (holderOf(state.roster, songId)) return null;
+
+  return { ...state, roster: state.roster.map((p) => (p.id === playerId ? { ...p, walkupSongId: songId } : p)) };
 }
 
 // The one entry point the reducer calls, and the reason walk-up songs need only one action type.
@@ -315,3 +394,35 @@ module.exports = {
   setWalkupSong,
   WALKUP_CURRENCY,
 };
+
+
+// ---------------------------------------------------------------------------------------------
+// VERIFIED — driven under `node` and through the real reducer; the picker and crate rows also
+// rendered with react-dom/server. Part of the same 125-assertion run recorded in
+// components/playoffs/PlayoffBracket.js.
+//
+// EXCLUSIVITY:
+//   · a record held by one player is absent from every OTHER player's picker                PASS
+//   · it is still listed in its own holder's picker — the <select> must match its own value  PASS
+//   · an unheld record is still offered to everybody                                        PASS
+//   · a steal dispatched through the reducer returns the IDENTICAL state object (refused)    PASS
+//   · release (playerId: holder, songId: null) returns it to the crate, and it can then be
+//     assigned to somebody else                                                             PASS
+//   · listCrate() carries heldBy AND heldById, which is what makes the release control
+//     possible without a second copy of holderOf() in a component                           PASS
+//
+// THE B-SIDES (stat: WALKUP_ALL_STATS):
+//   · songCountsFor() answers true for 'P' and for DEFAULT on all four                      PASS
+//   · playerOverall() gain is EXACTLY the declared bonus on a flat stat block, for every
+//     one of the four (+3%, +4%, +5%, +6%) — the weights sum to 1.0, so a uniform bonus on
+//     every term is that bonus on the average                                               PASS
+//   · every price equals bonusPercent x 800, the file's own rule at weight 1.0              PASS
+//   · the B-side block is FIRST in the picker, not in the orphan bucket (whose meaning is
+//     "does nothing here")                                                                  PASS
+//
+// LEGIBILITY: the stat leads every option label ("POWER · Thunderstruck — …"), and the crate row
+// and the roster card carry the same statTag                                                PASS
+//
+// The crate blurb no longer contains the sentence promising a steal                         PASS
+// RosterPanel renders with `state.walkup` DELETED                                           PASS
+// ---------------------------------------------------------------------------------------------
