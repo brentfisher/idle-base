@@ -1118,6 +1118,10 @@ table.standings tr.me {
 .toast-good { border-color: #6ab04c; }
 .toast-bad { border-color: #a44a4a; }
 .toast-crew { border-color: #f4d35e; color: #f7e6a8; }
+/* A misadventure — the things that happen around a game rather than in it. Deliberately the
+   quietest tone on the list: it rides alongside a result the player is actually waiting for, and
+   it must never be the thing the eye lands on first. */
+.toast-odd { border-color: #4a6b57; color: #b8cdbd; font-style: italic; }
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }

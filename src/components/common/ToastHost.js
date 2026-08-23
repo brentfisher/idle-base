@@ -1,6 +1,6 @@
 const React = require('react');
 const { useGame } = require('../../state/GameContext');
-const { crewJoinLine, challengeLine, gameResultLine, gamesAwayLine } = require('../../data/toastMessages');
+const { crewJoinLine, challengeLine, gameResultLine, gamesAwayLine, misadventureFor } = require('../../data/toastMessages');
 
 const TOAST_MS = 4200;
 // Only ever a handful on screen. A burst (three kids at once off one long offline return)
@@ -13,7 +13,12 @@ const MAX_TOASTS = 3;
 // derive-don't-store design exists to prevent, and MAX_TOASTS would silently discard all but
 // the last three of them anyway — which would report three arbitrary games as if they were
 // the only ones. A summary is both smaller and more honest.
-const MAX_GAME_TOASTS = 1;
+//
+// TWO RATHER THAN ONE, because a live game may say two things: the result, and the misadventure
+// that sometimes accompanies it. It is still a cap on the LIVE branch only — the batch branch
+// produces exactly one summary and never a misadventure, so a fifteen-game catch-up cannot reach
+// this number from the other direction.
+const MAX_GAME_TOASTS = 2;
 
 // Opponent names live on the league, not on the schedule slot, which carries only an id. Not
 // prose — the strings are the league's own team names — so the lookup belongs here rather than
@@ -81,12 +86,27 @@ function useTransitionToasts(state) {
 
     if (finished === 1) {
       // The completed game is the slot the index just moved off.
-      const slot = season.schedule[snapshot.scheduleIndex - 1];
+      const gameIndex = snapshot.scheduleIndex - 1;
+      const slot = season.schedule[gameIndex];
       if (slot && slot.played) {
         gameToasts.push({
           tone: slot.result === 'win' ? 'good' : 'bad',
           text: gameResultLine(slot, opponentName(state, slot.opponentTeamId)),
         });
+        // Whatever else was going on around the game. Roughly one in four, derived from the season
+        // and the game index so a given game always says the same thing — see
+        // data/toastMessages.js for why it is hashed rather than rolled.
+        //
+        // ON THE LIVE SINGLE-GAME BRANCH ONLY, AND DELIBERATELY NOT ON THE BATCH ONE BELOW. An
+        // eight-hour return resolves a whole season in one advance(), and a joke about a dog on
+        // the field four hours ago is a joke about nothing the player was there for. The batch
+        // branch stays one honest summary.
+        //
+        // It is pushed as a SEPARATE toast rather than appended to the result line: the result is
+        // what the player is waiting for and must stay one line at 390px, and MAX_TOASTS keeps the
+        // pair from ever becoming a stack.
+        const aside = misadventureFor(snapshot.seasonNumber, gameIndex, act);
+        if (aside) gameToasts.push({ tone: 'odd', text: aside });
       }
     } else if (finished > 1) {
       // The batch branch, and the reason MAX_GAME_TOASTS exists. Count them, say it once.
@@ -101,8 +121,9 @@ function useTransitionToasts(state) {
       if (wins + losses > 0) gameToasts.push({ tone: 'game', text: gamesAwayLine(wins, losses) });
     }
 
-    // The cap, applied rather than merely intended. Both branches above already produce at
-    // most one, and this is what keeps that true if a third branch is ever added.
+    // The cap, applied rather than merely intended. The live branch produces at most two (a result
+    // and its misadventure) and the batch branch exactly one, so this changes nothing today — it is
+    // what keeps that true if a third branch is ever added.
     added.push(...gameToasts.slice(0, MAX_GAME_TOASTS));
 
     if (added.length === 0) return;
