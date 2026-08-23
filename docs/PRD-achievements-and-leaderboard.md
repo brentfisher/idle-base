@@ -386,7 +386,13 @@ actPoints(act) = round(WEIGHT[act] × clamp(PAR[act] / max(seconds, FLOOR), 0, S
   degenerate strategy cannot mint an unreachable score.
 * `FLOOR` (proposed 30s) — a divide guard, and the same bound stated from the other side.
 * An act that was not completed scores 0. An act that is **unrecorded** (§4) is skipped entirely,
-  and the record card labels the run partial so it is never compared against a complete one.
+  and the record card labels the run partial so it is never compared against a complete one. An act
+  is *unrecorded* rather than *unplayed* when a LATER act was recorded: reaching Act IV means Acts
+  I-III happened, whatever the card says about them.
+* **Act VII's duration is written by the WIN, not by a transition.** Splits are taken when an act is
+  left (§3.5), and the terminal act is never left — so `PAR[6]`/`WEIGHT[6]` are unreachable until
+  §3.8's run-end path records it. That is 300 of the 1,000 available act points, on the longest act
+  in the game, and it is the one place the score would silently under-report a finished run.
 
 Achievement points are flat and independent of time, which is what stops the score from being a pure
 speedrun: `called-shot` and `notebook` reward taking the greedy line, and the greedy line costs
