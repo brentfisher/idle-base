@@ -2,6 +2,11 @@ const balanceConfig = require('../data/balanceConfig');
 const { CHALLENGERS } = require('../data/wallBallConfig');
 const { INITIAL_PHASE, EXPEDITION_RESOURCES } = require('../data/actSevenConfig');
 const { createContractBoard } = require('../data/actSevenContractsConfig');
+// The counters bag, built from one place rather than written out here, for the same reason
+// createExpeditionResources() below exists: two hand-written copies of one shape drift, and a
+// counter that exists in the initial state but not in the accessor's defaults is a counter that
+// silently reads as undefined on every save but a brand-new one.
+const { emptyCounters } = require('../engine/records');
 
 // A fresh game constructs only what Act I needs. Act transitions are the initializer boundary:
 // entering Act III is what first calls generateSeasonSchedule(), entering Act V is what first
@@ -146,6 +151,24 @@ function createInitialState() {
       seenTabs: [],
       storyBeatsSeen: [],
     },
+    // The record card for the run in progress, and the achievements earned IN IT. Both are
+    // tick-loop collections in the sense state/initialState.js's header means: present-and-empty
+    // from t=0 rather than null, because every reader dereferences them unconditionally and a
+    // guard at every call site is worse than an empty object at one.
+    //
+    // `actSeconds` starts EMPTY and stays empty for an act nobody has finished — that is the
+    // distinction the surfaces are built on (PRD §4): an act with no entry is UNRECORDED, which is
+    // not the same statement as an act that took zero seconds, and zero would read as the best
+    // time in the game. engine/records.js is where both are read from, and the only place that
+    // writes a split is enterAct().
+    //
+    // Neither slice bumped `meta.version`, following the salvage wallet key: a save written before
+    // they existed has neither key, engine/records.js defaults both, and the save loads and plays
+    // exactly as before. The career half of this — finished runs, achievements kept forever, the
+    // posting profile — is deliberately NOT here; it is in persistence/recordsStore.js, under its
+    // own localStorage key, because clearSave() deletes this one.
+    record: { actSeconds: {}, startedAtClock: 0, counters: emptyCounters() },
+    achievements: { earned: [], seenIds: [] },
     reputation: balanceConfig.startingReputation,
     stadium: null,
     roster: [],

@@ -19,6 +19,9 @@ const { CHALLENGERS, REPUTATION_PER_RESPECT } = require('../data/wallBallConfig'
 // ranks within it. data/actSevenConfig.js owns the list; this file owns the comparison, because
 // src/data/ carries no logic.
 const { EXPEDITION_PHASES } = require('../data/actSevenConfig');
+// The record card. Imported for one call in enterAct() — this file is where act boundaries are
+// observable, so it is the only place an act's duration can be captured.
+const { recordActSplit } = require('./records');
 
 // Which features are unlocked is DERIVED from the act index on every read and is never stored.
 // That makes it self-healing: retuning which act unlocks a feature takes effect immediately on
@@ -293,11 +296,23 @@ const ACT_INITIALIZERS = {
   },
 };
 
+// THE ACT SPLIT IS TAKEN HERE AND NOWHERE ELSE, AND IT HAS TO BE TAKEN FIRST. `actEnteredAtClock`
+// is overwritten one line below and no history of it is kept anywhere, so the moment after this
+// function restamps it the duration of the act just left is gone for good — which is precisely the
+// gap the record card exists to close (PRD §1). recordActSplit() reads the OLD `progression` off
+// `state`, so it must run against `state` and not against `entered`.
+//
+// It is a no-op on everything that is not a traversal: a same-index re-entry (resetForPrestige()
+// re-enters PRESTIGE_ACT_INDEX from PRESTIGE_ACT_INDEX, and an era loop sits inside one run rather
+// than closing it — PRD §3.6), an act already timed, and a save with no `actEnteredAtClock` to
+// subtract. engine/records.js carries the argument for each; none of that judgement lives here,
+// because this function already owns enough.
 function enterAct(state, actIndex) {
   const act = getActConfig(actIndex);
+  const split = recordActSplit(state, act.id, state.clock);
   const entered = {
-    ...state,
-    progression: { ...state.progression, act: act.id, actEnteredAtClock: state.clock },
+    ...split,
+    progression: { ...split.progression, act: act.id, actEnteredAtClock: split.clock },
   };
   const initializer = ACT_INITIALIZERS[act.id];
   return initializer ? initializer(entered) : entered;
