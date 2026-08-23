@@ -841,6 +841,9 @@ function actualDraw(owned, drawMult, throttles, sites, contractDraw) {
 //   gross          production per second, after both throttles and the output multipliers.
 //   demand         required draw per second at FULL output. Constant, and not what is being drawn.
 //   net            signed rate per second, pinned to exactly 0 against a boundary it cannot cross.
+//   unclamped      the same rate with the ceiling taken away — what the bus would run at if there
+//                  were somewhere to put the output. Equal to `net` whenever nothing is clamped.
+//                  DISPLAY ONLY; the simulation moves stock with `net`. See the long note below.
 //   capacity       the ceiling, from the slice.
 //   pinned         'empty' | 'capacity' | null — WHICH end that pin was taken against, if any.
 //                  Part of the contract, not a diagnostic: it is unrecoverable from the other
@@ -944,6 +947,41 @@ function colonyRates(state, modifiers) {
   );
   const draw = actualDraw(owned, drawMult, supplyThrottle, sites, contractDraw);
 
+  // THE RATE WITH THE CEILING TAKEN AWAY — what this bus would run at if there were somewhere to
+  // put the output. `rationed` is production at the solved ration BEFORE load-follow, `demand` is
+  // draw at full output, so this is the signed rate of a colony whose tanks are all bottomless.
+  //
+  // IT EXISTS BECAUSE A FULL TANK MADE THE PLAYER'S REACTORS INVISIBLE, and `net` cannot be made to
+  // answer for that without breaking the two things that depend on it. Buy five RTGs, fill Power,
+  // and every number on the header goes quiet: load-follow drops the throttle to 0, `gross` falls
+  // to `demand`, `gross - draw` lands on 0, and the chip reads `0/s` next to `100/100`. That is a
+  // true statement about the STOCK and a false impression about the COLONY — 15 Power/s of
+  // generation is running and being thrown away, and the screen shows the same thing it would show
+  // for a player who owns nothing at all. The reading the player is owed is "+15.0/s, and none of
+  // it is landing", which is two facts, so it takes two fields.
+  //
+  // NOT `gross - draw`, WHICH WAS THE FIRST DRAFT AND IS THE WRONG NUMBER. That is the surplus
+  // being vented AFTER the producers back off, and load-follow is specifically the mechanism that
+  // drives it to zero — it is nonzero only for production that cannot back off at all (a site's
+  // atmosphere; siteProductionPerSecond() argues why a planet does not throttle). Measured under
+  // `node`: five RTGs against a full Power tank report `gross - draw` = 0.00 and this field 15.00.
+  // Shipping the first draft would have left the complaint that prompted this exactly as it was.
+  //
+  // ADDITIVE, AND `net` KEEPS EVERY EXISTING CALLER. integrateColony() moves the stock with `net`
+  // and nextColonyThresholdClock() feeds the event clock with it; handing either an unclamped rate
+  // resurrects precisely the boundary-at-distance-zero bug THE PIN below exists to kill. Nothing in
+  // the simulation may read this. It is for the surfaces, and engine/colonyReadout.js is the only
+  // thing that does.
+  //
+  // EQUAL TO `net` WHENEVER NOTHING IS CLAMPED, which is what makes it safe for a surface to print
+  // either one: with every throttle at 1, `gross` IS `rationed` and `draw` IS `demand`, so the two
+  // subtractions are the same subtraction. The fields diverge only where the ceiling is doing
+  // something, which is the only case the readout swaps them.
+  const unclamped = {};
+  EXPEDITION_RESOURCE_IDS.forEach((resourceId) => {
+    unclamped[resourceId] = rationed[resourceId] - demand[resourceId];
+  });
+
   // THE PIN, AT BOTH ENDS. A resource held against a boundary it cannot cross has net exactly 0 BY
   // ASSIGNMENT, not by arithmetic. At the empty end this is §5.6's rule and it is what makes the
   // pinned state absorbing: `demand` is the full-output figure, so `gross - draw` for a starved
@@ -1009,7 +1047,7 @@ function colonyRates(state, modifiers) {
   // never disagree about how starved the colony is.
   const salvage = salvageFromOwned(owned, satisfaction, supplyThrottle);
 
-  return { satisfaction, supplyThrottle, gross, demand, net, capacity, pinned, passes, salvage };
+  return { satisfaction, supplyThrottle, gross, demand, net, unclamped, capacity, pinned, passes, salvage };
 }
 
 // Sum of every owned module's Salvage output at the solved ration. Split out rather than inlined
