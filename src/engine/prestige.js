@@ -77,6 +77,26 @@ function resetForPrestige(state) {
 
   return enterAct({
     ...state,
+    // THE CLOCK RESTARTS AT 0, AND EVERY FORWARD-LOOKING STAMP HAS TO RESTART WITH IT. An era is a
+    // fresh attempt at the last act, so it is timed like one: engine/records.js records an act's
+    // duration as a `state.clock` delta, and a clock that kept running across the boundary would
+    // make every post-prestige traversal look longer than the first by however long the first
+    // one took.
+    //
+    // The stamps below are gates, not history: `nextClickAtClock` and `nextChallengeAtClock` say
+    // "not before clock N", and a clock rewound past them would leave both cooling for as long as
+    // the previous era lasted. clickCooldownRemaining() clamps the click's wait to the act's own
+    // cooldown so it could not lock out permanently, but the wall would simply be shut — and
+    // relying on another module's clamp to keep this one correct is how that clamp gets removed
+    // one day by someone who cannot see who depended on it.
+    //
+    // HISTORICAL stamps are deliberately left alone: `bookie`'s `placedAtClock` / `settledAtClock`
+    // and the feed's entry clocks record when something happened in an era that is now over.
+    // Rewriting them would be inventing a past, and nothing schedules off them. `season` below is
+    // rebuilt outright, and `powerups.active` is emptied, so neither carries a stale clock.
+    clock: 0,
+    clicker: { ...state.clicker, nextClickAtClock: 0 },
+    wallBall: { ...state.wallBall, nextChallengeAtClock: 0 },
     // Prestige clears every currency, not just cash — mirrors the wallet in createInitialState().
     // `salvage` is listed for that reason and not because it does anything yet: it is zero at every
     // point in the game that can reach prestige today, so listing it and omitting it are
@@ -95,7 +115,8 @@ function resetForPrestige(state) {
       scheduleIndex: 0,
       schedule,
       secondsPerGame: rules.secondsPerGame,
-      nextGameAtClock: state.clock + rules.secondsPerGame,
+      // Measured from the RESTARTED clock (0), not from the era that just ended.
+      nextGameAtClock: rules.secondsPerGame,
       standings,
       tradeWindows,
       playoffs: null,
