@@ -12,10 +12,12 @@ const { getCurrency } = require('../../data/currencies');
 const { formatNumber } = require('../../utils/formatNumber');
 
 // The manual income action. This button is rendered in every act and is never removed — it is
-// the anti-softlock guarantee (PRD §6.4). From Act III it spends a few seconds disabled after
-// each press, which is a rate limit rather than a gate: the wait is fixed, small and always
+// the anti-softlock guarantee (PRD §6.4). From Act III to Act VI it spends a few seconds disabled
+// after each press, which is a rate limit rather than a gate: the wait is fixed, small and always
 // elapsing, and engine/clicker.js clamps it to the current act's own cooldown so it cannot
-// become a lockout. Every number below is read from that engine; nothing here decides pacing.
+// become a lockout. Acts I, II and VII declare no cooldown at all and never disable — the `ready`
+// branch below is the whole of their behaviour. Every number here is read from that engine;
+// nothing in this file decides pacing.
 //
 // The currency is read, not assumed. This used to print "caps" unconditionally, which was
 // correct only for as long as no act overrode `clickCurrency`; Act III pays cash, and the
