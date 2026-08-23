@@ -396,15 +396,31 @@ const ACTS = [
       // the first two minutes the click is 100% of the act's income. The gap between "two minutes
       // to your first Drone" and "three seconds" is the gap between an opening and a cutscene.
       //
-      // MEASURED: 8 / 3s = 2.667 Salvage/s, so the first Reclaimer Drone (320) is 118 seconds of
-      // pure clicking, against PRD §5.11's 90-130s target. The full tuning record for the act's
-      // opening is in data/actSevenModulesConfig.js.
+      // MEASURED WHEN THE PRESS WAS THROTTLED: 8 / 3s = 2.667 Salvage/s put the first Reclaimer
+      // Drone (320) at 118 seconds of pure clicking, against PRD §5.11's 90-130s target. That
+      // target no longer binds the opening — see the deliberately absent cooldown below — but the
+      // figure is kept, because it is the rate every module price in data/actSevenModulesConfig.js
+      // was tuned against and it is still what a player pressing at the old pace gets.
       //
       // The click never gets better from here. Every improvement in this act is a module.
       clickFlatValue: 8,
-      // Three seconds, unchanged from every act since Act III — the throttle never silently lifts
-      // at the last act, least of all at the one where the click is the whole opening.
-      clickCooldownSeconds: 3,
+      // NO clickCooldownSeconds, AND THE ABSENCE IS THE DECISION rather than an oversight. This
+      // act declared three seconds, unchanged from every act since Act III. It now declares
+      // nothing, which engine/clicker.js's clickCooldownSeconds() answers as 0: applyClick() leaves
+      // `nextClickAtClock` untouched and the button renders the always-ready path Acts I and II
+      // already use. Nothing in the engine or the UI needed changing to allow it, which is the
+      // clearest evidence the throttle was config rather than mechanism.
+      //
+      // THE THROTTLE WAS PROTECTING A PACING TARGET, NOT AN ECONOMY. The click is Salvage's only
+      // faucet, but it is a FLAT 8 that never improves for anybody (see above), so the fastest
+      // possible presser still buys the same 320-Salvage Drone with the same 40 presses — they are
+      // merely allowed to spend their own thumb instead of two minutes. A player who wants the
+      // opening in forty seconds is not beating the act; they are doing the most laborious thing
+      // in it. The idle path is untouched, because the idle path is modules.
+      //
+      // WHAT IT COSTS is the 90-130s opening above, knowingly. WHAT IT KEEPS is everything else
+      // the click is: the anti-softlock guarantee for the whole act (engine/clicker.js's header,
+      // design Decision 6), flat 8 for every player, and worth exactly as much per press as it was.
     },
     modifierBonuses: {},
     // Seven tabs replace twelve — §6.4's six, plus §7.8's `board` appended by STORY-032. All seven

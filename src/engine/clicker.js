@@ -14,9 +14,10 @@
 //      nextClickAtClock says — a corrupt save, a hand-edited localStorage, a value written by
 //      an act with a longer cooldown that the player has since left — the player can never be
 //      asked to wait longer than the act in front of them declares.
-//   2. An act with no clickCooldownSeconds clamps to zero, so Acts I and II are untimed no
-//      matter what is in the save. Act I's whole game is the click; Act II's broke player is
-//      clicking back up to a minimum wager.
+//   2. An act with no clickCooldownSeconds clamps to zero, so Acts I, II and VII are untimed
+//      no matter what is in the save. Act I's whole game is the click; Act II's broke player is
+//      clicking back up to a minimum wager; Act VII's is a player who would rather press forty
+//      times than wait two minutes for the same Drone (data/acts.js argues that one at length).
 //   3. An absent nextClickAtClock (every save written before this existed) reads as 0, which
 //      is in the past, which is ready. `undefined` must never read as a lockout.
 // applyClick() refuses rather than throws when the click is not ready — same contract as
