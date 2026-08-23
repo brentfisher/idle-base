@@ -302,6 +302,12 @@ function runCard(state) {
     actSeconds: { ...slice.actSeconds },
     achievements: [...achievements],
     complete: !!slice.complete,
+    // The furthest act the run got to. Carried because `actSeconds` alone cannot tell an act that
+    // was PLAYED BUT NEVER TIMED from one that was never reached: a save that predates the record
+    // card sits in Act IV with an empty card, and without this every act behind it reads as "not
+    // played" — which is a nicer lie than `0s` and still a lie. engine/score.js uses it as the
+    // frontier for `unrecordedActs`.
+    reachedAct: typeof ((state || {}).progression || {}).act === 'number' ? state.progression.act : null,
     startedAtClock: slice.startedAtClock,
     endedAtClock: slice.endedAtClock,
     // Simulated seconds the run lasted, which is what a leaderboard row means by "total time" —

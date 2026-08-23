@@ -3,6 +3,7 @@
 
 const { POWERUPS } = require('./powerupsConfig');
 const { CAMP_PROGRAMS } = require('./campProgramsConfig');
+const { formatDuration } = require('../utils/formatNumber');
 
 // Ring-buffer size, enforced on every write in engine/feed.js. An 8-hour offline
 // catch-up resolves roughly 600 narrated events (28,800s / 60s per game slot, plus
@@ -156,6 +157,18 @@ const feedMessages = {
 // goes negative. An alarmed warning line would be lying about the stakes, and a player who learns
 // the feed cries wolf stops reading it — which matters here because the feed is where the whole
 // terminology reveal is delivered. "Nothing has been damaged" is the sentence doing that work.
+// The act split, narrated once at the boundary that produced it. DYNAMIC TEXT, which is why it is
+// here and not in data/storyBeats.js: a beat carries a fixed `prose` array and fires once on a
+// predicate, and this line carries two numbers that differ every act and every run.
+//
+// Says the par beside the time on purpose. A duration alone is not a result — nobody knows whether
+// 14 minutes in Act III was good — and the Records tab is one tab away rather than in front of the
+// player at the moment the act ends.
+function actSplitLine(actLabel, seconds, par) {
+  const verdict = seconds <= par ? 'inside par' : 'over par';
+  return `${actLabel} cleared in ${formatDuration(seconds)} — ${verdict} (${formatDuration(par)}).`;
+}
+
 const actSevenMessages = {
   moduleOnline: (name) => `${name} brought online.`,
   moduleIdle: (name) => `${name} is drawing more than the site is making. It is waiting.`,
@@ -183,6 +196,7 @@ const actSevenMessages = {
 };
 
 module.exports = {
+  actSplitLine,
   FEED_CAP,
   FEED_CATEGORIES,
   feedMessages,
