@@ -34,6 +34,8 @@ const { creditWallet, debitWallet, balanceOf } = require('./wallet');
 const { concessionsPerSecond } = require('./concessions');
 const { sponsorshipsPerSecond } = require('./sponsorships');
 const { clamp } = require('../utils/statUtils');
+// The record card's counters. engine/records.js owns what a counter means; this file owns when.
+const { recordWagerSettled } = require('./records');
 const {
   WAGER_MAX_FRACTION,
   MIN_WAGER,
@@ -235,7 +237,10 @@ function settleWager(state, playerWon) {
   const won = wager.side === SIDE_AGAINST ? !playerWon : !!playerWon;
   const payout = won ? Math.round(wager.amount * wager.payoutMult) : 0;
 
-  return settleProp({
+  // The counters the achievement evaluator reads. `wager.payoutMult` is the line the player was
+  // QUOTED — frozen at placement, see placeWager() — and only a win is recorded, so a losing wager
+  // at any multiplier leaves `long-shot` exactly where it was.
+  return settleProp(recordWagerSettled({
     ...state,
     wallet: payout > 0 ? creditWallet(state.wallet, 'cash', payout) : state.wallet,
     bookie: {
@@ -255,7 +260,7 @@ function settleWager(state, playerWon) {
         settledAtClock: state.clock || 0,
       },
     },
-  });
+  }, { won, payoutMult: wager.payoutMult, prop: false }));
 }
 
 // A wager cannot survive the season it was placed in: the schedule it referred to is gone.
@@ -529,7 +534,10 @@ function settleProp(state) {
   const reputation =
     (typeof state.reputation === 'number' ? state.reputation : balanceConfig.startingReputation) + reputationWon;
 
-  return {
+  // Same contract as the moneyline above, into a DIFFERENT counter: the prop board quotes a much
+  // wider spread of multipliers, so sharing one would make the moneyline's achievement farmable off
+  // the other page (PRD §5.4).
+  return recordWagerSettled({
     ...state,
     reputation,
     wallet: payout > 0 ? creditWallet(state.wallet, 'cash', payout) : state.wallet,
@@ -553,7 +561,7 @@ function settleProp(state) {
         settledAtClock: state.clock || 0,
       },
     },
-  };
+  }, { won, payoutMult: prop.payoutMult, prop: true });
 }
 
 // Presentation-ready view of the prop board, folded into bookieView() below. Everything the

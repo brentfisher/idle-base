@@ -35,6 +35,11 @@ const {
 const { winPurseForAct, playoffPurseForAct } = require('../data/winPurseConfig');
 const { createFeedEntry, appendFeedEntries } = require('./feed');
 const { effectiveSecondsPerGame, effectiveSecondsPerPlayoffRound } = require('./pacing');
+// The record card and the achievement evaluator. The evaluator is deliberately NOT on the event
+// clock contributor list: it is not time-driven, it runs every iteration, and it schedules nothing.
+const { recordUndefeatedSeason } = require('./records');
+const { evaluateAchievements, grantAchievements } = require('./achievements');
+const { LITTLE_LEAGUE_ACT_INDEX } = require('./littleLeague');
 const {
   feedMessages,
   powerupDisplayName,
@@ -560,6 +565,17 @@ function runOffseasonTransition(working, modifiers) {
   const wonChampionship = !!(working.season.playoffs && working.season.playoffs.champion === PLAYER_TEAM_ID);
   const playerRow = working.season.standings.find((s) => s.teamId === PLAYER_TEAM_ID);
 
+  // `undefeated`'s counter, taken HERE because this is the last moment the season's standings exist
+  // to be read — the rollover below replaces them. Act III only: the achievement is named for the
+  // Little League and a 24-game minor-league sweep is a different feat with the same shape.
+  //
+  // `wins > 0` guards the degenerate row a frozen or zero-game season would leave: 0-0 is not an
+  // unbeaten season, it is a season nobody played.
+  if (playerRow && playerRow.losses === 0 && playerRow.wins > 0
+      && working.progression && working.progression.act === LITTLE_LEAGUE_ACT_INDEX) {
+    working = recordUndefeatedSeason(working);
+  }
+
   // HOW THE POSTSEASON ACTUALLY ENDED, captured here for the same reason `finishedFirst` below is:
   // `season.playoffs` is nulled by the rollover a few lines down, so this is the last moment the
   // bracket exists to be read.
@@ -881,6 +897,16 @@ function advance(state, deltaSeconds) {
     working = checkActTransition(working);
     working = announceSponsorOffers(working);
     working = emitStoryFeedBeats(working);
+
+    // THE ONE EVALUATION SITE (PRD §3.4). Last in the iteration, so it sees everything the step
+    // did — an act just crossed, a phase just written, a season just rolled over — and inside the
+    // loop rather than after it, for the same reason checkActTransition() is: an unlock earned
+    // three hours into an eight-hour catch-up is earned at the moment it happened.
+    //
+    // Nothing else in the codebase may call evaluateAchievements(). Every instant that could unlock
+    // something writes a counter instead (engine/records.js), and this reads them. Both halves
+    // return `working` by identity when there is nothing to do, which is almost every tick.
+    working = grantAchievements(working, evaluateAchievements(working));
   }
 
   return working;
