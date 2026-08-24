@@ -2,8 +2,22 @@ schema: spec-driven
 
 context: |
   Domain: idle-base is a baseball-themed idle/incremental browser game. Client-only —
-  no backend, no network calls, no accounts. State lives in React Context + useReducer;
-  persistence is localStorage.
+  no backend of our own, no accounts, nothing hosted or operated by us. State lives in
+  React Context + useReducer; persistence is localStorage.
+
+  ONE EXCEPTION, added by the achievements/leaderboard work and bounded on purpose:
+  src/persistence/leaderboardClient.js makes optional outbound calls to a third-party
+  leaderboard API (Talo's managed free tier) so players can post finished runs to a
+  shared board. It is the ONLY networked code in the repo. Rules that keep it bounded:
+    - Nothing in src/engine/ may touch the network; `fetch` is a DOM API and engine/ is
+      pure. The client lives in persistence/, beside saveLoad.js.
+    - advance() never calls it. A tick that made a request would make hundreds during an
+      offline catch-up.
+    - Every failure is a no-op: the game is fully playable offline, nothing awaits a
+      response, and no throw escapes the client.
+    - Still no runtime dependency (plain fetch) and still no accounts.
+  Hosting anything remains out of scope — no server, no database, no serverless function,
+  no proxy. See docs/PRD-achievements-and-leaderboard.md §3.1 and §8.
 
   Tech stack: React 18 (the only runtime dependency), Webpack 5, Babel. No TypeScript,
   no routing library, no state-management library, no UI kit.
