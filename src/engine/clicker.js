@@ -70,11 +70,36 @@ function clickLabel(state) {
 // `clicker.perClick` stays in state and would still apply if a later era wanted it back. The click
 // itself never improves in Act VII; every improvement in that act is a module instead.
 function clickValue(state) {
+  return chargedValue(state, baseClickValue(state));
+}
+
+// The press at FULL value, before any charge is applied.
+function baseClickValue(state) {
   const flat = actClickRules(state).clickFlatValue;
   if (typeof flat === 'number' && Number.isFinite(flat) && flat > 0) return flat;
   const multiplier = actClickRules(state).clickMultiplier;
   const scale = typeof multiplier === 'number' ? multiplier : 1;
   return Math.max(1, clickerSlice(state).perClick * scale);
+}
+
+// What the press is worth RIGHT NOW under a charging act: the base times the fraction of the window
+// that has elapsed. An identity on every act that does not charge, which is all six before Act VII.
+//
+// THE CLOCK IS THE GRANULARITY, AND THAT IS DELIBERATE RATHER THAN A LIMITATION. `state.clock`
+// advances once a second, in advance(), so two presses inside the same tick see the same clock and
+// the second is worth nothing. No second clock is introduced to make it finer — engine/tickEngine.js
+// is the only clock in the game, and a Date.now() here would be a second one to keep in sync.
+// The consequence is the one the design wants: the yield is capped at base-per-window however fast
+// the button is hit, so a player pressing ten times a second earns exactly what a player pressing
+// once every three seconds earns, and neither is punished for their habit.
+//
+// Rounded to two decimals so the wallet does not accumulate float dust across thousands of presses.
+// It rounds DOWN, because a rounding rule that pays a fraction of a unit more than it should is a
+// faucet, and this is the one faucet the act's whole economy is priced against.
+function chargedValue(state, base) {
+  const window = clickChargeSeconds(state);
+  if (window === 0) return base;
+  return Math.floor(base * clickCooldownProgress(state) * 100) / 100;
 }
 
 // Seconds this act throttles the click by. Anything that is not a usable positive number — an
@@ -87,16 +112,54 @@ function clickCooldownSeconds(state) {
   return seconds;
 }
 
+// THE CHARGE WINDOW — the third thing an act can do with the press, and the one Act VII does.
+//
+// A COOLDOWN SAYS NO AND A CHARGE SAYS NOT YET ALL OF IT. Under `clickCooldownSeconds` the button
+// is disabled until the wait elapses and then pays in full. Under `clickChargeSeconds` the button
+// is NEVER disabled and pays the fraction of the window that has actually elapsed: press at once
+// and take a third, wait the whole window and take all of it. The two are mutually exclusive by
+// construction — an act declaring both would be declaring that the press is both refused and
+// partially allowed, so the charge wins and clickCooldownSeconds() is not consulted (see
+// clickWindowSeconds below).
+//
+// WHY THE MIDDLE THING EXISTS. A hard cooldown told a player who wanted to keep pressing that the
+// game was not interested; removing it outright made pressing strictly better than waiting, without
+// bound, and quietly deleted the pacing every module price in Act VII was tuned against. A linear
+// charge is the one arrangement where NEITHER habit is punished: the yield per second is identical
+// whether the player presses once every three seconds or ten times a second, so waiting stays worth
+// it and clicking stays allowed. The floor the act was balanced on comes back with it.
+function clickChargeSeconds(state) {
+  const seconds = actClickRules(state).clickChargeSeconds;
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return 0;
+  return seconds;
+}
+
+// The window the fill bar and the countdown are measured against, whichever kind this act declares.
+// Charge first: an act with both is a config mistake, and the safe reading of it is the one that
+// never disables the button.
+function clickWindowSeconds(state) {
+  return clickChargeSeconds(state) || clickCooldownSeconds(state);
+}
+
 // Mirrors cooldownRemaining() in engine/wallBall.js, with the clamp that makes the wait
 // bounded by the act rather than by whatever is in the save. See properties 1-3 in the header.
+//
+// Measured against clickWindowSeconds(), so a charge act reports how much of its window is left to
+// fill. That number is not a WAIT there — nothing is being refused — which is why canClick() below
+// stops consulting it once an act charges rather than cools.
 function clickCooldownRemaining(state) {
-  const seconds = clickCooldownSeconds(state);
+  const seconds = clickWindowSeconds(state);
   if (seconds === 0) return 0;
   const elapsedTarget = clickerSlice(state).nextClickAtClock - ((state && state.clock) || 0);
   return Math.max(0, Math.min(seconds, elapsedTarget));
 }
 
+// A charging act ALWAYS answers yes. That is the whole difference, and it is what keeps the
+// anti-softlock guarantee (PRD §6.4, design Decision 6) trivially intact: the press is never
+// removed and never disabled, and its yield reaches full value in a fixed, small, always-elapsing
+// number of seconds. A player who presses at the wrong moment is not blocked, merely early.
 function canClick(state) {
+  if (clickChargeSeconds(state) > 0) return true;
   return clickCooldownRemaining(state) === 0;
 }
 
@@ -105,7 +168,7 @@ function canClick(state) {
 // becomes an invalid transform and the button looks broken in exactly the act — Act I — where
 // it is the entire game.
 function clickCooldownProgress(state) {
-  const seconds = clickCooldownSeconds(state);
+  const seconds = clickWindowSeconds(state);
   if (seconds === 0) return 1;
   return 1 - clickCooldownRemaining(state) / seconds;
 }
@@ -114,10 +177,10 @@ function clickCooldownProgress(state) {
 // smaller amount. The UI disables the button, but this is what actually holds the rate limit:
 // a queued dispatch, a replayed action or a second tab cannot beat it.
 function applyClick(state) {
-  if (clickCooldownRemaining(state) > 0) return state;
+  if (!canClick(state)) return state;
 
   const slice = clickerSlice(state);
-  const seconds = clickCooldownSeconds(state);
+  const seconds = clickWindowSeconds(state);
   const currency = clickCurrency(state);
   const value = clickValue(state);
   return {
@@ -130,6 +193,9 @@ function applyClick(state) {
       // state/initialState.js states beside the field. Writing `clock + 0` there would be
       // equivalent in behaviour and a lie in the save file: Acts I and II do not have a
       // cooldown that happens to be zero, they have no cooldown.
+      // The window restarts on every press under BOTH kinds of act, and under a charge that is what
+      // spends the charge: taking a third of the window's worth resets it to empty, so the value is
+      // never banked twice.
       nextClickAtClock: seconds > 0 ? ((state && state.clock) || 0) + seconds : slice.nextClickAtClock,
     },
   };
@@ -139,6 +205,9 @@ module.exports = {
   clickCurrency,
   clickLabel,
   clickValue,
+  baseClickValue,
+  clickChargeSeconds,
+  clickWindowSeconds,
   clickCooldownSeconds,
   clickCooldownRemaining,
   clickCooldownProgress,

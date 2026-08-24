@@ -404,23 +404,29 @@ const ACTS = [
       //
       // The click never gets better from here. Every improvement in this act is a module.
       clickFlatValue: 8,
-      // NO clickCooldownSeconds, AND THE ABSENCE IS THE DECISION rather than an oversight. This
-      // act declared three seconds, unchanged from every act since Act III. It now declares
-      // nothing, which engine/clicker.js's clickCooldownSeconds() answers as 0: applyClick() leaves
-      // `nextClickAtClock` untouched and the button renders the always-ready path Acts I and II
-      // already use. Nothing in the engine or the UI needed changing to allow it, which is the
-      // clearest evidence the throttle was config rather than mechanism.
+      // A CHARGE, NOT A COOLDOWN, and this act is the only one that declares one. The button is
+      // never disabled; the press pays the fraction of these three seconds that has actually
+      // elapsed since the last one. Press immediately and take a third of 8; wait the window and
+      // take all of it. engine/clicker.js's clickChargeSeconds() argues the mechanism.
       //
-      // THE THROTTLE WAS PROTECTING A PACING TARGET, NOT AN ECONOMY. The click is Salvage's only
-      // faucet, but it is a FLAT 8 that never improves for anybody (see above), so the fastest
-      // possible presser still buys the same 320-Salvage Drone with the same 40 presses — they are
-      // merely allowed to spend their own thumb instead of two minutes. A player who wants the
-      // opening in forty seconds is not beating the act; they are doing the most laborious thing
-      // in it. The idle path is untouched, because the idle path is modules.
+      // IT WENT COOLDOWN -> NOTHING -> CHARGE, and the middle step is why this exists. Three
+      // seconds of hard cooldown told a player who wanted to keep pressing that the game was not
+      // interested. Removing it made pressing strictly better than waiting, WITHOUT BOUND: the
+      // yield stopped being 8 per three seconds and became 8 per press, which quietly deleted the
+      // 2.667 Salvage/s the entire module ladder in data/actSevenModulesConfig.js is priced
+      // against. A player with a fast thumb was not playing the act that was tuned.
       //
-      // WHAT IT COSTS is the 90-130s opening above, knowingly. WHAT IT KEEPS is everything else
-      // the click is: the anti-softlock guarantee for the whole act (engine/clicker.js's header,
-      // design Decision 6), flat 8 for every player, and worth exactly as much per press as it was.
+      // THE CHARGE IS THE ARRANGEMENT WHERE NEITHER HABIT IS PUNISHED. Yield per second is
+      // identical at any press rate — ten a second and one every three seconds both earn 2.667/s —
+      // so the ceiling the ladder was priced against is back, waiting is worth exactly what it was,
+      // and nobody is refused. §5.11's 90-130s opening holds again for a player who waits, and a
+      // player who taps arrives at the same place by the same clock.
+      //
+      // WHAT IT KEEPS is everything else: the anti-softlock guarantee for the whole act
+      // (engine/clicker.js's header, design Decision 6) is stronger than it was under the cooldown,
+      // because the press is now never disabled at all — and it is still a flat 8 at full charge
+      // for every player.
+      clickChargeSeconds: 3,
     },
     modifierBonuses: {},
     // Seven tabs replace twelve — §6.4's six, plus §7.8's `board` appended by STORY-032. All seven
