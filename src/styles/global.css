@@ -5355,6 +5355,33 @@ body.expedition .v7-contract-abandon-note {
    END RECORDS PANEL (STORY-045)
    -------------------------------------------------------------------------------------------- */
 
+/* --------------------------------------------------------------------------------------------
+   THE CHARGING PRESS (Act VII)
+
+   Same placement rule as the Records block above, and for the same reason: this file ENDS inside
+   `@media (max-width: 640px)`, so a rule appended at EOF is silently mobile-only — it builds
+   clean, it looks right in the diff, and it is invisible above 640px.
+
+   THE TWO BLOCKS COLLIDED ON EXACTLY THAT RULE. Both were written against the same insertion
+   point, in parallel branches, with the same hazard comment at the top — which is the merge
+   conflict that produced this file. Both are kept, in order.
+
+   The fill is the same element a cooling act uses. What changes is that the button never dims,
+   because nothing is being refused — a dimmed control that still works is the worst of both. The
+   secondary "of 8" is quieter than the value beside it so the eye lands on what the press is
+   worth NOW.
+   -------------------------------------------------------------------------------------------- */
+
+.lot-click-button.charging {
+  opacity: 1;
+  cursor: pointer;
+}
+
+.lot-click-of {
+  opacity: 0.6;
+  font-size: 0.85em;
+}
+
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
      description do not share 390px with a price button and stay readable. Stacked, the price
