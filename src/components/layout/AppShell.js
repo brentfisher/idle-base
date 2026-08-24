@@ -31,6 +31,7 @@ const SitesPanel = require('../expedition/SitesPanel');
 const ArtifactsPanel = require('../expedition/ArtifactsPanel');
 const ContractsPanel = require('../expedition/ContractsPanel');
 const BoardPanel = require('../expedition/BoardPanel');
+const RecordsPanel = require('../records/RecordsPanel');
 const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
 const TeardownOverlay = require('../expedition/TeardownOverlay');
@@ -66,6 +67,9 @@ const PANELS = {
   camp: TrainingCampPanel,
   trade: TradeDeadlinePanel,
   prestige: PrestigePanel,
+  // Unlocked in Act I and never retired, so it is the one key in this map that is reachable from
+  // BOTH the baseball acts and Act VII — every other key belongs to one side of the teardown.
+  records: RecordsPanel,
   // Act VII. Every key above is retired by that act's `hides` (data/acts.js), so these seven are
   // never on screen beside them: the map holds nineteen entries and no act ever shows more than
   // twelve of them. Order matters twice over — it is the tab order, and `visibleTabs[0]` is the

@@ -241,7 +241,15 @@ ends", and §3.2's promotion moves `state.achievements.earned` into the career s
   the exact moment the player is most likely to want it kept.
 * **The ordering is promote-then-clear, and it is a hard sequencing constraint.** The run-scoped set
   lives in game state; the career set lives in the records key. A `clearSave()` that runs first has
-  already thrown away what promotion was for.
+  already thrown away what promotion was for. The order is expressed once, as
+  `persistence/runEnd.js: endRunAndClearSave()`, rather than as a comment asking callers to
+  remember it. **There is no reset UI in the game today**, so that function ships as the correct
+  path waiting for its first caller; the Records tab (§7) is its natural home.
+* **Sealing is pure; promoting is not.** `engine/records.js: sealRun()` stamps the card and takes
+  Act VII's split inside `advance()`, so a win crossed during an offline catch-up ends the run at
+  the instant it happened. The write into the records key is done by `hooks/useGameTick.js`, keyed
+  on `endedAtClock` — a reducer may not touch localStorage, and a catch-up runs the loop hundreds of
+  times.
 
 **The evaluator dedupes against the RUN set, not the career set.** An achievement already in the
 career collection can be earned again in a new run — it just does not appear twice in the
@@ -386,7 +394,13 @@ actPoints(act) = round(WEIGHT[act] × clamp(PAR[act] / max(seconds, FLOOR), 0, S
   degenerate strategy cannot mint an unreachable score.
 * `FLOOR` (proposed 30s) — a divide guard, and the same bound stated from the other side.
 * An act that was not completed scores 0. An act that is **unrecorded** (§4) is skipped entirely,
-  and the record card labels the run partial so it is never compared against a complete one.
+  and the record card labels the run partial so it is never compared against a complete one. An act
+  is *unrecorded* rather than *unplayed* when a LATER act was recorded: reaching Act IV means Acts
+  I-III happened, whatever the card says about them.
+* **Act VII's duration is written by the WIN, not by a transition.** Splits are taken when an act is
+  left (§3.5), and the terminal act is never left — so `PAR[6]`/`WEIGHT[6]` are unreachable until
+  §3.8's run-end path records it. That is 300 of the 1,000 available act points, on the longest act
+  in the game, and it is the one place the score would silently under-report a finished run.
 
 Achievement points are flat and independent of time, which is what stops the score from being a pure
 speedrun: `called-shot` and `notebook` reward taking the greedy line, and the greedy line costs

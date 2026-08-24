@@ -17,10 +17,19 @@ function formatCash(value) {
   return `$${formatNumber(value)}`;
 }
 
+// ROLLS INTO HOURS PAST SIXTY MINUTES, which it did not until the Records tab needed it. Every
+// caller before that measured a cooldown or a build — seconds and minutes — so `291m 40s` was
+// unreachable and the missing branch cost nothing. Act VII's par is 4h 51m, and a duration nobody
+// can read at a glance is not a duration.
+//
+// Seconds are dropped once hours are involved, deliberately: at that scale they are noise, and the
+// three-part form is wider than the columns that print it.
 function formatDuration(seconds) {
   const s = Math.max(0, Math.round(seconds));
-  const m = Math.floor(s / 60);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
   const rem = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
   if (m <= 0) return `${rem}s`;
   return `${m}m ${rem}s`;
 }

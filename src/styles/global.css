@@ -5186,12 +5186,218 @@ body.expedition .v7-contract-abandon-note {
    -------------------------------------------------------------------------------------------- */
 
 /* --------------------------------------------------------------------------------------------
-   THE CHARGING PRESS (Act VII)
+   RECORDS PANEL (STORY-045)
 
    ABOVE the file's final `@media (max-width: 640px)` block, and that placement is the whole of
    this comment. styles/global.css ENDS inside that media query, so a rule appended at EOF is
    silently mobile-only: it builds clean, it looks right in the diff, and it is invisible above
-   640px. MERGE-NOTES records the hazard firing three times during the Act VII panel wave.
+   640px. MERGE-NOTES records the hazard firing three times during the Act VII panel wave. Every
+   rule below sits before line ~5190 for that reason — check it again if this block is ever moved.
+
+   Not scoped to `body.expedition`, unlike every Act VII block above it, and that is deliberate:
+   this is the one panel that renders in BOTH the ballpark and the expedition, so it inherits the
+   base palette in the six baseball acts and the v7 tokens in the seventh. Nothing here names a
+   colour that only one of the two defines.
+   -------------------------------------------------------------------------------------------- */
+
+.rec-block {
+  margin-top: 18px;
+}
+
+.rec-heading {
+  font-size: 0.95rem;
+  margin: 0 0 4px;
+}
+
+.rec-note {
+  font-size: 0.78rem;
+  margin: 0 0 10px;
+}
+
+/* The one number the screen is for. Big enough to read from the tab bar, and beside its label
+   rather than under it — a lone four-digit number with no word next to it reads as currency. */
+.rec-score {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.rec-score-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.rec-score-value {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-splits,
+.rec-achievements,
+.rec-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Four columns, and the times are tabular so the splits read as a column of numbers rather than
+   as a paragraph. `minmax(0, 1fr)` on the par cell keeps a long duration from pushing the points
+   off a 390px screen. */
+.rec-split {
+  display: grid;
+  grid-template-columns: 4.5rem 5.5rem minmax(0, 1fr) 4rem;
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.08);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-split-act {
+  font-weight: 600;
+}
+
+.rec-split-par,
+.rec-split-points {
+  opacity: 0.65;
+  font-size: 0.76rem;
+}
+
+.rec-split-points {
+  text-align: right;
+}
+
+/* An act nobody timed, and an act still being played, are both dimmed — but they are dimmed for
+   different reasons and the copy says which. Neither may look like a zero. */
+.rec-split-unrecorded .rec-split-time,
+.rec-split-future .rec-split-time {
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.rec-split-current {
+  outline: 1px solid rgba(127, 127, 127, 0.35);
+}
+
+.rec-ach {
+  display: grid;
+  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) 5rem;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.06);
+  font-size: 0.82rem;
+  opacity: 0.55;
+}
+
+/* Earned rows carry the weight. An unearned collection should read as a list of things to do
+   rather than as a wall of failures, so the locked state is quiet rather than red. */
+.rec-ach.is-earned {
+  opacity: 1;
+  background: rgba(127, 127, 127, 0.14);
+}
+
+.rec-ach-name {
+  font-weight: 600;
+}
+
+.rec-ach-desc {
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.rec-ach-points {
+  text-align: right;
+  font-size: 0.76rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-run {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.08);
+  font-size: 0.82rem;
+}
+
+.rec-run-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-run-meta {
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+.rec-badge {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  opacity: 0.8;
+  margin-left: 4px;
+}
+
+/* The post prompt (STORY-047). Outlined rather than filled: it is the one block on this screen
+   that asks for something, and it should read as a question rather than as an alert. */
+.rec-prompt {
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.rec-name-label {
+  display: block;
+  font-size: 0.78rem;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.rec-name-input {
+  width: 100%;
+  max-width: 18rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.rec-prompt-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------------------------
+   END RECORDS PANEL (STORY-045)
+   -------------------------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------------------------
+   THE CHARGING PRESS (Act VII)
+
+   Same placement rule as the Records block above, and for the same reason: this file ENDS inside
+   `@media (max-width: 640px)`, so a rule appended at EOF is silently mobile-only — it builds
+   clean, it looks right in the diff, and it is invisible above 640px.
+
+   THE TWO BLOCKS COLLIDED ON EXACTLY THAT RULE. Both were written against the same insertion
+   point, in parallel branches, with the same hazard comment at the top — which is the merge
+   conflict that produced this file. Both are kept, in order.
 
    The fill is the same element a cooling act uses. What changes is that the button never dims,
    because nothing is being refused — a dimmed control that still works is the worst of both. The
@@ -5208,7 +5414,6 @@ body.expedition .v7-contract-abandon-note {
   opacity: 0.6;
   font-size: 0.85em;
 }
-
 
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of

@@ -167,7 +167,10 @@ function createInitialState() {
     // exactly as before. The career half of this — finished runs, achievements kept forever, the
     // posting profile — is deliberately NOT here; it is in persistence/recordsStore.js, under its
     // own localStorage key, because clearSave() deletes this one.
-    record: { actSeconds: {}, startedAtClock: 0, counters: emptyCounters() },
+    // `runId`, `endedAtClock` and `complete` are stamped when the run ENDS (engine/records.js:
+    // sealRun) rather than here: an id minted at creation would be written into every save that
+    // never finishes a run, and `endedAtClock: 0` is what "still going" means.
+    record: { actSeconds: {}, startedAtClock: 0, runId: null, endedAtClock: 0, complete: false, counters: emptyCounters() },
     achievements: { earned: [], seenIds: [] },
     reputation: balanceConfig.startingReputation,
     stadium: null,
