@@ -5384,6 +5384,13 @@ body.expedition .v7-contract-abandon-note {
   flex-wrap: wrap;
 }
 
+/* The start-over block. Set apart from the rest of the panel rather than styled as an alert: it is
+   a control the player goes looking for, not one the screen needs to shout about. */
+.rec-start-over {
+  border-top: 1px solid rgba(127, 127, 127, 0.25);
+  padding-top: 12px;
+}
+
 /* --------------------------------------------------------------------------------------------
    END RECORDS PANEL (STORY-045)
    -------------------------------------------------------------------------------------------- */

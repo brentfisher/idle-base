@@ -41,7 +41,16 @@ function promoteSealedRun(state) {
 // the same column as a finished run rather than pretending it belongs there.
 function endRunAndClearSave(state) {
   const sealed = sealRun(state, { complete: false });
-  promoteRun(runCard(sealed));
+  const card = runCard(sealed);
+  // A run with nothing in it is not promoted. Starting over thirty seconds into Act I produces a
+  // card with no splits and no achievements, and a board full of those rows is worse than no rows:
+  // it buries the runs that meant something under the ones that were abandoned immediately.
+  //
+  // The test is what the card CONTAINS, not how long it lasted, so a short run that actually
+  // cleared an act is kept.
+  if (Object.keys(card.actSeconds).length > 0 || card.achievements.length > 0) {
+    promoteRun(card);
+  }
   clearSave();
   return sealed;
 }
