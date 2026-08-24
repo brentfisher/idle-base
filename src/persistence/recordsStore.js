@@ -126,6 +126,30 @@ function promoteRun(card) {
   return next;
 }
 
+// The posting profile, written a field at a time. Merged rather than replaced for the reason
+// engine/concessions.js records in full: a caller that hands over a whole object silently deletes
+// every key it had not heard of, and this one accumulates keys across three stories.
+function saveProfile(patch) {
+  const records = loadRecords();
+  const next = { ...records, profile: { ...records.profile, ...(patch || {}) } };
+  saveRecords(next);
+  return next;
+}
+
+// Mark a finished run as DEALT WITH — posted or declined, the ledger does not distinguish.
+//
+// The question it answers is "have they been asked about this run", not "did they say yes", and
+// that is the whole design of the prompt (PRD §7.5): re-asking somebody who said no is nagging, and
+// posting to the internet is a decision made once per run rather than a setting buried once.
+//
+// Idempotent, and it survives a reload because it lives in the records key rather than in the save.
+function markRunAsked(runId) {
+  if (!runId) return loadRecords();
+  const records = loadRecords();
+  if (records.profile.postedRunIds.indexOf(runId) !== -1) return records;
+  return saveProfile({ postedRunIds: records.profile.postedRunIds.concat([runId]) });
+}
+
 module.exports = {
   STORAGE_KEY,
   CURRENT_VERSION,
@@ -135,4 +159,6 @@ module.exports = {
   saveRecords,
   clearRecords,
   promoteRun,
+  saveProfile,
+  markRunAsked,
 };

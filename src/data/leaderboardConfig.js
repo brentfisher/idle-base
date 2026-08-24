@@ -37,6 +37,24 @@ const leaderboardCopy = {
   failed: 'Could not reach the board. Your own runs above are unaffected.',
   notConfigured: 'No board is configured for this build.',
   empty: 'Nobody has posted a run yet.',
+
+  boardHeading: 'The wall',
+  scoreColumn: 'Score',
+  // THE PROMPT, asked once per finished run and worded as a CHOICE rather than a call to action.
+  // Posting sends a name to a third party; that is not something to nudge anybody into, and the
+  // first thing the body says is that declining costs the player nothing.
+  promptHeading: 'Post this run?',
+  promptBody: 'Your finished run is saved here either way. Posting puts your score and your splits '
+    + 'on the shared wall, under whatever name you type.',
+  nameLabel: 'Name on the wall',
+  namePlaceholder: 'Anything you like',
+  // Said where the name is typed rather than in a policy page nobody opens.
+  nameNote: 'Shown to everyone. Nothing else about you is sent.',
+  postAction: 'Post it',
+  declineAction: 'No thanks',
+  posting: 'Posting…',
+  posted: 'Posted. It may take a moment to appear on the wall.',
+  postFailed: 'That did not go through. Your run is still saved here.',
 };
 
 module.exports = {

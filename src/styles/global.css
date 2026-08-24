@@ -5351,6 +5351,39 @@ body.expedition .v7-contract-abandon-note {
   margin-left: 4px;
 }
 
+/* The post prompt (STORY-047). Outlined rather than filled: it is the one block on this screen
+   that asks for something, and it should read as a question rather than as an alert. */
+.rec-prompt {
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.rec-name-label {
+  display: block;
+  font-size: 0.78rem;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.rec-name-input {
+  width: 100%;
+  max-width: 18rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.rec-prompt-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
 /* --------------------------------------------------------------------------------------------
    END RECORDS PANEL (STORY-045)
    -------------------------------------------------------------------------------------------- */
