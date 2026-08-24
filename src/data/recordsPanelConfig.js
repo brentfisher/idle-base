@@ -41,6 +41,18 @@ const recordsCopy = {
   runTotalLabel: (seconds) => formatDuration(seconds) + ' total',
 
   emptyState: 'Nothing on the board yet. Finish an act and the first split lands here.',
+
+  // STARTING OVER. Worded as what it does rather than as a warning, and the second step spells out
+  // the one thing a player would be most surprised to lose and the one thing they keep.
+  startOverHeading: 'Start over',
+  startOverBody: 'Wipe this save and begin again from the vacant lot. Everything on this screen '
+    + 'above — your finished runs and your achievements — is kept.',
+  startOverAction: 'Start over',
+  startOverConfirm: 'Yes, wipe it',
+  startOverCancel: 'Keep playing',
+  // The confirm step. Says what goes and what stays, in that order, because the thing that goes is
+  // the thing the player is deciding about.
+  startOverWarning: 'This deletes the run in progress. It is recorded above first, then it is gone.',
 };
 
 module.exports = { recordsCopy };

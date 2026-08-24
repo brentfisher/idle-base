@@ -5,7 +5,9 @@ const { ACHIEVEMENTS } = require('../../data/achievementsConfig');
 const { PAR } = require('../../data/scoreConfig');
 const { runScore, ACT_INDICES } = require('../../engine/score');
 const { recordSlice, achievementsSlice, runCard } = require('../../engine/records');
+const actionTypes = require('../../state/actionTypes');
 const { loadRecords, saveProfile, markRunAsked } = require('../../persistence/recordsStore');
+const { endRunAndClearSave } = require('../../persistence/runEnd');
 const { isConfigured, identifyPlayer, submitRun, fetchEntries } = require('../../persistence/leaderboardClient');
 const { leaderboardCopy, MAX_NAME_LENGTH } = require('../../data/leaderboardConfig');
 const { generateId } = require('../../utils/randomUtils');
@@ -24,6 +26,13 @@ const { formatDuration, formatNumber } = require('../../utils/formatNumber');
 // finished runs and the achievement collection come from persistence/recordsStore.js, a second
 // localStorage key that survives clearing the save. That is the split PRD §3.2 exists to make, and
 // it is why this screen reads both rather than deriving either from the other.
+//
+// REACHABLE FROM ACT III, NOT ACT I, AND THAT IS NOT A BUG IN THE GATING. `records` is unlocked at
+// Act I (data/acts.js) and getUnlockedFeatures() reports it there — but AppShell early-returns a
+// pre-season shell for Acts I-II, which renders "the lot, and nothing else" by design (odyssey
+// Decision 2), tab bar included. So the tab appears when the tab bar does. Measured in the browser
+// after a reset, not assumed. Nothing here tries to fight that: Act I being one button on one
+// screen is the act's whole point, and there is no record to read before the first act ends anyway.
 //
 // THE CAREER SET IS NOT THE RUN'S SET, and the screen has to make that visible or the numbers look
 // broken: the achievements block never resets, while the score beside it counts only what THIS run
@@ -300,10 +309,12 @@ function PostPrompt({ card, profile, score, onDone }) {
       />
       <p className="muted rec-note">{leaderboardCopy.nameNote}</p>
       <div className="rec-prompt-actions">
-        <button type="button" onClick={post} disabled={status === 'posting'}>
+        {/* `btn` is the base class every button in this app is styled from; `secondary` alone
+            matches nothing (styles/global.css defines `.btn.secondary`, not `.secondary`). */}
+        <button type="button" className="btn" onClick={post} disabled={status === 'posting'}>
           {status === 'posting' ? leaderboardCopy.posting : leaderboardCopy.postAction}
         </button>
-        <button type="button" className="secondary" onClick={decline} disabled={status === 'posting'}>
+        <button type="button" className="btn secondary" onClick={decline} disabled={status === 'posting'}>
           {leaderboardCopy.declineAction}
         </button>
       </div>
@@ -311,8 +322,62 @@ function PostPrompt({ card, profile, score, onDone }) {
   );
 }
 
-function RecordsPanel() {
+// STARTING OVER — the caller persistence/runEnd.js shipped without, and the only dispatcher of
+// HARD_RESET in the codebase. Both existed and neither reached the other: the reducer has answered
+// HARD_RESET with a fresh state since the odyssey landed, and nothing has ever sent it.
+//
+// THE ORDER IS THE POINT AND IT IS NOT THIS COMPONENT'S TO GET RIGHT. endRunAndClearSave() seals
+// the run, promotes it into the career store and only then clears the save — a clearSave() that ran
+// first would have destroyed the record that promotion exists to keep. This file calls that one
+// function rather than the three steps, so the sequence cannot be got wrong from here.
+//
+// HARD_RESET IS DISPATCHED AFTER, not instead. The save is gone at that point but the reducer still
+// holds the finished run in memory, and hooks/useGameTick.js autosaves every 30 seconds and again
+// on unload — so without the dispatch the very next autosave would write the cleared run straight
+// back. Resetting the reducer is what makes the wipe stick.
+//
+// TWO STEPS, NO MODAL. The rest of this act's UI does not interrupt, and a destructive control that
+// needs a second press does not need a dialog to be safe. The second step says what goes and what
+// stays, in that order.
+function StartOver({ dispatch }) {
+  const [confirming, setConfirming] = React.useState(false);
   const { state } = useGame();
+
+  function wipe() {
+    endRunAndClearSave(state);
+    dispatch({ type: actionTypes.HARD_RESET });
+    setConfirming(false);
+  }
+
+  return (
+    <section className="rec-block rec-start-over">
+      <h3 className="rec-heading">{recordsCopy.startOverHeading}</h3>
+      <p className="muted rec-note">{recordsCopy.startOverBody}</p>
+      {confirming ? (
+        <>
+          <p className="muted rec-note">{recordsCopy.startOverWarning}</p>
+          <div className="rec-prompt-actions">
+            <button type="button" className="btn danger" onClick={wipe}>
+              {recordsCopy.startOverConfirm}
+            </button>
+            <button type="button" className="btn secondary" onClick={() => setConfirming(false)}>
+              {recordsCopy.startOverCancel}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="rec-prompt-actions">
+          <button type="button" className="btn secondary" onClick={() => setConfirming(true)}>
+            {recordsCopy.startOverAction}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RecordsPanel() {
+  const { state, dispatch } = useGame();
   const endedAtClock = (state.record || {}).endedAtClock || 0;
   const [asked, setAsked] = React.useState(0);
   const career = useCareerRecords(endedAtClock, asked);
@@ -359,6 +424,9 @@ function RecordsPanel() {
       <Achievements earnedIds={earnedIds} />
       <FinishedRuns runs={career.runs} />
       <SharedBoard />
+      {/* Last on the screen, deliberately. Everything above it is what the player came to read;
+          this is the one control that takes something away. */}
+      <StartOver dispatch={dispatch} />
     </div>
   );
 }
