@@ -39,7 +39,25 @@ jobs:
       # `npm ci` needs a lockfile in sync with package.json; this repo has one.
       - run: npm ci
 
+      # The leaderboard's access key, inlined into the bundle by webpack's DefinePlugin.
+      #
+      # IT IS NOT A SECRET AND CANNOT BE ONE — it ships inside a JavaScript bundle every visitor
+      # downloads, and docs/PRD-achievements-and-leaderboard.md §3.1 accepts that outright: the
+      # board is a shared wall, not a verified ranking. It lives in repository settings rather than
+      # in this file for two ordinary reasons instead: rotating it is a settings change and a
+      # re-run rather than a commit, and a fork gets no key and therefore posts nothing into this
+      # game's board.
+      #
+      # Stored as a SECRET rather than a variable only because Actions masks secrets in logs. A
+      # repository variable (`vars.`) would be the more honest label; swap the expression if you
+      # would rather it read that way.
+      #
+      # ABSENT IS SAFE. With no value, persistence/leaderboardClient.js reports itself
+      # unconfigured, the Records tab says the board is not set up, the post prompt never appears,
+      # and every other part of the game is untouched.
       - run: npm run build
+        env:
+          LEADERBOARD_ACCESS_KEY: ${{ secrets.LEADERBOARD_ACCESS_KEY }}
 
       - uses: actions/configure-pages@v5
 
