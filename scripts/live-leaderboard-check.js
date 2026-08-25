@@ -2,10 +2,27 @@
 //
 //   LEADERBOARD_ACCESS_KEY=... node scripts/live-leaderboard-check.js
 //
-// IT WRITES TO THE REAL BOARD. One player (via identify) and one entry, named `test-delete-me` so
-// it is obvious in the vendor dashboard and easy to remove. With the board in `unique` mode a
-// re-run overwrites that same row rather than adding another, so this is safe to repeat — but it
-// is not something to run against a board people are actually competing on without saying so.
+// IT WRITES TO BOTH REAL BOARDS. One player (via identify) and one entry per board, named
+// `test-delete-me` so it is obvious in the vendor dashboard and easy to remove. With the boards in
+// `unique` mode a re-run overwrites those same rows rather than adding more, so this is safe to
+// repeat — but it is not something to run against boards people are actually competing on without
+// saying so.
+//
+// THE TWO BOARDS SORT IN OPPOSITE DIRECTIONS, and that is a DASHBOARD SETTING rather than anything
+// this script or the client can assert:
+//
+//   idle-base-runs       DESCENDING — a higher derived score wins.
+//   idle-base-act-seven  ASCENDING  — a LOWER time wins, because it is a fastest-Act-VII board.
+//
+// BOTH BOARDS MUST ALREADY EXIST IN THE DASHBOARD or the act-seven half of this script 404s on
+// every call. Creating `idle-base-act-seven` is a dashboard action with two settings the client can
+// neither make nor detect: sort ASCENDING (above), and `unique` mode — which is what makes re-running
+// this script overwrite its own row instead of adding one more every time.
+//
+// So the Act VII section below verifies that the seconds arrived and that the facts survived; it
+// CANNOT verify the ordering, because the vendor returns whatever the dashboard is configured to
+// return and there is no request parameter to override it. If the act-seven board ever comes back
+// with the slowest run on top, the fix is in the dashboard and not in this repo.
 //
 // WHY IT IS NOT A UNIT TEST. This repo has no test framework and deliberately does not add one
 // (openspec/config.yaml). More to the point, the thing worth checking here cannot be checked
@@ -18,10 +35,15 @@
 // key's value.
 global.LEADERBOARD_ACCESS_KEY = process.env.LEADERBOARD_ACCESS_KEY || '';
 
-const R = '/Users/brent/idle-base/src/';
+// Resolved from this file's own location rather than hard-coded, so the script drives the checkout
+// it was RUN FROM. With a hard-coded absolute path it silently tests the main working copy while you
+// sit in a git worktree — passing on code you did not write.
+const path = require('path');
+const R = path.join(__dirname, '..', 'src') + path.sep;
 const client = require(R + 'persistence/leaderboardClient');
 const { runScore } = require(R + 'engine/score');
 const { PAR } = require(R + 'data/scoreConfig');
+const { BOARDS } = require(R + 'data/leaderboardConfig');
 
 let failures = 0;
 function check(label, cond, detail) {
@@ -102,8 +124,73 @@ const card = {
     !(board3.entries || []).some((e) => (e.props || [])
       .some((p) => p && p.key === 'runId' && p.value === 'live-test-cheat')));
 
+  // --- THE SECOND BOARD: fastest Act VII ------------------------------------------------------
+  // Same player, same alias, same card. What changes is the board and the number in `score`: Act
+  // VII's seconds instead of the run's derived total. Read it, post to it, read it back — the same
+  // three steps the all-time board just went through, because a second board is only worth having
+  // if it is the same round trip.
+  console.log('\n--- ACT VII BOARD: read it before we post ---');
+  const before7 = await client.fetchEntries('actSeven');
+  check('the act-seven board reads back', before7.ok === true, before7.reason || '');
+  check('and it is a DIFFERENT board from the all-time one',
+    BOARDS.actSeven.internalName !== BOARDS.allTime.internalName,
+    BOARDS.actSeven.internalName);
+
+  console.log('\n--- ACT VII BOARD: submit the time ---');
+  const posted7 = await client.submitActSevenTime(card, identified.aliasId, 'test-delete-me');
+  check('the Act VII time posted', posted7.ok === true, posted7.reason || '');
+
+  console.log('\n--- ACT VII BOARD: read it back ---');
+  const board7 = await client.fetchEntries('actSeven');
+  check('the act-seven board reads back after the post', board7.ok === true, board7.reason || '');
+  const mine7 = (board7.entries || []).find((e) => (e.props || [])
+    .some((p) => p && p.key === 'runId' && p.value === card.runId));
+  check('our Act VII entry is on it', !!mine7);
+  if (mine7) {
+    // The whole point of the second board: the SCORE FIELD HOLDS SECONDS here, not a score.
+    check('and its score is Act VII\'s SECONDS, not the run total',
+      mine7.score === card.actSeconds[6] && mine7.score !== score.total, String(mine7.score));
+    const props7 = {};
+    (mine7.props || []).forEach((p) => { props7[p.key] = p.value; });
+    check('carrying the same facts as the all-time row',
+      props7.runId === card.runId && props7.name === 'test-delete-me'
+      && props7.actSeconds && Object.keys(JSON.parse(props7.actSeconds)).length === 7,
+      Object.keys(props7).join(','));
+    // Not an ordering assertion — see the header. This only records what the dashboard is doing so
+    // a misconfigured board is visible in the output rather than silently ranking backwards.
+    const scores7 = (board7.entries || []).map((e) => e.score);
+    console.log('\n    act-seven board, in the order the vendor returned it: '
+      + JSON.stringify(scores7)
+      + (scores7.length > 1
+        ? (scores7[0] <= scores7[scores7.length - 1]
+          ? '  (ascending — fastest first, as the dashboard should be set)'
+          : '  (DESCENDING — check the board\'s sort setting in the dashboard)')
+        : '  (one row: nothing to infer about the sort yet)'));
+  }
+
+  console.log('\n--- ACT VII BOARD: a run that never reached Act VII ---');
+  // Acts I and II only. Plausible, submittable to the all-time board, and meaningless on this one.
+  const shortRun = { ...card, runId: 'live-test-short', actSeconds: { 0: PAR[0], 1: PAR[1] } };
+  const noSeven = await client.submitActSevenTime(shortRun, identified.aliasId, 'should-not-appear');
+  check('is refused without a request', noSeven.ok === false && noSeven.reason === 'no-act-seven',
+    noSeven.reason);
+  // And the clamp still comes FIRST: an impossible card is refused as impossible, not as incomplete.
+  const cheat7 = await client.submitActSevenTime(cheat, identified.aliasId, 'should-not-appear');
+  check('while an impossible card is refused as impossible, not as missing Act VII',
+    cheat7.ok === false && cheat7.reason.indexOf('refused-') === 0, cheat7.reason);
+  const board7b = await client.fetchEntries('actSeven');
+  check('and neither reached the act-seven board',
+    !(board7b.entries || []).some((e) => (e.props || []).some((p) => p && p.key === 'runId'
+      && (p.value === 'live-test-short' || p.value === 'live-test-cheat'))));
+
+  console.log('\n--- an unknown board key is a caller bug, not a request ---');
+  const unknown = await client.fetchEntries('actNine');
+  check('fetchEntries refuses a key that is not in BOARDS',
+    unknown.ok === false && unknown.reason === 'unknown-board', unknown.reason);
+
   console.log('\n' + (failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'));
-  console.log('Board now holds ' + ((board3.entries || []).length) + ' entr'
-    + ((board3.entries || []).length === 1 ? 'y' : 'ies') + '.');
+  console.log('All-time board now holds ' + ((board3.entries || []).length) + ' entr'
+    + ((board3.entries || []).length === 1 ? 'y' : 'ies') + '; act-seven board holds '
+    + ((board7b.entries || []).length) + '.');
   process.exit(failures === 0 ? 0 : 1);
 })();

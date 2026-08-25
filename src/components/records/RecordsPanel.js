@@ -8,10 +8,16 @@ const { recordSlice, achievementsSlice, runCard } = require('../../engine/record
 const actionTypes = require('../../state/actionTypes');
 const { loadRecords, saveProfile, markRunAsked } = require('../../persistence/recordsStore');
 const { endRunAndClearSave } = require('../../persistence/runEnd');
-const { isConfigured, identifyPlayer, submitRun, fetchEntries } = require('../../persistence/leaderboardClient');
+const {
+  isConfigured,
+  identifyPlayer,
+  submitRun,
+  submitActSevenTime,
+  fetchEntries,
+} = require('../../persistence/leaderboardClient');
 const { leaderboardCopy, MAX_NAME_LENGTH } = require('../../data/leaderboardConfig');
 const { generateId } = require('../../utils/randomUtils');
-const { getActConfig } = require('../../data/acts');
+const { getActConfig, FINAL_ACT_INDEX } = require('../../data/acts');
 const { formatDuration, formatNumber } = require('../../utils/formatNumber');
 
 // The record card, on screen. Three blocks: the run in progress, the achievements kept across every
@@ -184,21 +190,79 @@ function FinishedRuns({ runs }) {
   );
 }
 
-// THE SHARED WALL. Fetched when the tab opens and NEVER on a timer: hooks/useGameTick.js is the
-// only timer in this repo and it stays that way, and a board that polled would keep a third-party
-// request in flight for as long as the tab was open.
+// THE TWO SHARED BOARDS, keyed exactly as data/leaderboardConfig.js's BOARDS keys them. These two
+// strings are the whole of this screen's contract with persistence/leaderboardClient.js — they are
+// what `fetchEntries(boardKey)` is called with, and nothing else about a board's configuration is
+// read here ON PURPOSE. A section that rendered only once it had found its key in BOARDS would
+// blank itself the day that map was re-keyed, and blanking is the one thing a board on this screen
+// may never do (see SharedBoard below).
+const BOARD_ALL_TIME = 'allTime';
+const BOARD_ACT_SEVEN = 'actSeven';
+
+// Each board's prose, assembled here rather than inside the component, because the two boards draw
+// from DIFFERENT copy files and the component must name neither. The wall's strings are the shared
+// board's own (data/leaderboardConfig.js); the crossing's are the Records tab's
+// (data/recordsPanelConfig.js). Handing a copy object down is what keeps a third board a config
+// entry rather than another `if (boardKey === …)` inside the renderer.
 //
-// NEVER LOAD-BEARING (PRD §7.2). A pending fetch renders the two local blocks and a quiet line; a
-// failed one renders the two local blocks and a quieter one. No spinner across the screen, no error
+// The three STATUS lines are shared between them deliberately: "fetching", "could not reach it" and
+// "no board is configured for this build" say the same thing about any board, and two boards that
+// worded the same outage differently would read as two different outages.
+const ALL_TIME_BOARD_COPY = {
+  heading: leaderboardCopy.boardHeading,
+  // Said on the screen, not buried in a tooltip. Every client-side leaderboard puts a writable key
+  // in the bundle, ours included, so these scores are posted rather than verified — and a board
+  // that implied otherwise would be lying to the people reading it (PRD §3.1).
+  note: leaderboardCopy.unverifiedNote,
+  empty: leaderboardCopy.empty,
+  pending: leaderboardCopy.pending,
+  failed: leaderboardCopy.failed,
+  notConfigured: leaderboardCopy.notConfigured,
+};
+
+const ACT_SEVEN_BOARD_COPY = {
+  heading: recordsCopy.actSevenBoardHeading,
+  // Carries the same unverified caveat as the wall's note, in its own sentence: a posted TIME is
+  // exactly as unverifiable as a posted score, and a caveat that appeared over one board and not
+  // the other would read as a claim about the other.
+  note: recordsCopy.actSevenBoardNote,
+  empty: recordsCopy.actSevenBoardEmpty,
+  // THE PRESENCE OF THIS FORMATTER IS THE FLAG. A board whose copy carries `rank` renders a place
+  // in front of every row; one that does not, does not — which is why there is no `showRank`
+  // boolean beside it. The wall does not want one: distinct scores order themselves on sight,
+  // while durations rounded to the minute do not (see the note on actSevenBoardRank).
+  rank: recordsCopy.actSevenBoardRank,
+  pending: leaderboardCopy.pending,
+  failed: leaderboardCopy.failed,
+  notConfigured: leaderboardCopy.notConfigured,
+};
+
+// A shared board — ANY shared board. Fetched when the tab opens and NEVER on a timer:
+// hooks/useGameTick.js is the only timer in this repo and it stays that way, and a board that
+// polled would keep a third-party request in flight for as long as the tab was open.
+//
+// NEVER LOAD-BEARING (PRD §7.2). A pending fetch renders the local blocks and a quiet line; a
+// failed one renders the local blocks and a quieter one. No spinner across the screen, no error
 // modal, no retry loop. Everything above this block on the page works with the network unplugged,
 // because all of it comes from the machine the player is sitting at.
-function SharedBoard() {
+//
+// ONE INSTANCE PER BOARD, AND THAT IS WHY THE INDEPENDENCE IS STRUCTURAL RATHER THAN ARGUED. Each
+// board owns its own state and its own effect, so an unreachable wall cannot empty the crossing
+// beside it, a slow crossing cannot hold up the wall, and neither can touch the three local blocks
+// above them. Hoisting the fetches into RecordsPanel would put both boards behind one state object
+// and make that property something a reviewer has to check rather than something the shape
+// guarantees.
+//
+// THE FORMATTER IS A PROP because it is the actual difference between the two boards: the wall
+// ranks SCORES and the crossing ranks TIMES, and `formatNumber` printing `17.5K` where a player
+// expects `4h 51m` is the whole failure this parameterisation exists to prevent.
+function SharedBoard({ boardKey, copy, format }) {
   const [state, setState] = React.useState({ status: isConfigured() ? 'loading' : 'off', entries: [] });
 
   React.useEffect(() => {
     if (!isConfigured()) return undefined;
     let live = true;
-    fetchEntries().then((result) => {
+    fetchEntries(boardKey).then((result) => {
       if (!live) return;
       setState(result.ok
         ? { status: 'ready', entries: result.entries }
@@ -207,30 +271,65 @@ function SharedBoard() {
     // Abandoned rather than cancelled if the tab closes mid-flight: the client already aborts on
     // its own timeout, and this guard only stops a setState after unmount.
     return () => { live = false; };
-  }, []);
+  }, [boardKey]);
+
+  return <BoardSection status={state.status} entries={state.entries} copy={copy} format={format} />;
+}
+
+// The board on screen, with no fetch in it. Split out from SharedBoard so that the network and the
+// rendering are separable — the states this thing can be in (off, loading, failed, ready-and-empty,
+// ready-with-rows) are then renderable without a request, which is the only way any of them can be
+// looked at directly given this repo has no test framework.
+//
+// THE VENDOR'S ORDER IS THE RANKING, and nothing here re-sorts. The wall arrives descending by
+// score and the crossing arrives ascending by time — that ordering is a property of the board as
+// configured on the vendor side, and a local sort would be a second answer to it that disagrees the
+// day either board is re-configured. Rows are rendered in the order they arrived, full stop.
+function BoardSection({ status, entries, copy, format }) {
+  // A row whose value is not a number is DROPPED rather than defaulted to zero. This block renders
+  // whatever a third party hands back, and on the crossing board a `0` would print as `0s` — the
+  // best time in the game, sitting at the top, contributed by a malformed row. Dropping it also
+  // keeps a garbage entry from throwing mid-render, which is the one way a board could take the
+  // local blocks above it down with it: nothing in this tree is inside an error boundary.
+  const rows = (Array.isArray(entries) ? entries : [])
+    .map((entry) => ({ entry, value: entryValue(entry) }))
+    .filter((row) => row.value !== null);
 
   return (
-    <section className="rec-block">
-      <h3 className="rec-heading">{leaderboardCopy.boardHeading}</h3>
-      {/* Said on the screen, not buried in a tooltip. Every client-side leaderboard puts a writable
-          key in the bundle, ours included, so these scores are posted rather than verified — and a
-          board that implied otherwise would be lying to the people reading it (PRD §3.1). */}
-      <p className="muted rec-note">{leaderboardCopy.unverifiedNote}</p>
-      {state.status === 'off' ? <p className="muted rec-note">{leaderboardCopy.notConfigured}</p> : null}
-      {state.status === 'loading' ? <p className="muted rec-note">{leaderboardCopy.pending}</p> : null}
-      {state.status === 'failed' ? <p className="muted rec-note">{leaderboardCopy.failed}</p> : null}
-      {state.status === 'ready' && state.entries.length === 0
-        ? <p className="muted rec-note">{leaderboardCopy.empty}</p> : null}
+    <section className={'rec-block' + (copy.rank ? ' rec-board-ranked' : '')}>
+      <h3 className="rec-heading">{copy.heading}</h3>
+      <p className="muted rec-note">{copy.note}</p>
+      {status === 'off' ? <p className="muted rec-note">{copy.notConfigured}</p> : null}
+      {status === 'loading' ? <p className="muted rec-note">{copy.pending}</p> : null}
+      {status === 'failed' ? <p className="muted rec-note">{copy.failed}</p> : null}
+      {status === 'ready' && rows.length === 0
+        ? <p className="muted rec-note">{copy.empty}</p> : null}
       <div className="rec-runs">
-        {state.entries.map((entry, index) => (
-          <div key={entry.id || index} className="rec-run">
-            <span className="rec-run-score">{formatNumber(entry.score || 0)}</span>
-            <span className="rec-run-meta">{entryName(entry)}</span>
+        {rows.map((row, index) => (
+          <div key={row.entry.id || index} className="rec-run">
+            {/* The place a row arrived in, NOT a place this component worked out: the rows are in
+                the vendor's order and `index` is that order, counted. */}
+            {copy.rank ? <span className="rec-run-rank">{copy.rank(index + 1)}</span> : null}
+            <span className="rec-run-score">{format(row.value)}</span>
+            <span className="rec-run-meta">{entryName(row.entry)}</span>
           </div>
         ))}
       </div>
     </section>
   );
+}
+
+// The number a board entry is ranked by, or null if the entry does not carry one.
+//
+// `score` IS THE FIELD ON BOTH BOARDS, times included. It is the only numeric field the vendor's
+// entry shape has and the only one the vendor can sort on, so Act VII's board stores its seconds
+// there and sorts ascending — the difference between the boards is what the number MEANS and how it
+// is printed, not where it lives. Coerced rather than type-checked outright because a numeric
+// string is still a number the board meant to send; anything that does not survive Number() is not.
+function entryValue(entry) {
+  if (!entry) return null;
+  const value = Number(entry.score);
+  return Number.isFinite(value) ? value : null;
 }
 
 // The name a board entry was posted under. Read off the entry's props rather than off the alias,
@@ -254,8 +353,13 @@ function entryName(entry) {
 // not distinguish — and it lives in the records key, so declining survives a reload. Re-asking
 // somebody who said no is nagging, and this is a request to send data to a third party.
 //
-// NOTHING BLOCKS. Accepting fires two requests and swaps a line of copy; declining swaps a line of
+// NOTHING BLOCKS. Accepting fires the requests and swaps a line of copy; declining swaps a line of
 // copy. Neither disables the page, and both leave every other block exactly as it was.
+//
+// TWO BOARDS, ONE QUESTION. A finished run that recorded Act VII is posted to the wall AND to the
+// crossing board off the same press — asking twice would be asking a player to consent twice to
+// the same thing, and a separate opt-in for the second board would be a second interruption in a
+// design that budgets exactly one.
 function PostPrompt({ card, profile, score, onDone }) {
   const [name, setName] = React.useState(profile.displayName || '');
   const [status, setStatus] = React.useState('asking');
@@ -272,7 +376,27 @@ function PostPrompt({ card, profile, score, onDone }) {
       .then((identified) => {
         if (!identified.ok) return { ok: false };
         saveProfile({ aliasId: identified.aliasId });
-        return submitRun(card, identified.aliasId, trimmed, score);
+        // BOTH POSTS GO OUT, AND ONLY THE FIRST ONE ANSWERS THE PLAYER. The crossing board is a
+        // second board and not a second confirmation: a run that reached the wall is on the wall,
+        // whatever the Act VII request did, and reporting a failure because the extra post missed
+        // would tell the player their run was lost when it was not.
+        //
+        // The card must actually CARRY a crossing to be posted to a board that ranks crossings.
+        // `actSeconds[FINAL_ACT_INDEX]` is absent for every run that ended before Act VII and for
+        // every run played before the game kept time (PRD §4), and an unrecorded act is not a fast
+        // one — posting one would put a made-up time on the board, which is exactly what
+        // recordsCopy.notRecorded exists to keep off this screen.
+        //
+        // Promise.all is safe because persistence/leaderboardClient.js never rejects: every path
+        // through it returns `{ ok, reason }`, so neither post can take the other's result down
+        // with it. Awaiting both is also what makes the "wall succeeded, crossing did not" case a
+        // state this code actually reaches rather than one it merely claims to handle.
+        const crossingSeconds = (card.actSeconds || {})[FINAL_ACT_INDEX];
+        const posts = [submitRun(card, identified.aliasId, trimmed, score)];
+        if (typeof crossingSeconds === 'number' && Number.isFinite(crossingSeconds)) {
+          posts.push(submitActSevenTime(card, identified.aliasId, trimmed));
+        }
+        return Promise.all(posts).then((results) => results[0]);
       })
       .then((result) => {
         markRunAsked(card.runId);
@@ -423,7 +547,12 @@ function RecordsPanel() {
       <CurrentRun state={state} />
       <Achievements earnedIds={earnedIds} />
       <FinishedRuns runs={career.runs} />
-      <SharedBoard />
+      {/* Two boards, two independent fetches, in the order the player earns them: the wall ranks
+          whole runs and the crossing ranks the last act of one. Rendered as siblings rather than as
+          one block with a toggle, because a board nobody has switched to is a board nobody reads —
+          and because either of them being unreachable must leave the other exactly as it is. */}
+      <SharedBoard boardKey={BOARD_ALL_TIME} copy={ALL_TIME_BOARD_COPY} format={formatNumber} />
+      <SharedBoard boardKey={BOARD_ACT_SEVEN} copy={ACT_SEVEN_BOARD_COPY} format={formatDuration} />
       {/* Last on the screen, deliberately. Everything above it is what the player came to read;
           this is the one control that takes something away. */}
       <StartOver dispatch={dispatch} />
