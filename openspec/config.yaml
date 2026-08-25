@@ -19,6 +19,22 @@ context: |
   Hosting anything remains out of scope — no server, no database, no serverless function,
   no proxy. See docs/PRD-achievements-and-leaderboard.md §3.1 and §8.
 
+  A SECOND third-party contact, added by the launch visualization and bounded the same way:
+  src/components/expedition/LaunchScene.js fetches three.js from a CDN at runtime, at a
+  PINNED version with an SRI integrity hash and crossorigin="anonymous", and only when Act
+  VII's Launch panel is opened on a device that can render it. It is NOT in package.json —
+  React remains the only runtime dependency and dist/bundle.js does not carry it. Rules:
+    - If the fetch fails, is blocked, or fails its integrity check, the scene does not
+      render and the panel is complete without it. Absence is a designed state.
+    - Nothing the player needs may live only inside the scene.
+    - Never a floating version tag. A mutable URL makes the next release of a third-party
+      library into arbitrary code in a player's browser, chosen by someone else.
+  Bundling it instead was measured at +723KB as this repo is configured, or +127KB with
+  babel `modules: false`. Worth knowing for the NEXT dependency: `modules: 'commonjs'` in
+  babel.config.js means Babel rewrites ESM before webpack sees it, so webpack tree-shaking
+  and code-splitting are both disabled repo-wide. Nothing is lost today (the app's own code
+  is hand-written CommonJS) but every bundled dependency pays that penalty.
+
   Tech stack: React 18 (the only runtime dependency), Webpack 5, Babel. No TypeScript,
   no routing library, no state-management library, no UI kit.
 

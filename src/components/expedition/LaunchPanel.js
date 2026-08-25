@@ -7,6 +7,7 @@ const { opsReadout } = require('../../engine/colonyReadout');
 const { LAUNCH_FUEL_RESOURCE } = require('../../data/actSevenLaunchConfig');
 const { MAJORS_PHASE } = require('../../data/actSevenConfig');
 const { launchPanelCopy } = require('../../data/actSevenLaunchPanelConfig');
+const LaunchScene = require('./LaunchScene');
 
 // The Fuel threshold and the burn that spends it (PRD §6.4, §7.3). The screen that answers *can I
 // go?*, against the Sites tab's *where am I?* — §6.4 splits them on that question and defends the
@@ -286,6 +287,18 @@ function LaunchPanel() {
     <div className="panel">
       <h2>{launchPanelCopy.title}</h2>
       <p className="muted">{launchPanelCopy.subtitle}</p>
+
+      {/* The crossing, drawn. ABOVE the readout and never instead of it: the scene renders nothing
+          on a device without WebGL, on a narrow viewport, for a player who asked for reduced motion,
+          when the renderer cannot be fetched, or when anything inside it throws — and in every one
+          of those cases what follows is the panel exactly as it was before this line existed.
+          Nothing below may ever become reachable only through the picture.
+
+          `previewOvershoot` is the ratio the CURRENT offer would depart at, so an uncommitted burn
+          dialled hotter shows hotter before the commit rather than only after it (PRD §7.3's trade,
+          which the figures state and no figure conveys). It is read off the offer rather than held
+          here — the engine already decided it. */}
+      <LaunchScene state={state} previewOvershoot={offer ? offer.overshootRatio : 1} />
 
       {flight ? <InFlight flight={flight} /> : null}
 
