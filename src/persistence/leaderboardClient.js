@@ -60,7 +60,16 @@ async function request(path, options = {}) {
   try {
     const response = await fetch(API_BASE + path, {
       method: options.method || 'GET',
-      headers: { 'content-type': 'application/json', 'x-talo-access-key': accessKey(), ...(options.headers || {}) },
+      // `Authorization: Bearer`, NOT a bespoke `x-talo-access-key` header. This shipped wrong and
+      // would have failed authentication against every endpoint on the first real request — the
+      // cost of writing a client against a vendor's endpoint reference without an account to try
+      // it on. docs.trytalo.com/docs/http/authentication is the source: the access key is a bearer
+      // token, and `x-talo-alias` (below, on the submit) is the separate player header.
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer ' + accessKey(),
+        ...(options.headers || {}),
+      },
       body: options.body ? JSON.stringify(options.body) : undefined,
       signal: controller ? controller.signal : undefined,
     });
