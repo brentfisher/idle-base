@@ -7,9 +7,32 @@
 // problem's answer is "we could run a small service", the answer is no.
 const API_BASE = 'https://api.trytalo.com/v1';
 
-// The board's internal name, as created in the vendor dashboard. One all-time board is the simplest
-// thing that works; per-act boards are the obvious follow-up and cost nothing but more names here.
-const BOARD_NAME = 'idle-base-runs';
+// THE BOARDS, keyed by the name the app refers to them by. PRD §9.5 asked "one board or several?"
+// and answered that per-act boards cost nothing but leaderboard names on the vendor side — this is
+// that follow-up, and this table is the whole of it. ENTRIES DO NOT MOVE BETWEEN BOARDS, which is
+// why adding one is cheap and renaming one is not: `internalName` is the board's identity in the
+// vendor dashboard, and changing it points the client at an empty board rather than migrating the
+// old rows.
+//
+// `metric` is a LABEL FOR THE CALLER, not something the client acts on. The vendor stores a single
+// numeric `score` per entry whatever it means; `seconds` versus `score` is how the UI knows whether
+// to render a row as a duration or a total.
+//
+// THE ASCENDING SORT ON `actSeven` IS A DASHBOARD SETTING AND NOT SOMETHING THIS CLIENT CONTROLS.
+// The act-seven board is configured "ascending" in the vendor dashboard so the FASTEST Act VII wins,
+// the opposite of the all-time board where a higher score wins. There is no request parameter for
+// it and no code here that can enforce it: post a time to a board somebody flipped to descending and
+// the slowest run sits on top, silently. It is recorded here because this table is the only place a
+// reader would think to look for it.
+const BOARDS = {
+  allTime: { key: 'allTime', internalName: 'idle-base-runs', metric: 'score' },
+  actSeven: { key: 'actSeven', internalName: 'idle-base-act-seven', metric: 'seconds' },
+};
+
+// The all-time board's internal name, still exported on its own because it was the only board when
+// the client was written and callers (and the harnesses) name it directly. Derived from BOARDS
+// rather than repeated, so the two cannot drift apart.
+const BOARD_NAME = BOARDS.allTime.internalName;
 
 // The alias service Talo files this identity under. `username` rather than `steam` or `epic`
 // because there is no platform account behind it — see IDENTIFIER_ below.
@@ -59,6 +82,7 @@ const leaderboardCopy = {
 
 module.exports = {
   API_BASE,
+  BOARDS,
   BOARD_NAME,
   ALIAS_SERVICE,
   REQUEST_TIMEOUT_MS,

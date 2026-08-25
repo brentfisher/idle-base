@@ -5391,6 +5391,35 @@ body.expedition .v7-contract-abandon-note {
   padding-top: 12px;
 }
 
+/* A RANKED BOARD — Act VII's crossing, and the only board on this screen that prints a place in
+   front of each row. It needs one because its value column is a DURATION: utils/formatNumber.js's
+   formatDuration drops seconds past an hour and Act VII's par is 4h 51m, so a board of real
+   crossings is a column of rows that all read the same, in an order nothing on screen would
+   otherwise confirm. The all-time wall is not ranked and does not want to be — distinct scores
+   order themselves on sight.
+
+   The rank is a FOURTH column added by narrowing nothing: `.rec-run` declares three, so the
+   grid is restated here with the place in front rather than left to an implicit track, which
+   would size itself off its content and shift the two columns beside it row by row. The badge
+   cell `.rec-run` carries for finished runs has no counterpart on a board, so three tracks is
+   the whole row.
+
+   PLACED HERE, INSIDE the records block and ABOVE the file's final `@media (max-width: 640px)`
+   at the end of the file. global.css ENDS inside that media query, so a rule appended at EOF is
+   silently mobile-only: it builds clean, it reads right in the diff, and it is invisible above
+   640px. MERGE-NOTES records that hazard firing three times during the Act VII panel wave. */
+.rec-board-ranked .rec-run {
+  grid-template-columns: 2.25rem 4.5rem minmax(0, 1fr);
+}
+
+/* Quieter than the time beside it. The place is context for the row, not the thing being read —
+   and tabular so that #9 and #10 do not shove the column of durations sideways. */
+.rec-run-rank {
+  font-size: 0.76rem;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
 /* --------------------------------------------------------------------------------------------
    END RECORDS PANEL (STORY-045)
    -------------------------------------------------------------------------------------------- */

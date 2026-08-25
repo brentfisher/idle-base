@@ -20,12 +20,21 @@
 // than pretending to verify the plausible.
 const {
   API_BASE,
-  BOARD_NAME,
+  // BOARDS, not BOARD_NAME: every path below is built from a board record now, and the standalone
+  // all-time name stays exported from data/ only for callers written before there were two boards.
+  BOARDS,
   ALIAS_SERVICE,
   REQUEST_TIMEOUT_MS,
   BOARD_PAGE_SIZE,
 } = require('../data/leaderboardConfig');
 const { SPEED_CAP, FLOOR, PAR } = require('../data/scoreConfig');
+
+// Act VII is the seventh act and therefore index SIX. The record card keys `actSeconds` by the same
+// zero-based index engine/score.js and data/scoreConfig.js's PAR use, so the per-act board for
+// "Act VII" reads actSeconds[6]. Named rather than written as a bare 6 at the two places it is
+// needed, because `actSeconds[6]` and "Act VII" being the same act is exactly the kind of off-by-one
+// a reader should not have to re-derive.
+const ACT_SEVEN_INDEX = 6;
 
 // The access key, injected at build time by webpack's DefinePlugin from LEADERBOARD_ACCESS_KEY.
 //
@@ -43,6 +52,16 @@ function accessKey() {
 
 function isConfigured() {
   return accessKey().length > 0;
+}
+
+// Board keys are resolved HERE and nowhere else, so no caller ever builds a leaderboard URL out of a
+// string it was handed. An unknown key is a caller bug rather than a network condition, and it comes
+// back as a refusal before any request: posting to a board name the dashboard has never heard of
+// would 404 on the vendor's side, and a typo'd key deserves a reason that says which of the two
+// happened. Returns null for anything not in the table.
+function boardFor(boardKey) {
+  const board = BOARDS[boardKey];
+  return board || null;
 }
 
 // Every request goes through here, and NOTHING THROWN ESCAPES IT. A rejected promise, a CORS
@@ -140,18 +159,17 @@ function implausibleReason(card) {
   return null;
 }
 
-// CALL TWO OF TWO. Posts the card's FACTS in `props`, not just the total: PRD §3.3 makes the score
-// derived, so a stored number could never be re-checked or re-scored, whereas stored per-act
-// seconds and achievement ids can be both. The score goes in `score` because the vendor sorts on
-// it; the facts are what make the row mean anything later.
+// THE WIRE FORMAT, written once for every board there will ever be. Both submissions below carry the
+// SAME `props` — the same six facts about the same run — and differ only in which board they land on
+// and what number went in `score`. That is deliberate: a row on the act-seven board has to be
+// re-scorable and identifiable by exactly the means a row on the all-time board is, or the second
+// board becomes a set of anonymous numbers nobody can trace back to a run.
 //
-// `unique` mode on the board (set in the vendor dashboard) updates an existing entry rather than
-// appending, so one client cannot flood the board.
-async function submitRun(card, aliasId, displayName, score) {
-  const refusal = implausibleReason(card);
-  if (refusal) return { ok: false, reason: 'refused-' + refusal };
-  if (!aliasId) return { ok: false, reason: 'no-alias' };
-  return request('/leaderboards/' + encodeURIComponent(BOARD_NAME) + '/entries', {
+// `score` is the ONLY field the vendor sorts on, and what it means is per-board (data/
+// leaderboardConfig.js `metric`): a derived total on the all-time board, a duration in seconds on
+// the act-seven one. The props are what make either intelligible a year from now.
+function postEntry(internalName, card, aliasId, displayName, score) {
+  return request('/leaderboards/' + encodeURIComponent(internalName) + '/entries', {
     method: 'POST',
     headers: { 'x-talo-alias': aliasId },
     body: {
@@ -168,11 +186,57 @@ async function submitRun(card, aliasId, displayName, score) {
   });
 }
 
+// CALL TWO OF TWO. Posts the card's FACTS in `props`, not just the total: PRD §3.3 makes the score
+// derived, so a stored number could never be re-checked or re-scored, whereas stored per-act
+// seconds and achievement ids can be both. The score goes in `score` because the vendor sorts on
+// it; the facts are what make the row mean anything later.
+//
+// `unique` mode on the board (set in the vendor dashboard) updates an existing entry rather than
+// appending, so one client cannot flood the board.
+async function submitRun(card, aliasId, displayName, score) {
+  const refusal = implausibleReason(card);
+  if (refusal) return { ok: false, reason: 'refused-' + refusal };
+  if (!aliasId) return { ok: false, reason: 'no-alias' };
+  return postEntry(BOARDS.allTime.internalName, card, aliasId, displayName, score);
+}
+
+// THE PER-ACT BOARD, and the ONE thing that differs from submitRun() is what goes in `score`: the
+// seconds Act VII took, rather than the run's derived total. Lower is better there, and the board is
+// sorted ascending in the vendor dashboard to say so — a setting this client cannot see or enforce
+// (see data/leaderboardConfig.js).
+//
+// THE SAME CLAMP RUNS FIRST, and it must: a run whose acts are impossible is not made plausible by
+// looking at only one of them, and a board that refused a cheated total while accepting the cheated
+// split would be the easier of the two to farm. So the order is clamp, then act, then alias — a card
+// that is both implausible AND missing Act VII comes back `refused-*`, never `no-act-seven`.
+//
+// After the clamp returns null, every act PRESENT in `actSeconds` is already a finite number at or
+// above FLOOR — implausibleReason() returns 'bad-duration' otherwise. So the finite check below can
+// only ever fire on an ABSENT key: it is an absence test wearing a validity test's clothes, and it
+// is written this way so a card that never reached Act VII (the common case — most runs end earlier)
+// is refused locally rather than posting a NaN or an undefined to the board.
+async function submitActSevenTime(card, aliasId, displayName) {
+  const refusal = implausibleReason(card);
+  if (refusal) return { ok: false, reason: 'refused-' + refusal };
+  const seconds = (card.actSeconds || {})[ACT_SEVEN_INDEX];
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds)) {
+    return { ok: false, reason: 'no-act-seven' };
+  }
+  if (!aliasId) return { ok: false, reason: 'no-alias' };
+  return postEntry(BOARDS.actSeven.internalName, card, aliasId, displayName, seconds);
+}
+
 // The board itself. Read-only, and its failure is a quiet line rather than an error state — the two
 // local blocks above it on the Records tab are unaffected by anything that happens here.
-async function fetchEntries() {
+//
+// The default is 'allTime' because that is the board that existed first and the one RecordsPanel
+// still asks for with no argument; adding a second board must not become an edit to every caller of
+// the first.
+async function fetchEntries(boardKey = 'allTime') {
+  const board = boardFor(boardKey);
+  if (!board) return { ok: false, reason: 'unknown-board' };
   const result = await request(
-    '/leaderboards/' + encodeURIComponent(BOARD_NAME) + '/entries?page=0'
+    '/leaderboards/' + encodeURIComponent(board.internalName) + '/entries?page=0'
   );
   if (!result.ok) return result;
   const entries = (result.data && (result.data.entries || result.data)) || [];
@@ -183,6 +247,7 @@ module.exports = {
   isConfigured,
   identifyPlayer,
   submitRun,
+  submitActSevenTime,
   fetchEntries,
   implausibleReason,
 };
