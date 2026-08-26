@@ -254,6 +254,17 @@ const opsCopy = {
   // Worded as the FIX rather than as the fault, because unlike the empty pin this is not a crisis:
   // a full tank is a colony that outgrew its storage, and the answer is a purchase the player can
   // already afford more often than not.
+  // NO TANK AT ALL, which is a different sentence from a full one and needed its own. The vent note
+  // below tells a player their surplus is overflowing and to build storage; this tells a player
+  // whose capacity is ZERO that the resource cannot be held at all yet, which is the state Fuel
+  // starts Act VII in and the one that reads as "I have no Fuel and no way to get any".
+  //
+  // It names the shop, because the answer is a purchase and the player has no reason to guess which
+  // screen it is on. It does not name the module: which tank is next is the Fab panel's to say, and
+  // it says it there beside the price and the gate.
+  unbankedBadge: 'nowhere to put it',
+  unbankedNote: 'Being made and thrown away — nothing on the wreck can hold it yet. The Fab shop has the tank that lets it start counting.',
+
   ventBadge: 'not banked',
   ventNote: 'Full, so this is being made and thrown away — the producers have throttled back to match the draw. Storage, or anything that spends it, keeps it.',
 

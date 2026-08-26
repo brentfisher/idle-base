@@ -2,7 +2,7 @@ const React = require('react');
 const { useGame } = require('../../state/GameContext');
 const actionTypes = require('../../state/actionTypes');
 const { listOffers, listGoals } = require('../../engine/actSevenModules');
-const { fabCopy } = require('../../data/actSevenFabConfig');
+const { fabCopy, FAB_SECTION_ORDER, getFabSection } = require('../../data/actSevenFabConfig');
 
 // The fabrication shop — generators, scrubbers, farms and tanks, and the act's one Salvage sink
 // (PRD §6.4). The screen that makes Act VII a game rather than a faucet with nothing under it.
@@ -97,35 +97,72 @@ function ModuleGoal({ goal }) {
   );
 }
 
+// ONE SECTION OF THE SHOP: everything that makes, holds or earns one thing, buyable rows first and
+// the rows a spend gate is still holding back beneath them.
+//
+// THE LOCKED ROWS SIT WITH THE RESOURCE THEY WOULD PRODUCE, and that is the whole point of the
+// regrouping rather than a tidy side effect. They used to be collected under one "Not yet buildable"
+// heading at the foot of the panel, which answers the question "what else is there" perfectly and
+// the question a player actually arrives with — "why do I have no Fuel" — not at all. The Fuel
+// section now contains the Electrolysis Stack with `7 Fission Piles · 3/7` written on it, which is
+// the answer, in the place the question is asked.
+function FabSection({ section, offers, goals, onBuy }) {
+  if (offers.length === 0 && goals.length === 0) return null;
+  return (
+    <section className="v7-fab-section">
+      <h3 className="v7-fab-section-title">{section.label}</h3>
+      {section.note ? <p className="muted v7-fab-section-note">{section.note}</p> : null}
+      {offers.map((offer) => (
+        <ModuleOffer key={offer.id} offer={offer} onBuy={() => onBuy(offer.id)} />
+      ))}
+      {goals.map((goal) => <ModuleGoal key={goal.id} goal={goal} />)}
+    </section>
+  );
+}
+
 function FabPanel() {
   const { state, dispatch } = useGame();
   const offers = listOffers(state);
   const goals = listGoals(state);
+
+  // Grouped here, ordered by the config. The section id arrives ON each row from the engine — this
+  // file never inspects a module definition to decide where a row goes, which is the same rule that
+  // keeps every other number on this panel the engine's.
+  //
+  // A row whose section is unrecognised still renders, under whatever `other` is called, because a
+  // shop that silently drops a row a player has paid attention to is worse than an odd heading.
+  const grouped = {};
+  offers.forEach((offer) => {
+    grouped[offer.section] = grouped[offer.section] || { offers: [], goals: [] };
+    grouped[offer.section].offers.push(offer);
+  });
+  goals.forEach((goal) => {
+    grouped[goal.section] = grouped[goal.section] || { offers: [], goals: [] };
+    grouped[goal.section].goals.push(goal);
+  });
+
+  const sections = FAB_SECTION_ORDER
+    .map((id) => ({ section: getFabSection(id), rows: grouped[id] }))
+    .filter((entry) => entry.section && entry.rows);
+
+  const nothingAtAll = offers.length === 0 && goals.length === 0;
 
   return (
     <div className="panel">
       <h2>{fabCopy.title}</h2>
       <p className="muted">{fabCopy.subtitle}</p>
 
-      {offers.length > 0
-        ? offers.map((offer) => (
-          <ModuleOffer
-            key={offer.id}
-            offer={offer}
-            onBuy={() => dispatch({ type: actionTypes.BUY_MODULE, offerId: offer.id })}
-          />
-        ))
-        : <p className="muted">{fabCopy.emptyNote}</p>}
+      {nothingAtAll ? <p className="muted">{fabCopy.emptyNote}</p> : null}
 
-      {/* Omitted entirely when empty, like every other conditional block in the act — a heading
-          over nothing is the shape of a bug. */}
-      {goals.length > 0 ? (
-        <React.Fragment>
-          <h3>{fabCopy.goalsTitle}</h3>
-          <p className="muted">{fabCopy.goalsNote}</p>
-          {goals.map((goal) => <ModuleGoal key={goal.id} goal={goal} />)}
-        </React.Fragment>
-      ) : null}
+      {sections.map((entry) => (
+        <FabSection
+          key={entry.section.id}
+          section={entry.section}
+          offers={entry.rows.offers}
+          goals={entry.rows.goals}
+          onBuy={(offerId) => dispatch({ type: actionTypes.BUY_MODULE, offerId: offerId })}
+        />
+      ))}
     </div>
   );
 }
