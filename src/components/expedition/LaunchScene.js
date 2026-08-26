@@ -12,6 +12,12 @@ const {
   ARC_LIFT_PER_RUNG,
   ARC_LIFT_FINAL,
   CAMERA,
+  FIT_REFERENCE_WIDTH,
+  FIT_NARROW_WIDTH,
+  FIT_TIGHTEN,
+  FRAMINGS,
+  ZOOM_ORDER,
+  DEFAULT_ZOOM_ID,
   SPARK_COUNT,
   STAR_COUNT,
   MAX_PIXEL_RATIO,
@@ -117,6 +123,91 @@ function liftFor(originSiteId, destinationSiteId) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// FRAMING THE CANVAS THAT IS ACTUALLY THERE
+// ---------------------------------------------------------------------------------------------
+
+// THE CONFIG DECLARES WHAT THE FRAME MUST CONTAIN; EVERYTHING BELOW SOLVES FOR THE CAMERA THAT
+// CONTAINS IT. See the CAMERA block in data/launchSceneConfig.js for why — the short version is
+// that a camera position measured against a desktop canvas is a camera position measured against
+// one canvas, and this act is designed against a 390px phone.
+//
+// All of it is presentation and all of it is therefore allowed to be local. The line that matters
+// in this file is drawn elsewhere: position along the arc comes from the engine every frame, and
+// nothing here touches it.
+
+function clamp01(n) {
+  return n < 0 ? 0 : (n > 1 ? 1 : n);
+}
+
+function lerp(from, to, t) {
+  return from + (to - from) * t;
+}
+
+function radians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
+
+function framingFor(zoomId) {
+  return FRAMINGS[zoomId] || FRAMINGS[DEFAULT_ZOOM_ID];
+}
+
+// The control cycles rather than toggles, so a third framing is a line in ZOOM_ORDER and no change
+// here — and so the component never contains the name of a framing.
+function nextZoomId(zoomId) {
+  const at = ZOOM_ORDER.indexOf(zoomId);
+  return ZOOM_ORDER[(at + 1) % ZOOM_ORDER.length];
+}
+
+// Everything the canvas's own shape decides, solved once per resize rather than per frame. Pure: it
+// reads the box and the config and nothing else.
+function solveFraming(width, height) {
+  const aspect = height > 0 ? width / height : 1;
+
+  // The vertical field of view. `fov` in three.js is VERTICAL, so a narrow canvas silently loses
+  // horizontal coverage — widening the vertical angle until the horizontal one reaches
+  // `narrowHorizontalFov` is what gives it back, and `maxFov` stops that becoming a fisheye.
+  const wantedHalfTanV = Math.tan(radians(CAMERA.narrowHorizontalFov) / 2) / Math.max(aspect, 0.001);
+  const baseHalfTanV = Math.tan(radians(CAMERA.fov) / 2);
+  const ceilingHalfTanV = Math.tan(radians(CAMERA.maxFov) / 2);
+  const halfTanV = Math.min(ceilingHalfTanV, Math.max(baseHalfTanV, wantedHalfTanV));
+  const halfTanH = halfTanV * aspect;
+
+  // The viewing angle. A square-ish canvas is looked at from higher up, because a flat subject seen
+  // from low down cannot fill a tall frame at any distance.
+  const towardNarrow = clamp01(
+    (CAMERA.aspectWide - aspect) / (CAMERA.aspectWide - CAMERA.aspectNarrow)
+  );
+  const elevation = lerp(CAMERA.elevationWide, CAMERA.elevationNarrow, towardNarrow);
+
+  // The one term that reads absolute width rather than shape: a small canvas gives up a little of
+  // the surround so that what remains is bigger. Capped in the config; see the note there.
+  const towardSmall = clamp01(
+    (FIT_REFERENCE_WIDTH - width) / (FIT_REFERENCE_WIDTH - FIT_NARROW_WIDTH)
+  );
+
+  return {
+    fov: (2 * Math.atan(halfTanV) * 180) / Math.PI,
+    aspect: aspect,
+    halfTanV: halfTanV,
+    halfTanH: halfTanH,
+    elevation: elevation,
+    tighten: 1 - FIT_TIGHTEN * towardSmall,
+  };
+}
+
+// How far back the camera must stand for a subject of this radius to fit the tighter of the two
+// axes. The vertical requirement is the smaller of the pair for a near-flat subject: a disc of
+// radius R seen at pitch p is R wide on screen and only R·sin(p) tall, which is exactly why the
+// elevation above adapts rather than the distance alone.
+function distanceFor(fit, radius) {
+  const pitchSin = fit.elevation / Math.hypot(1, fit.elevation);
+  const byWidth = radius / fit.halfTanH;
+  const byHeight = (radius * pitchSin) / fit.halfTanV;
+  const fitted = Math.max(byWidth, byHeight) * CAMERA.margin * fit.tighten;
+  return Math.max(radius * CAMERA.standoff, fitted);
+}
+
+// ---------------------------------------------------------------------------------------------
 // THE SCENE
 // ---------------------------------------------------------------------------------------------
 
@@ -124,7 +215,7 @@ function liftFor(originSiteId, destinationSiteId) {
 // renderer, a geometry or a material — it holds one object with three methods, and disposal is one
 // call rather than a list somebody will eventually forget to extend.
 function buildScene(THREE, canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
 
   const scene = new THREE.Scene();
@@ -262,6 +353,19 @@ function buildScene(THREE, canvas) {
   let pull = 0;
   let spin = 0;
 
+  // The canvas's own contribution to the framing, re-solved on every resize and read every frame.
+  // Seeded with a square so a draw that somehow beat the first resize still renders something
+  // sensible rather than dividing by zero.
+  let fit = solveFraming(1, 1);
+  // The EASED framing: where the camera is now, as against where the current zoom wants it. Null
+  // until the first frame places it, because easing in from zero would open every panel visit with
+  // a swoop nobody asked for. Both are compared for exact equality below, which is only safe
+  // because CAMERA.easeSnap snaps them — see there.
+  let distance = null;
+  const lookAt = new THREE.Vector3();
+  const wantLookAt = new THREE.Vector3();
+  let framingSettled = true;
+
   // `view` is what the component hands in every frame: the engine's readout, plus the overshoot the
   // player is currently dialling on an UNCOMMITTED burn. Both may be null.
   function update(view, dt) {
@@ -368,16 +472,63 @@ function buildScene(THREE, canvas) {
     }
     sparkGeo.attributes.position.needsUpdate = true;
 
-    const radius = CAMERA.radius + pull * CAMERA.pullRadius;
-    const height = CAMERA.height + pull * CAMERA.pullHeight;
-    camera.position.set(Math.sin(spin) * radius, height, Math.cos(spin) * radius + 10);
-    camera.lookAt(0, 2 + pull * 8, -6);
+    // ---- THE CAMERA ------------------------------------------------------------------------
+    // Which framing is selected arrives on `view` like everything else, but unlike everything else
+    // on it, it is not the engine's. It is where the player is standing to look at the crossing —
+    // presentation, per-session, and nothing the simulation could ever disagree with. Contrast
+    // `flight.progress` above, which is the engine's and is never adjusted here.
+    const framing = framingFor(view && view.zoom);
+    let wantRadius = framing.radius;
+    wantLookAt.set(framing.target[0], framing.target[1], framing.target[2]);
+    if (framing.followsBurn && curve) {
+      // THE ARC'S MIDDLE, NOT THE VEHICLE. Both would put the burn in the centre of the frame, but
+      // the midpoint changes only when the burn does, whereas the vehicle steps forward once per
+      // engine tick — and a camera chasing a target that steps once a second lurches once a second.
+      // Framing the arc also keeps both ends of the crossing on screen, which is the thing the
+      // close view is for.
+      curve.getPoint(0.5, wantLookAt);
+      const span = curve.v0.distanceTo(curve.v2) / 2;
+      wantRadius = Math.max(framing.minRadius, span * framing.arcPadding);
+    }
+    const wantDistance = distanceFor(fit, wantRadius);
+
+    if (distance === null) {
+      distance = wantDistance;
+      lookAt.copy(wantLookAt);
+    } else {
+      const k = 1 - Math.exp(-dt * CAMERA.ease);
+      distance += (wantDistance - distance) * k;
+      lookAt.lerp(wantLookAt, k);
+      // SNAPPED, NOT ASYMPTOTIC, AND THE IDLE PAUSE DEPENDS ON IT. An exponential ease never
+      // arrives; `animating()` keeps the loop awake until the framing has settled; so without a
+      // snap the loop would run for as long as the panel is open and Decision 4 would be gone.
+      if (Math.abs(wantDistance - distance) < CAMERA.easeSnap) distance = wantDistance;
+      if (lookAt.distanceTo(wantLookAt) < CAMERA.easeSnap) lookAt.copy(wantLookAt);
+    }
+    framingSettled = distance === wantDistance && lookAt.equals(wantLookAt);
+
+    // The retreat over the final burn, as a fraction of whatever this canvas framed to rather than
+    // as a fixed number of world units — so it reads as the same gesture on a phone and a monitor.
+    const elevation = fit.elevation + pull * CAMERA.pullElevation;
+    const standOff = distance * (1 + pull * CAMERA.pullDistance);
+    const horizontal = standOff / Math.hypot(1, elevation);
+    camera.position.set(
+      lookAt.x + Math.sin(spin) * horizontal,
+      lookAt.y + horizontal * elevation,
+      lookAt.z + Math.cos(spin) * horizontal
+    );
+    camera.lookAt(lookAt);
 
     renderer.render(scene, camera);
   }
 
+  // Called with the canvas's CSS box on mount and on every window resize. It is where the framing
+  // is decided: the fov, the viewing angle and the distance all come out of THIS box rather than
+  // out of a constant measured against somebody's monitor.
   function resize(width, height) {
     renderer.setSize(width, height, false);
+    fit = solveFraming(width, height);
+    camera.fov = fit.fov;
     camera.aspect = height > 0 ? width / height : 1;
     camera.updateProjectionMatrix();
   }
@@ -400,6 +551,9 @@ function buildScene(THREE, canvas) {
   // any burn, so both keep the loop alive until they have finished rather than freezing mid-fade.
   function animating(view) {
     if (view && view.flight) return true;
+    // A zoom press and a rotated phone both leave the camera mid-move. Without this the loop would
+    // stop on the frame after the change and freeze the reframing halfway.
+    if (!framingSettled) return true;
     if (pull > 0.001) return true;
     for (let i = 0; i < SPARK_COUNT; i++) if (sparkLife[i] > 0) return true;
     return false;
@@ -421,6 +575,11 @@ function LaunchScene({ state, previewOvershoot }) {
   const [status, setStatus] = React.useState(function () {
     return sceneSupported() ? 'loading' : 'off';
   });
+  // WHICH FRAMING IS SHOWING, AND IT IS NOT SAVED. It is not a fact about the run — no engine
+  // module can see it, no reducer holds it, and the save format does not carry it. React state
+  // rather than a ref because the button's own face changes with it, and a ref would not re-render
+  // the button; the render loop is woken separately, below.
+  const [zoom, setZoom] = React.useState(DEFAULT_ZOOM_ID);
 
   // The engine's answer, refreshed on every React render and read by the loop. A ref rather than
   // state because the loop must not re-subscribe sixty times a second.
@@ -437,14 +596,20 @@ function LaunchScene({ state, previewOvershoot }) {
     flight: flight,
     reachedRungs: reachedRungs,
     overshoot: previewOvershoot,
+    zoom: zoom,
   };
   // What counts as a change worth waking for. Progress is deliberately included: it moves once per
   // tick, which is exactly when a stopped loop needs to redraw the vehicle a second further along.
+  //
+  // ZOOM IS HERE FOR THE SAME REASON, and it is the reason it lives on `viewRef` at all: the loop
+  // STOPS when the ladder is idle, so a zoom change that only mutated a ref would set the camera's
+  // target and then never draw a frame that moved toward it. The press would do nothing.
   const changed = !previous
     || !!previous.flight !== !!flight
     || (flight && previous.flight && previous.flight.progress !== flight.progress)
     || previous.reachedRungs !== reachedRungs
-    || previous.overshoot !== previewOvershoot;
+    || previous.overshoot !== previewOvershoot
+    || previous.zoom !== zoom;
   if (changed && wakeRef.current) wakeRef.current();
 
   React.useEffect(function () {
@@ -464,13 +629,17 @@ function LaunchScene({ state, previewOvershoot }) {
       }
       setStatus('ready');
 
-      const fit = function () {
+      const fitToCanvas = function () {
         if (!canvasRef.current || !built) return;
         const width = canvasRef.current.clientWidth || 1;
         built.resize(width, sceneHeight());
+        // AND WAKE. A resize both re-solves the framing and clears the drawing buffer, so an idle
+        // ladder that is not redrawn afterwards is a stale camera on a blank canvas. This is the
+        // rotated-phone case design.md left open; it costs one frame and only when the box moves.
+        if (wakeRef.current) wakeRef.current();
       };
-      fit();
-      window.addEventListener('resize', fit);
+      fitToCanvas();
+      window.addEventListener('resize', fitToCanvas);
 
       // ONE FRAME IMMEDIATELY, before any scheduling. The ladder is a picture worth having the
       // moment the panel opens, and a scene that waited for the first animation frame would show
@@ -512,7 +681,7 @@ function LaunchScene({ state, previewOvershoot }) {
       };
       wakeRef.current();
 
-      built.cleanupResize = function () { window.removeEventListener('resize', fit); };
+      built.cleanupResize = function () { window.removeEventListener('resize', fitToCanvas); };
     }).catch(function () {
       // Unreachable CDN, blocked request, or a file that failed its integrity check. All three are
       // the same answer: no scene, no error on screen, panel unchanged.
@@ -536,9 +705,28 @@ function LaunchScene({ state, previewOvershoot }) {
 
   if (status === 'off') return null;
 
+  // The zoom control exists ONLY WHILE THE SCENE DOES. It is part of the picture, not part of the
+  // panel: `status === 'off'` returned null a few lines up, and it is withheld while the renderer
+  // is still being fetched because a fetch that fails ends at that same null. Decision 3 says the
+  // panel with no scene is exactly the panel as it was, and a control that outlived the thing it
+  // controls would be the first exception to it.
+  const upcoming = nextZoomId(zoom);
+
   return (
     <div className="v7-launch-scene" style={{ height: sceneHeight() + 'px' }}>
       <canvas ref={canvasRef} className="v7-launch-canvas" />
+      {status === 'ready'
+        ? (
+          <button
+            type="button"
+            className="v7-launch-zoom"
+            aria-label={launchSceneCopy.zoomHint}
+            onClick={function () { setZoom(upcoming); }}
+          >
+            {launchSceneCopy.zoomTo[upcoming]}
+          </button>
+        )
+        : null}
       {status === 'loading'
         ? <span className="v7-launch-scene-note muted">{launchSceneCopy.loading}</span>
         : null}
