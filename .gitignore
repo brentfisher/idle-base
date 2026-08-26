@@ -1,2 +1,7 @@
 node_modules/
 dist/
+
+# Isolated git worktrees created for background agents. They are working copies of
+# this repo, not content belonging to it — every one of them would otherwise show
+# up as untracked in `git status` for as long as it exists.
+.claude/worktrees/
