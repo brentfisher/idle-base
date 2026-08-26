@@ -5490,6 +5490,58 @@ body.expedition .v7-contract-abandon-note {
   letter-spacing: 0.04em;
 }
 
+/* THE ZOOM CONTROL. A real <button>, so it is in the tab order, reachable by keyboard and
+   announced as a button, for free. It sits ON the canvas rather than under it because the scene's
+   height is already budgeted against the readout and the commit control below it, and a control
+   in its own row would take that budget from the picture it exists to change.
+
+   44px in both directions is the touch target the rest of Act VII uses; the visible chip is
+   smaller than that and the padding makes up the difference.
+
+   ALSO IN THIS BLOCK BECAUSE THE BLOCK IS ABOVE THE FINAL `@media (max-width: 640px)`. See the
+   header of this section — global.css ends inside that query and a rule appended at EOF is
+   invisible above 640px, builds clean, and looks right in the diff. */
+.v7-launch-zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 44px;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid rgba(232, 220, 192, 0.28);
+  border-radius: 3px;
+  background: rgba(5, 7, 13, 0.68);
+  color: rgba(232, 220, 192, 0.86);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.v7-launch-zoom:hover {
+  border-color: rgba(232, 220, 192, 0.5);
+  color: #e8dcc0;
+}
+
+/* THE FOCUS RING IS THE POINT OF THIS RULE, not decoration on it. The control sits on a black
+   canvas, so the browser's default ring is nearly invisible here; it is replaced rather than
+   removed. `:focus-visible` first for browsers that have it, and a plain `:focus` fallback after —
+   the fallback shows the ring on a mouse click too, which is the harmless half of the trade. */
+.v7-launch-zoom:focus {
+  outline: 2px solid var(--v7-accent, #c9a227);
+  outline-offset: 2px;
+}
+
+.v7-launch-zoom:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.v7-launch-zoom:focus-visible {
+  outline: 2px solid var(--v7-accent, #c9a227);
+  outline-offset: 2px;
+}
+
 
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of
