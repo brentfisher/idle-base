@@ -51,4 +51,40 @@ const fabCopy = {
   emptyNote: 'Nothing can be built from here yet.',
 };
 
-module.exports = { fabCopy };
+// ---------------------------------------------------------------------------------------------
+// THE SHOP'S SECTIONS
+// ---------------------------------------------------------------------------------------------
+
+// The shop grew to twenty-six rows across four phases, presented as one flat run in purchase order.
+// That is fine while a player is buying the next thing and useless the moment they are looking for
+// a PARTICULAR thing — and the commonest reason to go looking is a resource that has stopped
+// moving. "I have no Fuel" should land the eye on the Fuel section, not start a scan.
+//
+// SECTIONS ARE DERIVED FROM WHAT A MODULE DOES, never declared per row. engine/actSevenModules.js
+// reads `capacity` and `produces` off the definition and answers with one of these ids; nothing in
+// data/actSevenModulesConfig.js carries a category field. A new module lands in the right section
+// by virtue of what it produces, and cannot land in the wrong one by being forgotten.
+//
+// ORDER IS THE DEPENDENCY ORDER OF THE COLONY, not alphabetical and not by price. Salvage pays for
+// everything, Power runs everything, Oxygen and Provisions gate the crew, Fuel is the launch
+// threshold, and storage is what lets any of it be banked. A player reading top to bottom is
+// reading the order in which the colony's problems arrive.
+const FAB_SECTIONS = [
+  { id: 'salvage', label: 'Salvage', note: 'What pays for everything else.' },
+  { id: 'power', label: 'Power', note: 'What everything else runs on.' },
+  { id: 'oxygen', label: 'Oxygen', note: null },
+  { id: 'provisions', label: 'Provisions', note: null },
+  { id: 'fuel', label: 'Fuel', note: 'The launch threshold. Nothing here banks without a tank.' },
+  { id: 'storage', label: 'Storage', note: 'Ceilings. A resource at its cap is being thrown away.' },
+  // The catch-all. Nothing routes here today; it exists so a module that produces something
+  // unexpected is still shown rather than silently dropped from the shop.
+  { id: 'other', label: 'Other', note: null },
+];
+
+const FAB_SECTION_ORDER = FAB_SECTIONS.map((section) => section.id);
+
+function getFabSection(id) {
+  return FAB_SECTIONS.find((section) => section.id === id) || null;
+}
+
+module.exports = { fabCopy, FAB_SECTIONS, FAB_SECTION_ORDER, getFabSection };

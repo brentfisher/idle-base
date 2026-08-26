@@ -122,6 +122,21 @@ function resourceRows(slice, rates) {
       // 0, the capacity branch never fires and `pinned` comes back null. That is the commonest full
       // tank in the act and it is exactly the one the player asked to be able to see.
       venting: showsUnclamped(slice, rates, id),
+      // NOWHERE TO PUT IT AT ALL — capacity 0 while the colony is making the stuff. Distinct from
+      // `venting`, which is a FULL tank overflowing, and distinct from `starved`, which is an empty
+      // one: this is a resource with no tank in existence, so every unit produced is discarded at
+      // the instant it is made and the readout has been reporting 0/0 and 0/s with no explanation.
+      //
+      // Fuel is the case that matters and the reason this exists. Its base capacity is 0 (see
+      // data/actSevenModulesConfig.js on the Fuel Bladder), so a player who buys an Electrolysis
+      // Stack before a tank produces Fuel that cannot be banked, sees a row that looks switched
+      // off, and has no way to tell that from having built nothing — which reads as "I have no
+      // Fuel and no way to get any".
+      //
+      // `unclamped > 0` rather than `!== 0`: a resource with no tank and no production is simply
+      // not built yet, and saying anything about it would be noise on the four rows of a fresh
+      // colony.
+      unbanked: !(rates.capacity[id] > 0) && rates.unclamped[id] > 0,
       // The SIGN, not the number, is what the chip colours on. Separated out so the component
       // never applies a threshold of its own: a component asking `net < 0` is a component deciding
       // what counts as falling, which is a rules question the moment a hysteresis band is wanted.

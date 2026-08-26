@@ -130,6 +130,17 @@ function RateRow({ row }) {
 
           Suppressed when the capacity pin already rendered above, which says the same thing in a
           longer sentence. Two lines about one tank is the panel arguing with itself. */}
+      {/* NO TANK, which the vent line below cannot say: `venting` requires a capacity to be full OF,
+          so a resource whose ceiling is zero produced this panel's most confusing reading — a row
+          at 0/0 with 0/s, indistinguishable from a module nobody has built. Fuel spends the opening
+          of the act in exactly that state. */}
+      {row.unbanked ? (
+        <div className="v7-ops-rate-pin">
+          <span className="v7-ops-pin-badge">{opsCopy.unbankedBadge}</span>
+          <span>{opsCopy.unbankedNote}</span>
+        </div>
+      ) : null}
+
       {row.venting && row.pinned !== 'capacity' ? (
         <div className="v7-ops-rate-pin">
           <span className="v7-ops-pin-badge">{opsCopy.ventBadge}</span>

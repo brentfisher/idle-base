@@ -9,6 +9,7 @@ const { expeditionSlice, resolvedSites } = require('./colony');
 const { balanceOf, debitWallet, canAfford } = require('./wallet');
 // The record card's counters. engine/records.js owns what a counter means; this file owns when.
 const { recordFirstModule } = require('./records');
+const { FAB_SECTION_ORDER } = require('../data/actSevenFabConfig');
 
 // Act VII's fabrication shop, in the house shop contract: listOffers(state) returns rows with
 // cost, ownership and affordability ALREADY RESOLVED, and purchase(state, id) returns new state or
@@ -67,6 +68,35 @@ function meetsSiteCapability(definition, state) {
   const capability = definition.requiresSiteCapability;
   if (!capability) return true;
   return resolvedSites(state).some((site) => site.colonized && site[capability]);
+}
+
+// WHICH SECTION OF THE SHOP A MODULE BELONGS IN, derived from what it does rather than declared on
+// it. data/actSevenModulesConfig.js carries no category field and must not grow one: a module's
+// section is a restatement of its `produces`/`capacity`, and a restatement is a thing that drifts.
+//
+// STORAGE WINS OVER PRODUCTION, and the order matters for exactly one row today — a tank that also
+// produced something would otherwise be filed under what it makes, when the reason a player is
+// looking for it is that something has nowhere to go.
+//
+// A module producing several resources is filed under the FIRST it declares, which is the one its
+// authored `effect` string leads with. Anything unrecognised lands in `other` rather than being
+// dropped, because a shop that silently omits a row is worse than one with an odd heading.
+function sectionFor(definition) {
+  if (!definition) return 'other';
+  const capacity = definition.capacity || {};
+  const capacityKeys = Object.keys(capacity);
+  if (capacityKeys.length > 0) return 'storage';
+  // Salvage is declared as `producesSalvage`, a scalar, rather than as a key of `produces` — it is
+  // a WALLET currency and not one of the four consumables the colony solve balances, so it was
+  // never in that map. Checked explicitly for that reason; reading it out of `produces` would find
+  // nothing and file the act's three earners under `other`.
+  if (Number.isFinite(definition.producesSalvage) && definition.producesSalvage > 0) return 'salvage';
+  const produces = definition.produces || {};
+  const producesKeys = Object.keys(produces);
+  for (let i = 0; i < producesKeys.length; i += 1) {
+    if (FAB_SECTION_ORDER.indexOf(producesKeys[i]) !== -1) return producesKeys[i];
+  }
+  return 'other';
 }
 
 function isAvailable(definition, currentPhase) {
@@ -138,6 +168,10 @@ function listOffers(state) {
       count,
       owned: count > 0,
       affordable: balance >= cost,
+      // Which section of the shop this belongs in. Derived (see sectionFor) so a new module cannot
+      // be filed wrongly by being forgotten, and answered HERE rather than in the panel because it
+      // is a fact about the definition and the panel may not read definitions.
+      section: sectionFor(definition),
     };
   });
 }
@@ -180,6 +214,11 @@ function listGoals(state) {
       cost: moduleCost(definition, count),
       currency: MODULE_CURRENCY,
       count,
+      // A goal carries its section for the same reason an offer does, and it matters MORE here: a
+      // locked row shown beside the resource it would produce is how a player with no Fuel finds
+      // out what the Fuel gate wants. Filed at the bottom of the shop under a heading of its own,
+      // the same row answers a question nobody thought to ask.
+      section: sectionFor(definition),
       // EVERY prerequisite, met ones included, each already marked. A list that dropped the
       // satisfied half would shrink as the player got closer, so the goal would look like it was
       // getting smaller and then vanish — the opposite of the progress it is there to show. The

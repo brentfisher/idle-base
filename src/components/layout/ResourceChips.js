@@ -57,7 +57,10 @@ function ResourceChips() {
               // The tooltip is where the chip has room to say the second half of it. The rate
               // above now reads the production figure on a full tank, and a number that is being
               // made but not banked has to say so somewhere or it is just a wrong reading.
-              + (row.venting ? ' · surplus discarded — build storage to keep it' : '')}
+              + (row.venting ? ' · surplus discarded — build storage to keep it' : '')
+              // The chip is the only place a player sees Fuel before they open Ops, so the state
+              // that looks like "switched off" has to be nameable from here too.
+              + (row.unbanked ? ' · nothing can hold this yet' : '')}
           >
             <span className="label">{row.label}</span>
             <span className="resource-amount">
