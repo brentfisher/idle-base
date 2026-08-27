@@ -29,6 +29,8 @@ function gameReducer(state, action) {
       return seasonActions.applyOfflineProgressAction(state, action);
     case actionTypes.DISMISS_OFFSEASON_SUMMARY:
       return seasonActions.dismissOffseasonSummary(state);
+    case actionTypes.DISMISS_RETURN_SUMMARY:
+      return seasonActions.dismissReturnSummary(state);
 
     case actionTypes.SEARCH_LOT:
       return clickerActions.searchLot(state, action);

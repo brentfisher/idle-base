@@ -2,6 +2,16 @@ module.exports = {
   TICK: 'TICK',
   APPLY_OFFLINE_PROGRESS: 'APPLY_OFFLINE_PROGRESS',
   DISMISS_OFFSEASON_SUMMARY: 'DISMISS_OFFSEASON_SUMMARY',
+  // Closes the welcome-back screen by setting `state.returnSummary` to null. A SEPARATE ACTION FROM
+  // THE OFFSEASON DISMISSAL ABOVE, not a mode on it: the two screens report different things (an
+  // absence versus a season rollover), are produced by different code, and can be pending at the
+  // same time — a player away nine hours can come back to both.
+  //
+  // Dismissal is the ONLY thing that clears the slice. APPLY_OFFLINE_PROGRESS carries an existing
+  // summary forward when the elapsed time is below balanceConfig.returnSummaryMinSeconds, which is
+  // what makes the mount dispatch idempotent under React 18's dev double-invoke; see
+  // engine/offlineProgress.js.
+  DISMISS_RETURN_SUMMARY: 'DISMISS_RETURN_SUMMARY',
   ACKNOWLEDGE_VICTORY: 'ACKNOWLEDGE_VICTORY',
   ACCEPT_CALL_UP: 'ACCEPT_CALL_UP',
 

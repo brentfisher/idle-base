@@ -5542,6 +5542,170 @@ body.expedition .v7-contract-abandon-note {
   outline-offset: 2px;
 }
 
+/* ================================================================================================
+   THE TWO FRAMING SCREENS — the title screen and the welcome-back screen
+   (components/layout/TitleScreen.js, ReturnSummary.js, ActBackdrop.js)
+
+   PLACED HERE, ABOVE the file's final `@media (max-width: 640px)` block, and that placement is the
+   whole of this comment. global.css ENDS INSIDE that block, so a rule appended at EOF is a
+   mobile-only rule: it builds clean, it looks right in the diff, and it is silently invisible on
+   every desktop. It has cost this project five separate fixes. Anything added for these screens
+   goes above the line below, not after it.
+
+   390px IS THE TARGET, not the fallback. Both screens live inside `.modal-box`, which is already
+   `width: 100%; max-width: 480px` inside a 16px-padded backdrop and already capped at 85dvh on
+   mobile — so the card is 358px wide on a 390px phone and every rule here is written for that
+   width first. Nothing below has a fixed width, a hover-only affordance, or a tap target under
+   44px.
+   ================================================================================================ */
+
+.screen-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The banner bleeds into `.modal-box`'s 20px padding so the picture reaches the card's edges, and
+   the top corners are re-rounded to match the box's own 12px radius — a bleeding child would
+   otherwise square them off. The negative margins are hand-matched to that padding; if
+   `.modal-box`'s padding ever moves, this moves with it.
+
+   ONE GRID CELL, TWO CHILDREN. The canvas wrapper and the text both sit in row 1 / column 1, so the
+   text paints over the picture AND the row is as tall as whichever exists. That is what makes the
+   backdrop's absence a designed state rather than a layout bug: when ActBackdrop renders null (no
+   WebGL, reduced motion, a narrow viewport, an unreachable CDN, a failed integrity check, a throw),
+   the row simply collapses to the height of the title block and the screen reads as an ordinary
+   card. Nothing here has a min-height waiting for a canvas that may never arrive. */
+.screen-banner {
+  display: grid;
+  margin: -20px -20px 16px;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+  background: #0d1f14;
+}
+
+.screen-banner > * {
+  grid-area: 1 / 1;
+}
+
+.act-backdrop {
+  width: 100%;
+  line-height: 0;
+}
+
+/* The canvas is sized in CSS and the drawing buffer is sized separately by the renderer
+   (`setSize(w, h, false)` in ActBackdrop.js passes `updateStyle: false` for exactly this reason).
+   Without `display: block` the inline canvas would carry a baseline gap under it. */
+.act-backdrop-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The scrim is a background on the text rather than a third element: it only needs to exist where
+   the text is, and over a card with no canvas it is a barely-visible darkening rather than a
+   floating gradient. `align-self: end` puts the title at the foot of the picture, which is where
+   the backdrops are quietest — the ground plane and the horizon slab both sit low in frame. */
+.screen-banner-text {
+  align-self: end;
+  padding: 22px 20px 14px;
+  background: linear-gradient(to top, rgba(5, 12, 8, 0.88), rgba(5, 12, 8, 0.55) 55%, rgba(5, 12, 8, 0));
+}
+
+.screen-title {
+  margin: 0;
+  font-size: 1.7rem;
+  line-height: 1.15;
+  color: #f4d35e;
+  letter-spacing: 0.01em;
+}
+
+.screen-tagline {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #cfe3d3;
+}
+
+.screen-prose p {
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.screen-prose-quiet {
+  margin: 0 0 12px;
+  line-height: 1.6;
+  color: #9fc6a9;
+}
+
+.screen-ledger {
+  margin: 4px 0 14px;
+  padding: 10px 12px;
+  background: #0d1f14;
+  border: 1px solid #23522f;
+  border-radius: 8px;
+}
+
+.screen-ledger-head {
+  margin: 0 0 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f4d35e;
+}
+
+.ledger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ONE ROW PER ENTRY, AND NOT A TABLE. Five currencies is the realistic maximum and all five have to
+   stay readable at 358px: the label takes what it needs and wraps, the amount never does, and the
+   row grows in height rather than pushing the card sideways. A table would have given the amount
+   column a width negotiated against the longest label and put a horizontal scrollbar on the card. */
+.ledger-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(35, 82, 47, 0.7);
+}
+
+.ledger-row:last-child {
+  border-bottom: none;
+}
+
+.ledger-label {
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+/* `nowrap` plus tabular figures: the numbers form a right-hand column that lines up without any
+   element being told how wide to be. */
+.ledger-amount {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-weight: 700;
+  color: #7fd497;
+  font-variant-numeric: tabular-nums;
+}
+
+.screen-caveat {
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
+/* THE ONLY TAP TARGET ON EITHER SCREEN, so it is full width and 48px tall rather than Modal's own
+   right-aligned footer button — which these two screens deliberately do not use. On the title
+   screen it is the first tap the player ever makes in the game; on the welcome-back screen it is
+   the only way out, because neither screen passes `onClose` and the backdrop is therefore inert. */
+.screen-action {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 4px;
+  font-size: 1rem;
+}
 
 @media (max-width: 640px) {
   /* The row's two halves stop being side by side: a title, an artist and a sentence of

@@ -35,6 +35,8 @@ const RecordsPanel = require('../records/RecordsPanel');
 const StoryCard = require('../narrative/StoryCard');
 const ToastHost = require('../common/ToastHost');
 const TeardownOverlay = require('../expedition/TeardownOverlay');
+const TitleScreen = require('./TitleScreen');
+const ReturnSummary = require('./ReturnSummary');
 const { getActIntroBeat, getStoryBeat } = require('../../data/storyBeats');
 // The one shared reading of a season recap, plus the one function that names a playoff round.
 const { seasonOutcomeParts } = require('../../data/playoffsConfig');
@@ -99,6 +101,35 @@ function AppShell() {
   // back onto a confirmation they never opened. It sits up here with the other hooks because
   // AppShell early-returns a pre-season shell below and a hook may not live past that return.
   const [confirmingCallUp, setConfirmingCallUp] = React.useState(false);
+
+  // THE TITLE SCREEN, AND WHY THE TEST IS LATCHED IN AN INITIALIZER RATHER THAN RE-READ.
+  //
+  // "Brand new game" is `clock === 0 && clicker.totalClicks === 0`, and that is true for about one
+  // render. useGameTick() below dispatches APPLY_OFFLINE_PROGRESS on its first effect and then ticks
+  // once a second, so a condition recomputed on every render would unmount the title screen roughly
+  // a second after it appeared — while the player was still reading it. The useState initializer
+  // runs once, on mount, which is the only moment the question can be asked honestly.
+  //
+  // LOCAL AND NEVER IN THE SAVE. A title screen is not a fact about the run: no engine module can
+  // see it, no reducer holds it, and persisting it would mean the version bump in
+  // persistence/saveLoad.js (which discards mismatched saves) had been spent on a modal. Dismissing
+  // it must not return, and the latch is what guarantees that — nothing sets it back to true, so a
+  // reload is the only thing that can re-ask, and by then the clock has moved.
+  //
+  // It sits up here with the other hooks because AppShell early-returns a pre-season shell below and
+  // a hook may not live past that return. A brand new save is Act I, which is exactly the branch
+  // that early-returns, so getting this wrong means the screen never appears at all.
+  const [showTitle, setShowTitle] = React.useState(function () {
+    return state.clock === 0 && state.clicker.totalClicks === 0;
+  });
+
+  // The welcome-back screen. Read through a falsy test rather than `=== null`, because the field is
+  // absent from saves that predate it and `undefined` has to mean "nothing to show" too. Suppressed
+  // while the title screen is up: the two are mutually exclusive in practice (a brand new save was
+  // never away) but they are both `.modal-backdrop` at the same z-index, so which one wins is
+  // decided here rather than by DOM order.
+  const returnSummary = !showTitle && state.returnSummary ? state.returnSummary : null;
+
   useGameTick();
 
   // Locked tabs are not rendered at all — no greyed-out teasers. The reveal is the reward.
@@ -184,7 +215,14 @@ function AppShell() {
   // Entering an act raises its story card once; dismissing records it in
   // progression.storyBeatsSeen, so it never returns on reload.
   const introBeat = getActIntroBeat(state.progression.act);
-  const pendingBeat = introBeat && !state.progression.storyBeatsSeen.includes(introBeat.id) ? introBeat : null;
+  // `!showTitle` is not defensive, it is an ordering. On a brand new save BOTH are pending —
+  // `act-1-intro` is unseen at exactly the moment the title screen shows — and both render a
+  // `.modal-backdrop` at z-index 100, so without this the two would stack and DOM order would decide
+  // what the player's first ever screen was. The intended sequence is: name the game, press Start,
+  // and only then "The Vacant Lot" with its objective. It is also why the title screen's prose
+  // deliberately does not retell the card's scene (data/titleScreenConfig.js).
+  const pendingBeat =
+    introBeat && !showTitle && !state.progression.storyBeatsSeen.includes(introBeat.id) ? introBeat : null;
 
   // The franchise UI does not exist until the act that creates a season runs its initializer
   // (design doc, Decision 2) — pre-season acts are the lot, and nothing else. This early return
@@ -239,6 +277,13 @@ function AppShell() {
         {pendingBeat && <StoryCard beat={pendingBeat} />}
         <ToastHost />
         <TeardownOverlay />
+        {/* IN BOTH SHELLS, for the reason TeardownOverlay's comment below already gives and which is
+            sharper for these two. This branch IS Act I, so a title screen mounted only in the
+            post-season return would be missing from the one act it exists for — and a returning
+            player can be mid-Act-II, which is also this branch. Only one branch renders at a time,
+            so only one instance of each ever exists. */}
+        {showTitle && <TitleScreen onStart={() => setShowTitle(false)} />}
+        {returnSummary && <ReturnSummary />}
       </div>
     );
   }
@@ -295,6 +340,16 @@ function AppShell() {
           state.season, because seasonFrozen pauses the simulation without deleting it. */}
       <TeardownOverlay />
 
+      {/* The other half of the pair mounted in the pre-season branch above. The welcome-back screen
+          takes PRECEDENCE over the victory modal and the offseason recap — both of those are gated
+          on `!returnSummary` below — rather than merely being rendered first: they are all
+          `.modal-backdrop` at the same z-index, so DOM order decides which one paints on top and the
+          later one wins. A long absence can produce all three at once, and a player who has just
+          come back needs to be told what they missed before being handed a trophy for part of it.
+          Each dismissal reveals the next. */}
+      {showTitle && <TitleScreen onStart={() => setShowTitle(false)} />}
+      {returnSummary && <ReturnSummary />}
+
       {/* The call-up rides inside the victory modal rather than arriving as a popup of its own,
           because the offer only makes sense in the moment the trophy is handed over — and because
           reusing this modal means "Continue" is already the decline, with no second dismissal for
@@ -303,7 +358,7 @@ function AppShell() {
 
           Whether to offer at all is engine/progression.js's isCallUpOffered() — the component is
           not allowed to know what makes the crossing available, only how to draw it. */}
-      {showVictory && !confirmingCallUp && (
+      {!returnSummary && showVictory && !confirmingCallUp && (
         <Modal
           title="🏆 League Champions!"
           onClose={() => dispatch({ type: actionTypes.ACKNOWLEDGE_VICTORY })}
@@ -358,7 +413,7 @@ function AppShell() {
         </Modal>
       )}
 
-      {!showVictory && state.season && state.season.offseasonSummaryPending && summary && (
+      {!returnSummary && !showVictory && state.season && state.season.offseasonSummaryPending && summary && (
         <Modal
           title={`Season ${summary.seasonNumber} Recap`}
           onClose={() => dispatch({ type: actionTypes.DISMISS_OFFSEASON_SUMMARY })}
