@@ -198,6 +198,21 @@ function createInitialState() {
     // via engine/feed.js, which enforces FEED_CAP on every write. Persisted with the rest of
     // state so the feed survives a reload and can act as the offline-progress summary.
     feed: [],
+    // What the player missed while they were away, or `null` when there is nothing to show. CONTENT
+    // rather than a tick-loop collection in the sense the header note above means, so `null` and not
+    // an empty object: no absence has happened yet in a fresh game, and "never been away" is not the
+    // same statement as "was away and earned nothing". advance() never reads it; it is written once
+    // by engine/offlineProgress.js at load and cleared once by DISMISS_RETURN_SUMMARY.
+    //
+    // Adding it did NOT bump meta.version, following the `salvage` wallet key above: a save written
+    // before this shipped has no `returnSummary`, every reader defaults an absent key to null
+    // (hasReturnSummary() in engine/offlineProgress.js is total for exactly that reason), and the
+    // save loads and plays exactly as before.
+    //
+    // It IS persisted with the rest of state, which is deliberate: a summary the player closed the
+    // tab on without dismissing is still an absence that really happened, and it is waiting for them
+    // when they come back.
+    returnSummary: null,
     hasWonLeagueThisRun: false,
   };
 }

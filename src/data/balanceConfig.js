@@ -26,6 +26,16 @@ module.exports = {
   // why the whole mechanism is inert until an act declares otherwise.
   seasonFrozen: false,
   offlineCapSeconds: 8 * 3600,
+  // How long the player must have been away before a return summary is built at all
+  // (engine/offlineProgress.js). Measured against REAL time away, not the capped figure fed to
+  // advance(), because the question it answers is "was this an absence or a reload".
+  //
+  // Two minutes. A refresh, a dev double-invoke, a tab restored from the background and an
+  // accidental navigation are all seconds; anything the player would describe as having stepped
+  // away from is minutes. Set it lower and every reload throws up a modal reporting the four
+  // seconds of income it just simulated, which trains the player to dismiss the screen without
+  // reading it — and the screen exists to be read on the one return that was genuinely long.
+  returnSummaryMinSeconds: 120,
   tickIntervalMs: 1000,
   autosaveIntervalMs: 30000,
   eloK: 15,
