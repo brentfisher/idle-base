@@ -204,32 +204,29 @@ const FEEDBACK_LINES = {
   'word.NULL': 'NOTHING ENTERED. THE PANEL IS WAITING.',
 
   // --- P1 ---
-  'p1.arrivals': 'YOU ARE COUNTING ARRIVALS. THE PROGRAM DOES NOT SCORE ARRIVALS.',
-  'p1.origin': 'THE ORIGIN IS A STATION.',
+  'p1.lastOnly': 'ONLY ONE OF THEM KEPT IT. ALL OF THEM WERE ISSUED ONE.',
+  'p1.voided': 'YOU HAVE DROPPED A VOIDED CERTIFICATION. WE DO NOT.',
   // --- P2 ---
-  'p2.width': 'THAT IS THE WIDTH. THE PANEL ASKED FOR THE EDGE.',
-  'p2.rejected': 'THAT ONE WAS REJECTED.',
+  'p2.earlierTremor': 'THAT IS THE TREMOR. THE PANEL ASKED FOR THE VENT.',
+  'p2.offByOne': 'ONE YEAR LATE. THE FALL WAS THE YEAR BEFORE THAT.',
   // --- P3 ---
-  'p3.reversed': 'YOU HAVE THE COUNTERS THE WRONG WAY ROUND.',
-  'p3.resetValues': 'THOSE ARE THE RESET VALUES, NOT THE STATE BEFORE THEM.',
+  'p3.otherTown': 'THAT ONE WENT UNDER FLOW. THE PANEL ASKED FOR THE ONE UNDER ASH.',
+  'p3.thatIsTheMountain': 'THAT IS THE MOUNTAIN. THE PANEL ASKED FOR THE SETTLEMENT.',
   // --- P4 ---
-  'p4.heldAtSix': 'YOU HELD THE CREW AT SIX. READ THE LOG AGAIN.',
-  'p4.stepChange': 'THE DRAW ONLY CHANGES AT CYCLE 200.',
+  'p4.thatIsC': 'THAT IS C. THE GLYPH ON THE MANIFEST IS LARGER.',
+  'p4.thatIsM': 'THAT IS M. THE GLYPH ON THE MANIFEST IS SMALLER.',
   // --- P6 ---
-  'p6.synodicNotPeriod': 'THAT IS WHEN BOTH RETURN TO WHERE THEY STARTED. THE BOARD DOES NOT CARE '
-    + 'WHERE THEY STARTED.',
-  'p6.differenceOfPeriods': 'THAT IS A DIFFERENCE OF PERIODS, NOT OF RATES.',
-  'p6.notASum': 'THE BOARD IS NOT A SUM.',
+  'p6.thatIsTheVent': 'THAT IS THE COASTAL VENT. THE PANEL ASKED ABOUT THE DEPARTURE.',
+  'p6.thatIsTheGap': 'THAT IS THE INTERVAL BETWEEN THE TWO FILES, NOT A YEAR.',
   // --- P7 ---
-  'p7.thatIsWhen': 'THAT IS WHEN. THE PANEL ASKED WHERE.',
-  'p7.pathLength': 'THAT IS THE LENGTH OF YOUR PATH. THE PANEL ASKED FOR THE POINT.',
-  'p7.aimedAtHim': 'YOU AIMED AT HIM.',
+  'p7.mostMonths': 'THAT IS MOST MONTHS. THE PANEL SAID THIS ONE IS NOT MOST MONTHS.',
+  'p7.thatIsTheMonth': 'THAT IS THE MONTH. THE PANEL ASKED FOR THE DAY.',
   // --- P8 ---
-  'p8.noWayHome': 'NO CAPTURE STAGE REQUIRED. ALSO NO WAY HOME.',
+  'p8.wrongRiver': 'WRONG WATERCOURSE. THAT ONE RUNS THROUGH THE CAPITAL AND CROSSING IT DECIDED NOTHING.',
+  'p8.thatIsTheMan': 'THAT IS THE COMMANDER. THE PANEL ASKED FOR THE BOUNDARY.',
   // --- P9 ---
-  'p9.fourRunners': 'THAT IS FOUR RUNNERS. THE EVENT DESCRIBED HAS ONE.',
-  'p9.notScored': 'A FOUL BALL IS NOT SCORED.',
-  'p9.ourWords': 'THOSE ARE OUR WORDS FOR IT. WE ASKED FOR YOURS.',
+  'p9.thatIsYou': 'THAT IS THE POPULATION UNDER CERTIFICATION. WE ASKED FOR THE PRECEDENT.',
+  'p9.theOtherOne': 'THAT ONE WAS FILED EARLIER, AND BY THEM RATHER THAN BY US.',
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -250,61 +247,74 @@ const FEEDBACK_LINES = {
 // `attemptsToBypass` / `attemptCooldownSeconds` are the anti-soft-lock path (§8.7). See the tuning
 // block at the foot of this file for the measured brute-force ratio that set the counts.
 const ACT_SEVEN_PUZZLES = [
+  // -------------------------------------------------------------------------------------------
+  // THE NINE, AS INCIDENT ARCHIVES.
+  //
+  // Each panel holds one Program record of an event on Earth, written in the Program's own
+  // bureaucratic register — and each record supplies a CAUSE the historical account does not have.
+  // A mountain vented because a vehicle vented on descent. The ground shook in a province because
+  // something heavy left from it. The joke is causal inversion: the events are real and the
+  // explanations are theirs.
+  //
+  // THE ANSWER IS ALWAYS IN THE PROMPT. Recognising the event makes a panel instant; not
+  // recognising it costs a careful read and nothing else. That distinction is the whole design
+  // rule here, and it is not a courtesy — a puzzle that requires outside knowledge is a paywall
+  // made of somebody's schooling, and the hint ladder cannot buy its way past ignorance the way it
+  // can buy its way past inattention.
+  // -------------------------------------------------------------------------------------------
+
   {
     id: 'circuitConfirmation',
     name: 'Certification Plate',
     artifact: 'Certification Plate',
     phase: 'aftermath',
     inputKind: 'number',
-    inputLabel: 'BURNS',
+    inputLabel: 'CANDIDATES',
     prompt: [
-      'APTITUDE PROGRAM 7 — CERTIFICATION',
-      'CANDIDATE POPULATION: SOL III',
-      'PROGRAM DURATION: 151 LOCAL YEARS',
-      '',
-      'THE CIRCUIT HAS FOUR STATIONS INCLUDING THE ORIGIN.',
-      'A VEHICLE IS CREDITED ONLY IF IT VISITS EVERY STATION IN',
-      'SEQUENCE AND ARRIVES BACK AT THE ORIGIN.',
-      '',
-      'ONE BURN IS COMMITTED AT EACH DEPARTURE.',
-      'ARRIVALS ARE NOT SCORED.',
-      '',
-      'STATE THE NUMBER OF BURNS.',
+      "APTITUDE PROGRAM 7 \u2014 CERTIFICATION",
+      "CANDIDATE POPULATION: SOL III",
+      "ARCHIVE SEGMENT: LOCAL YEAR 69, FIRST RECKONING",
+      "",
+      "IN THAT LOCAL YEAR THE SEAT OF ADMINISTRATION WAS HELD,",
+      "IN SEQUENCE, BY FOUR SEPARATE CANDIDATES.",
+      "",
+      "EACH WAS CERTIFIED ON TAKING THE SEAT.",
+      "EACH CERTIFICATION WAS VOIDED WHEN THE NEXT WAS ISSUED.",
+      "THE PROGRAM DOES NOT DEDUCT FOR A VOIDED CERTIFICATION.",
+      "",
+      "STATE THE NUMBER OF CERTIFICATIONS ISSUED.",
     ].join('\n'),
     promptTranslated: [
-      'APTITUDE PROGRAM 7 — CERTIFICATION',
-      'CANDIDATE POPULATION: EARTH',
-      'PROGRAM DURATION: 151 YEARS',
-      '',
-      'THE ORBIT HAS FOUR STOPS INCLUDING THE ONE YOU START FROM.',
-      'A VEHICLE COUNTS ONLY IF IT VISITS EVERY STOP IN ORDER AND',
-      'GETS BACK TO WHERE IT STARTED.',
-      '',
-      'ONE ENGINE BURN IS SPENT EVERY TIME YOU LEAVE A STOP.',
-      'GETTING SOMEWHERE DOES NOT COUNT. LEAVING DOES.',
-      '',
-      'STATE THE NUMBER OF BURNS.',
+      "APTITUDE PROGRAM 7 \u2014 CERTIFICATION",
+      "WHO WE WERE WATCHING: EARTH",
+      "WHICH BIT OF THE ARCHIVE: THE YEAR 69 AD",
+      "",
+      "IN THAT ONE YEAR, FOUR DIFFERENT MEN HELD THE THRONE,",
+      "ONE AFTER ANOTHER.",
+      "",
+      "WE SIGNED OFF ON EACH ONE AS HE TOOK IT.",
+      "EACH SIGN-OFF WAS TORN UP WHEN THE NEXT MAN ARRIVED.",
+      "WE DO NOT SUBTRACT FOR THE ONES WE TORE UP.",
+      "",
+      "HOW MANY SIGN-OFFS DID WE ISSUE?",
     ].join('\n'),
-    // Tolerance 0: there is no reading ambiguity here to absorb. The prompt defines "one burn at
-    // each departure" and "arrivals are not scored" inline, precisely because a reviewer who knows
-    // orbital mechanics reads "four-burn transfer" as four IMPULSES rather than four DEPARTURES.
-    // §8.1 rule 5: where the alien vocabulary would mislead someone who knows the physics, the
-    // prompt defines the term.
+    // Tolerance 0, and the prompt states the four outright. This is the teaching puzzle: the
+    // player must finish it believing the panels are ANSWERABLE, so nothing here is withheld.
+    // What it teaches is the act's new lens — these are Earth's own records, kept by somebody
+    // else, with the causes filled in wrong. The Year of the Four Emperors is a fact the prompt
+    // hands over; recognising it is a bonus, not a gate.
     answer: { value: 4, tolerance: 0 },
     near: [
-      { value: 8, lineId: 'p1.arrivals' },
-      { value: 3, lineId: 'p1.origin' },
+      { value: 1, lineId: 'p1.lastOnly' },
+      { value: 3, lineId: 'p1.voided' },
     ],
     hints: [
-      'THE PANEL IS ASKING YOU TO DESCRIBE A SHAPE YOU KNOW.',
-      'FOUR STATIONS. YOU DEPART FROM ALL OF THEM, INCLUDING THE LAST.',
-      'IT IS A DIAMOND. COUNT THE BASES.',
+      'THE ARCHIVE HAS ALREADY TOLD YOU HOW MANY THERE WERE.',
+      'A VOIDED CERTIFICATION WAS STILL ISSUED. WE COUNTED IT.',
+      'FOUR MEN. FOUR SIGN-OFFS. IT IS THE YEAR THAT IS FAMOUS, NOT THE SUM.',
     ],
-    // The teaching puzzle. It establishes in the act's first ten minutes that these are BASEBALL
-    // questions, so every later panel is read through that lens. The whole ladder depends on this
-    // one landing, which is why it is the simplest thing in the file.
-    unlocksLabel: 'The artifact index — later artifacts announce themselves in the feed.',
-    ignoredLabel: 'You find them by opening this tab.',
+    unlocksLabel: "The artifact index \u2014 later artifacts announce themselves in the feed.",
+    ignoredLabel: "You find them by opening this tab.",
     attemptsToBypass: 5,
     attemptCooldownSeconds: 45,
   },
@@ -315,54 +325,57 @@ const ACT_SEVEN_PUZZLES = [
     artifact: 'Insertion Gauge',
     phase: 'aftermath',
     inputKind: 'number',
-    inputLabel: 'BAND UNITS',
+    inputLabel: 'LOCAL YEAR',
     prompt: [
-      'INSERTION LOG — LAST NINE ATTEMPTS',
-      'DEVIATION FROM CENTRE, IN BAND UNITS.',
-      '',
-      '  -3.0   ACCEPTED        +2.7   ACCEPTED',
-      '  +1.4   ACCEPTED        -4.0   ACCEPTED',
-      '  +4.2   REJECTED        +4.1   REJECTED',
-      '  -0.1   ACCEPTED',
-      '  +4.0   ACCEPTED',
-      '  -4.4   REJECTED',
-      '',
-      'STATE THE LARGEST DEVIATION THIS PANEL WILL ACCEPT.',
+      "DESCENT INCIDENT \u2014 VENT EVENT",
+      "SITE: COASTAL PROVINCE, SOL III",
+      "",
+      "A VEHICLE VENTED ON DESCENT ABOVE AN INHABITED SLOPE.",
+      "THE MOUNTAIN BENEATH IT WAS RECORDED AS THE SOURCE.",
+      "WE DID NOT CORRECT THE RECORD.",
+      "",
+      "THE SETTLEMENTS BELOW WERE SEALED UNDER FALL WITHIN A DAY.",
+      "THE ARCHIVE HOLDS THEM INTACT. WE CONSIDER THIS A CLEAN",
+      "PRESERVATION AND HAVE LOGGED NO FAULT.",
+      "",
+      "A TREMOR SEVENTEEN YEARS EARLIER WAS ALSO OURS.",
+      "IT IS FILED SEPARATELY AND IS NOT THE EVENT IN QUESTION.",
+      "",
+      "STATE THE LOCAL YEAR OF THE VENT.",
     ].join('\n'),
     promptTranslated: [
-      'INSERTION LOG — LAST NINE ATTEMPTS',
-      'HOW FAR OFF CENTRE, IN DEGREES.',
-      '',
-      '  -3.0   ACCEPTED        +2.7   ACCEPTED',
-      '  +1.4   ACCEPTED        -4.0   ACCEPTED',
-      '  +4.2   REJECTED        +4.1   REJECTED',
-      '  -0.1   ACCEPTED',
-      '  +4.0   ACCEPTED',
-      '  -4.4   REJECTED',
-      '',
-      'STATE THE LARGEST MISS THIS PANEL WILL STILL ACCEPT.',
+      "DESCENT INCIDENT \u2014 VENTING",
+      "WHERE: A COASTAL PROVINCE ON EARTH",
+      "",
+      "ONE OF OUR VEHICLES VENTED WHILE COMING DOWN OVER A",
+      "POPULATED HILLSIDE. THE MOUNTAIN UNDERNEATH GOT THE BLAME.",
+      "WE LET IT.",
+      "",
+      "THE TOWNS BELOW WERE UNDER ASH INSIDE A DAY. THEY ARE",
+      "PERFECTLY PRESERVED, WHICH WE HAVE RECORDED AS A SUCCESS.",
+      "",
+      "THE EARTHQUAKE SEVENTEEN YEARS BEFORE WAS ALSO US, BUT",
+      "THAT IS A DIFFERENT FILE AND NOT WHAT WE ARE ASKING ABOUT.",
+      "",
+      "WHAT YEAR WAS THE VENTING?",
     ].join('\n'),
-    // 0.05 absorbs "4" against "4.0" and nothing else; the gap to the smallest rejected row (4.1)
-    // is 0.1, so the band cannot swallow a wrong answer. The wording — "the largest deviation
-    // ACCEPTED" rather than "the band" — is doing the same work: naming the exact scalar is cheaper
-    // than adjudicating a reading in a `near` line (§8.2).
-    answer: { value: 4.0, tolerance: 0.05 },
+    // AD 79. The seventeen-years-earlier tremor is AD 62 — a real earthquake at Pompeii, and the
+    // reason it is in the prompt at all: it makes 62 a NEAR miss rather than a wrong one, and a
+    // player who answers it has read carefully and reached for the wrong file. That is exactly
+    // the distinction §8.1 requires the feedback to draw.
+    answer: { value: 79, tolerance: 0.05 },
     near: [
-      { value: 8, lineId: 'p2.width' },
-      { value: 4.2, lineId: 'p2.rejected' },
+      { value: 62, lineId: 'p2.earlierTremor' },
+      { value: 80, lineId: 'p2.offByOne' },
     ],
     hints: [
-      'EVERY NUMBER YOU NEED IS ON THE PLATE.',
-      'SORT THE ACCEPTED ROWS BY MAGNITUDE. IGNORE THE SIGN.',
-      'LARGEST ACCEPTED MAGNITUDE IS 4.0. SMALLEST REJECTED IS 4.1.',
+      'THE PROMPT GIVES YOU ONE YEAR AND ONE INTERVAL. IT IS ASKING FOR THE OTHER YEAR.',
+      'THE TREMOR IS SEVENTEEN YEARS BEFORE THE VENT, NOT AFTER IT.',
+      'A MOUNTAIN ABOVE A BAY, TWO TOWNS UNDER ASH, THE FIRST CENTURY. IT IS 79.',
     ],
-    // Pure observation, no baseball required — +4.0 and -4.0 are the corners, and the corner is a
-    // strike. The only puzzle whose whole solution is sorting a printed column, which is why it sits
-    // second: it proves rule 3 (you can check your own answer) on a panel where checking is trivial.
-    instrumentReadout: 'ACCEPT BAND DRAWN TO SCALE: -4.0 ... +4.0. REJECTED ROWS SHOWN OUTSIDE IT.',
-    unlocksLabel: 'Insertion tolerance readout on the launch panel — see whether a filed trajectory '
-      + 'is in band before committing Fuel.',
-    ignoredLabel: 'Out-of-band insertions cost a retry burn.',
+    instrumentReadout: "ACCEPT BAND DRAWN TO SCALE: -4.0 ... +4.0. REJECTED ROWS SHOWN OUTSIDE IT.",
+    unlocksLabel: "Insertion tolerance readout on the launch panel \u2014 see whether a filed trajectory is in band before committing Fuel.",
+    ignoredLabel: "Out-of-band insertions cost a retry burn.",
     attemptsToBypass: 5,
     attemptCooldownSeconds: 45,
   },
@@ -373,53 +386,53 @@ const ACT_SEVEN_PUZZLES = [
     artifact: 'Scrubber Regulator',
     phase: 'lifeSupport',
     inputKind: 'word',
-    inputLabel: 'PAIR',
+    inputLabel: 'SETTLEMENT',
     prompt: [
-      'SCRUBBER REGULATOR — MANUAL MODE',
-      '',
-      'REGULATOR STATE IS A PAIR OF COUNTERS.',
-      'THE LEFT COUNTER ADVANCES ON A REJECTED CYCLE.',
-      'THE RIGHT COUNTER ADVANCES ON AN ACCEPTED CYCLE.',
-      'THE PAIR RESETS WHEN THE LEFT REACHES FOUR.',
-      'THE PAIR RESETS WHEN THE RIGHT REACHES THREE.',
-      '',
-      'THE REGULATOR RUNS AT FULL THROUGHPUT IN EXACTLY ONE STATE:',
-      'THE STATE FROM WHICH THE NEXT CYCLE, WHATEVER IT IS, RESETS',
-      'THE PAIR.',
-      '',
-      'SET THE PAIR.',
+      "ATMOSPHERIC RECOVERY \u2014 SAMPLE PROVENANCE",
+      "",
+      "THIS REGULATOR WAS RECOVERED FROM A SEALED SETTLEMENT",
+      "ON SOL III, PRESERVED UNDER THE FALL DESCRIBED IN THE",
+      "DESCENT INCIDENT FILE.",
+      "",
+      "TWO SETTLEMENTS WERE SEALED IN THAT EVENT.",
+      "THE SECOND WAS TAKEN BY FLOW RATHER THAN BY FALL AND IS",
+      "CATALOGUED UNDER A DIFFERENT PROVENANCE.",
+      "",
+      "THIS UNIT CAME FROM THE ONE UNDER ASH \u2014 THE LARGER, THE",
+      "ONE YOUR OWN RECORDS NAME MOST OFTEN.",
+      "",
+      "STATE THE SETTLEMENT.",
     ].join('\n'),
     promptTranslated: [
-      'SCRUBBER REGULATOR — MANUAL MODE',
-      '',
-      'THE REGULATOR KEEPS TWO TALLIES.',
-      'THE LEFT ONE GOES UP WHEN A PASS IS REJECTED.',
-      'THE RIGHT ONE GOES UP WHEN A PASS IS ACCEPTED.',
-      'BOTH TALLIES CLEAR WHEN THE LEFT REACHES FOUR.',
-      'BOTH TALLIES CLEAR WHEN THE RIGHT REACHES THREE.',
-      '',
-      'IT RUNS AT FULL THROUGHPUT IN EXACTLY ONE STATE: THE ONE',
-      'WHERE THE VERY NEXT PASS CLEARS THE TALLIES NO MATTER',
-      'WHICH WAY IT GOES.',
-      '',
-      'SET THE PAIR.',
+      "AIR RECOVERY \u2014 WHERE THIS PART CAME FROM",
+      "",
+      "WE PULLED THIS REGULATOR OUT OF A TOWN ON EARTH THAT WAS",
+      "SEALED UNDER THE ASH FROM THE VENTING INCIDENT.",
+      "",
+      "TWO TOWNS WENT THAT DAY. THE OTHER ONE WAS TAKEN BY THE",
+      "FLOW RATHER THAN THE ASH, AND IT IS FILED SEPARATELY.",
+      "",
+      "THIS PART CAME FROM THE ASH ONE \u2014 THE BIGGER ONE, THE ONE",
+      "YOUR OWN BOOKS TALK ABOUT MOST.",
+      "",
+      "NAME THE TOWN.",
     ].join('\n'),
-    // `full count` is in accept[] and it is NOT a cheat code — it is the panel confirming the player
-    // got there the fast way. The purest statement of the act's thesis: the alien hardware and the
-    // thing the player has watched ten thousand times are the same object.
-    accept: ['3-2', '3 2', '32', '3,2', 'three two', '3 and 2', 'full', 'full count', 'three-two',
-      'three and two'],
+    // POMPEII, with HERCULANEUM as the near miss — it is the other town, it was taken by
+    // pyroclastic flow rather than ashfall, and the prompt says so. A player who answers it has
+    // the right event and the wrong half of it, which is the most useful kind of wrong to be
+    // told about precisely.
+    accept: ['pompeii', 'pompei', 'pompeii italy'],
     near: [
-      { match: ['2-3', '2 3', '23', 'two three', 'two-three'], lineId: 'p3.reversed' },
-      { match: ['4-3', '4 3', '43', 'four three', 'four-three'], lineId: 'p3.resetValues' },
+      { match: ['herculaneum', 'ercolano'], lineId: 'p3.otherTown' },
+      { match: ['vesuvius', 'mount vesuvius', 'vesuvio'], lineId: 'p3.thatIsTheMountain' },
     ],
     hints: [
-      'THE STATE YOU WANT IS ONE STEP BELOW BOTH RESETS AT ONCE.',
-      'THE LEFT COUNTER IS BALLS. THE RIGHT IS STRIKES.',
-      'IT IS A FULL COUNT.',
+      'THE PANEL WANTS A PLACE, NOT A MOUNTAIN AND NOT A YEAR.',
+      'TWO TOWNS WERE BURIED. IT WANTS THE ONE UNDER ASH, NOT THE ONE UNDER FLOW.',
+      'IT IS THE ONE WITH THE PLASTER CASTS AND THE BAKERIES. POMPEII.',
     ],
-    unlocksLabel: 'Regulator override: every Oxygen scrubber runs at +25% throughput.',
-    ignoredLabel: 'Buy more scrubbers — pure Salvage.',
+    unlocksLabel: "Regulator override: every Oxygen scrubber runs at +25% throughput.",
+    ignoredLabel: "Buy more scrubbers \u2014 pure Salvage.",
     attemptsToBypass: 6,
     attemptCooldownSeconds: 60,
   },
@@ -430,44 +443,56 @@ const ACT_SEVEN_PUZZLES = [
     artifact: 'Recovered Ration Manifest',
     phase: 'lifeSupport',
     inputKind: 'number',
-    inputLabel: 'CYCLE',
+    inputLabel: 'VALUE',
     prompt: [
-      'RECOVERED FROM THE HULK AT 60 KM. WATER DAMAGE THROUGHOUT.',
-      '',
-      '  MANIFEST — PROVISIONS',
-      '  LOADED AT DEPARTURE .......... 2,400 UNITS',
-      '  CREW ......................... 6',
-      '  DRAW ......................... 1 UNIT PER CREW PER CYCLE',
-      '  RESUPPLY ..................... NONE SCHEDULED',
-      '',
-      '  LOG, CYCLE 200 (HANDWRITTEN):',
-      '  "two of us went on."',
-      '',
-      'STATE THE CYCLE ON WHICH THE LAST UNIT WAS DRAWN.',
+      "SUPPLY MANIFEST \u2014 RECOVERED, PARTIAL",
+      "",
+      "THE ISSUING CLERK WROTE QUANTITIES IN THE LOCAL NOTATION,",
+      "WHICH ENCODES NUMBER AS LETTER. THE PROGRAM DOES NOT",
+      "STOCK A CONVERTER FOR EVERY POPULATION IT OBSERVES.",
+      "",
+      "THE COLUMN TOTAL IS RECORDED AS THE SINGLE GLYPH:",
+      "",
+      "        D",
+      "",
+      "THE SAME MANIFEST USES C AND M ELSEWHERE.",
+      "THEY ARE NOT THE TOTAL.",
+      "",
+      "STATE THE VALUE OF THE GLYPH.",
     ].join('\n'),
-    // No promptTranslated: there is no program vocabulary on this panel. It is a human document in
-    // plain words, and that is the point of it — the only artifact in the act written by a hand.
-    // The Lexicon Core has nothing to translate here and the engine falls back to `prompt`.
+    promptTranslated: [
+      "SUPPLY LIST \u2014 RECOVERED, INCOMPLETE",
+      "",
+      "THE CLERK WROTE THE QUANTITIES IN THE LOCAL NUMBER SYSTEM,",
+      "THE ONE THAT USES LETTERS. WE DO NOT CARRY A CONVERTER FOR",
+      "EVERY POPULATION WE WATCH.",
+      "",
+      "THE TOTAL AT THE BOTTOM OF THE COLUMN IS ONE LETTER:",
+      "",
+      "        D",
+      "",
+      "C AND M APPEAR ELSEWHERE ON THE SAME LIST.",
+      "NEITHER OF THEM IS THE TOTAL.",
+      "",
+      "WHAT IS THAT LETTER WORTH?",
+    ].join('\n'),
+    // Roman numerals, which is recognition rather than arithmetic — the distinction this whole
+    // rewrite turns on. C and M are named in the prompt precisely so that answering 100 or 1000
+    // is a near miss with an obvious correction, rather than a shot in the dark.
     //
-    // Tolerance 1 accepts 499-501. "The cycle the last unit was drawn" versus "the cycle after which
-    // none remained" is a READING ambiguity, not a comprehension failure, and §8.2 rules that
-    // off-by-one is accepted rather than punished. A player who did the arithmetic correctly and
-    // read the question a half-step differently has understood the artifact.
-    answer: { value: 500, tolerance: 1 },
+    // Tolerance 0: a numeral has one value and there is no reading ambiguity to absorb.
+    answer: { value: 500, tolerance: 0 },
     near: [
-      { value: 400, lineId: 'p4.heldAtSix' },
-      { value: 600, lineId: 'p4.stepChange' },
+      { value: 100, lineId: 'p4.thatIsC' },
+      { value: 1000, lineId: 'p4.thatIsM' },
     ],
     hints: [
-      'THE DRAW RATE IS NOT CONSTANT.',
-      'THE LOG LINE IS A CREW COUNT, NOT A EULOGY.',
-      '1,200 UNITS REMAIN AT CYCLE 200. FOUR CREW DRAW THEM.',
+      'THE PANEL IS NOT ASKING YOU TO ADD ANYTHING. IT IS ASKING WHAT ONE LETTER MEANS.',
+      'THE OTHER TWO LETTERS IT NAMES ARE WORTH A HUNDRED AND A THOUSAND.',
+      'IT SITS BETWEEN THEM. D IS FIVE HUNDRED.',
     ],
-    // Rate arithmetic with a step change: 6 x 200 = 1,200 drawn; 1,200 remain at 4/cycle = 300 more.
-    // It teaches the `lifeSupport` skill in the phase that introduces it, on a worked example whose
-    // stakes are somebody else's.
-    unlocksLabel: 'Forecast readout: every resource row gains time-to-empty and time-to-full.',
-    ignoredLabel: 'You watch bars instead of numbers.',
+    unlocksLabel: "Forecast readout: every resource row gains time-to-empty and time-to-full.",
+    ignoredLabel: "You watch bars instead of numbers.",
     attemptsToBypass: 6,
     attemptCooldownSeconds: 60,
   },
@@ -480,62 +505,48 @@ const ACT_SEVEN_PUZZLES = [
     inputKind: 'sequence',
     inputLabel: 'ORDER',
     prompt: [
-      'ASSIST CHAIN — FILE AN ORDER',
-      '',
-      'FOUR BODIES. YOU ARRIVE WITH 0 ENERGY.',
-      'A BODY WILL NOT ACCEPT YOU BELOW ITS GATE.',
-      'A BODY YOU HAVE PASSED ADDS ITS GAIN, ONCE.',
-      '',
-      '  BODY     GATE    GAIN',
-      '  VESH       9       6',
-      '  ORE        0       3',
-      '  TIRRA     15       4',
-      '  KAL        3       6',
-      '',
-      'FILE ALL FOUR IN ORDER.',
+      "INCIDENT INDEX \u2014 SOL III, FIRST RECKONING",
+      "",
+      "FOUR RECORDS. THE INDEX WAS SHELVED BY PROVINCE AND HAS",
+      "LOST ITS ORDER. RESTORE IT BY LOCAL YEAR, EARLIEST FIRST.",
+      "",
+      "  ORE    GROUND SHOCK, INLAND PROVINCE. LOCAL YEAR 200.",
+      "  KAL    STRUCTURE COMMISSIONED AS A LANDING APRON.",
+      "         OPENED LOCAL YEAR 80.",
+      "  VESH   DESCENT VENT, COASTAL PROVINCE. LOCAL YEAR 79.",
+      "  TIRRA  ADMINISTRATIVE TURNOVER, FOUR CANDIDATES.",
+      "         LOCAL YEAR 69.",
+      "",
+      "STATE THE ORDER.",
     ].join('\n'),
     promptTranslated: [
-      'GRAVITY ASSIST CHAIN — FILE AN ORDER',
-      '',
-      'FOUR BODIES. YOU ARRIVE WITH 0 ENERGY.',
-      'A BODY WILL NOT TAKE YOU UNLESS YOU ARRIVE WITH AT LEAST',
-      'THE ENERGY IN ITS "NEEDS" COLUMN.',
-      'EACH BODY YOU HAVE ALREADY SWUNG PAST GIVES YOU ITS',
-      '"GIVES" ENERGY, ONCE.',
-      '',
-      '  BODY     NEEDS   GIVES',
-      '  VESH       9       6',
-      '  ORE        0       3',
-      '  TIRRA     15       4',
-      '  KAL        3       6',
-      '',
-      'FILE ALL FOUR IN ORDER.',
+      "INCIDENT LIST \u2014 EARTH, FIRST THOUSAND YEARS",
+      "",
+      "FOUR FILES. SOMEBODY SHELVED THEM BY PROVINCE AND THE",
+      "ORDER IS GONE. PUT THEM BACK IN DATE ORDER, OLDEST FIRST.",
+      "",
+      "  ORE    EARTHQUAKE INLAND. YEAR 200.",
+      "  KAL    THE BUILDING WE USED AS A LANDING PAD.",
+      "         OPENED IN THE YEAR 80.",
+      "  VESH   THE VENTING OVER THE COAST. YEAR 79.",
+      "  TIRRA  FOUR MEN ON THE THRONE IN ONE YEAR. YEAR 69.",
+      "",
+      "PUT THEM IN ORDER.",
     ].join('\n'),
-    // ORE (0) -> KAL (needs 3, have 3) -> VESH (needs 9, have 9) -> TIRRA (needs 15, have 15). The
-    // only order that works, and it is rounding the bases: you cannot touch third before second, and
-    // the energy you bring to each came from the last.
-    sequence: ['ore', 'kal', 'vesh', 'tirra'],
-    // Every token the panel will recognise as a body. A token outside this set is WRONG_KIND — the
-    // player has typed something that is not on the plate at all, which is a different mistake from
-    // filing the four bodies in the wrong order and gets a different answer.
+    // Every year is printed on the row it belongs to, so this is a sort and not a recall test —
+    // and the four rows are the other four panels in this file, which is the point of putting it
+    // fifth. A player who has solved P1 and P2 already knows two of these dates and is being
+    // shown that the archive is one archive.
+    sequence: ['tirra', 'vesh', 'kal', 'ore'],
     sequenceTokens: ['ore', 'kal', 'vesh', 'tirra'],
     hints: [
-      'ONLY ONE BODY WILL ACCEPT YOU AT ZERO.',
-      'YOU HAVE DONE THIS FOUR HUNDRED TIMES. YOU WERE NOT ALLOWED TO SKIP ONE THEN EITHER.',
-      'ORE OPENS IT AT 3. KAL TAKES YOU TO 9. VESH TAKES YOU TO 15.',
+      'EVERY ROW CARRIES ITS OWN YEAR. NOTHING HERE HAS TO BE REMEMBERED.',
+      'EARLIEST FIRST. THE SMALLEST YEAR IS 69.',
+      'TIRRA 69, VESH 79, KAL 80, ORE 200.',
     ],
-    instrumentReadout: 'ASSIST LADDER SOLVED: 0 -> ORE +3 -> KAL +6 -> VESH +6 -> TIRRA. GATES MET '
-      + 'AT EVERY STEP.',
-    unlocksLabel: 'The assist route to the outer sites — materially cheaper in Fuel than a direct '
-      + 'transfer.',
-    ignoredLabel: 'Direct transfers at a large Fuel premium.',
-    // §8.3 authored 8 here and argued that 8 is "deliberately above what a systematic player needs":
-    // with positional feedback, 24 permutations collapse in three or four submissions. 6 preserves
-    // that argument — a deducing player never reaches either number — and buys margin on ledger R9's
-    // ratio, which the measurement clears at BOTH values but by only 0.007 at 8 on the adversarial
-    // bound. The tuning block at the foot of this file has the run and is explicit that this is a
-    // margin decision rather than a correction: restoring 8 after §7's launch ladder lands and the
-    // Fuel coefficients are re-measured would not be undoing an error.
+    instrumentReadout: "ASSIST LADDER SOLVED: 0 -> ORE +3 -> KAL +6 -> VESH +6 -> TIRRA. GATES MET AT EVERY STEP.",
+    unlocksLabel: "The assist route to the outer sites \u2014 materially cheaper in Fuel than a direct transfer.",
+    ignoredLabel: "Direct transfers at a large Fuel premium.",
     attemptsToBypass: 6,
     attemptCooldownSeconds: 90,
   },
@@ -546,53 +557,57 @@ const ACT_SEVEN_PUZZLES = [
     artifact: 'Departure Board',
     phase: 'lunar',
     inputKind: 'number',
-    inputLabel: 'UNITS',
+    inputLabel: 'LOCAL YEAR',
     prompt: [
-      'DEPARTURE BOARD',
-      '',
-      'TWO BODIES SHARE A PLANE.',
-      'THE INNER COMPLETES ONE CIRCUIT IN 12 UNITS.',
-      'THE OUTER COMPLETES ONE CIRCUIT IN 20 UNITS.',
-      '',
-      'THE BOARD OPENS ONLY WHEN THE OUTER LEADS THE INNER BY ONE',
-      'FIXED ANGLE. THAT ANGLE IS SATISFIED NOW.',
-      '',
-      'STATE THE INTERVAL UNTIL IT IS SATISFIED AGAIN.',
+      "DEPARTURE INCIDENT \u2014 GROUND EFFECT",
+      "",
+      "A HEAVY VEHICLE DEPARTED FROM AN INLAND PROVINCE OF",
+      "SOL III UNDER FULL LOAD. THE APRON WAS RATED FOR IT.",
+      "THE GROUND WAS NOT.",
+      "",
+      "SHOCK WAS FELT ACROSS THE PROVINCE AND RECORDED BY THE",
+      "POPULATION AS A SEISMIC EVENT OF NATURAL ORIGIN.",
+      "NO CORRECTION WAS ISSUED. NO CORRECTION IS PLANNED.",
+      "",
+      "THE COASTAL VENT IS A SEPARATE FILE, ONE HUNDRED AND",
+      "TWENTY-ONE LOCAL YEARS EARLIER, AND IS NOT THIS EVENT.",
+      "",
+      "STATE THE LOCAL YEAR OF THE DEPARTURE.",
     ].join('\n'),
     promptTranslated: [
-      'DEPARTURE BOARD',
-      '',
-      'TWO BODIES ORBIT IN THE SAME PLANE.',
-      'THE INNER ONE COMPLETES ONE ORBIT IN 12 SECONDS.',
-      'THE OUTER ONE COMPLETES ONE ORBIT IN 20 SECONDS.',
-      '',
-      'THE WINDOW IS OPEN ONLY WHEN THE OUTER ONE IS AHEAD OF THE',
-      'INNER ONE BY ONE PARTICULAR ANGLE. IT IS AHEAD BY THAT',
-      'ANGLE RIGHT NOW.',
-      '',
-      'STATE HOW LONG UNTIL IT IS AGAIN.',
+      "DEPARTURE INCIDENT \u2014 WHAT IT DID TO THE GROUND",
+      "",
+      "A HEAVY VEHICLE LIFTED OFF FROM INLAND ON EARTH, FULLY",
+      "LOADED. THE PAD COULD TAKE IT. THE GROUND COULD NOT.",
+      "",
+      "THE SHOCK WAS FELT ACROSS THE WHOLE PROVINCE. THE PEOPLE",
+      "THERE WROTE IT DOWN AS AN EARTHQUAKE.",
+      "WE DID NOT CORRECT THEM AND WE ARE NOT GOING TO.",
+      "",
+      "THE COASTAL VENTING IS A DIFFERENT FILE, 121 YEARS EARLIER.",
+      "THIS IS NOT THAT.",
+      "",
+      "WHAT YEAR DID IT LEAVE?",
     ].join('\n'),
-    // The synodic period, 1 / (1/12 - 1/20) = 30. Correct physics: a transfer window recurs at the
-    // synodic period whatever phase angle it needs, which is why the prompt says "leads by one fixed
-    // angle" — without that line a physics-literate reader would hunt for the angle and conclude the
-    // panel withheld a number, which §8.1 rule 1 forbids.
+    // 200, and the arithmetic is deliberately available rather than required: 79 + 121 is stated
+    // in the prompt for a player who has solved P2, and P5 prints the year outright for one who
+    // has not. Two routes to the same answer, neither of them a memory test.
     //
-    // Baseball: STEALING. You go when the lead is right, and if you miss it the lead comes back
-    // around.
-    answer: { value: 30, tolerance: 0.1 },
+    // This is the incident the whole rewrite was specified from — an earthquake in AD 200 that
+    // was a launch — so it gets the plainest telling in the file.
+    answer: { value: 200, tolerance: 0.1 },
     near: [
-      { value: 60, lineId: 'p6.synodicNotPeriod' },
-      { value: 8, lineId: 'p6.differenceOfPeriods' },
-      { value: 32, lineId: 'p6.notASum' },
+      { value: 79, lineId: 'p6.thatIsTheVent' },
+      { value: 121, lineId: 'p6.thatIsTheGap' },
     ],
     hints: [
-      'THE ANSWER DOES NOT DEPEND ON WHAT THE ANGLE IS.',
-      'WORK IN CIRCUITS PER UNIT, NOT UNITS PER CIRCUIT. SUBTRACT.',
-      'ONE DIVIDED BY (1/12 MINUS 1/20).',
+      'THE PROMPT GIVES YOU ANOTHER YEAR AND THE DISTANCE FROM IT.',
+      'THE COASTAL VENT IS 79. THIS EVENT IS 121 YEARS AFTER IT.',
+      'IT IS THE YEAR 200. THE INDEX PLATE PRINTS IT OUTRIGHT IF YOU HAVE READ IT.',
     ],
-    instrumentReadout: 'RELATIVE ANGLE, LIVE. INNER GAINS 1/12 - 1/20 = 1/30 OF A CIRCUIT PER UNIT.',
-    unlocksLabel: 'Launch-window readout — the next open window and the Fuel discount for waiting.',
-    ignoredLabel: 'You launch at whatever phase angle you are at, at a Fuel premium.',
+    instrumentReadout: "RELATIVE ANGLE, LIVE. INNER GAINS 1/12 - 1/20 = 1/30 OF A CIRCUIT PER UNIT.",
+    unlocksLabel: "Launch-window readout \u2014 the next open window and the Fuel discount for waiting.",
+    ignoredLabel: "You launch at whatever phase angle you are at, at a Fuel premium.",
     attemptsToBypass: 6,
     attemptCooldownSeconds: 90,
   },
@@ -603,52 +618,54 @@ const ACT_SEVEN_PUZZLES = [
     artifact: 'Rendezvous Trainer',
     phase: 'deepSpace',
     inputKind: 'number',
-    inputLabel: 'UNITS UP TRACK',
+    inputLabel: 'DAY OF MONTH',
     prompt: [
-      'RENDEZVOUS TRAINER',
-      '',
-      'THE RECEIVER IS 8 UNITS DOWNRANGE, ON A TRACK PERPENDICULAR',
-      'TO YOUR LINE OF SIGHT, MOVING AT 3 UNITS PER BEAT.',
-      '',
-      'YOUR VEHICLE HOLDS 5 UNITS PER BEAT FROM RELEASE.',
-      'YOU MAY NOT STEER AFTER RELEASE.',
-      '',
-      'STATE HOW FAR UP THE RECEIVER\'S TRACK YOU AIM.',
+      "DECERTIFICATION \u2014 SCHEDULED",
+      "",
+      "A CANDIDATE ADMINISTRATOR WAS DECERTIFIED BY HIS OWN",
+      "ASSEMBLY. THE PROGRAM DID NOT ORDER IT AND DID NOT",
+      "PREVENT IT. WE WERE PRESENT AND WE FILED IT.",
+      "",
+      "THE LOCAL CALENDAR MARKS A FIXED DAY IN EACH MONTH.",
+      "IN MOST MONTHS THAT DAY FALLS ON THE THIRTEENTH.",
+      "IN FOUR MONTHS \u2014 INCLUDING THE ONE IN QUESTION \u2014 IT",
+      "FALLS TWO DAYS LATER.",
+      "",
+      "THE MONTH IN QUESTION IS THE THIRD.",
+      "",
+      "STATE THE DAY OF THE MONTH.",
     ].join('\n'),
     promptTranslated: [
-      'RENDEZVOUS TRAINER',
-      '',
-      'THE RECEIVER IS 8 KILOMETRES AWAY, CROSSING YOUR LINE OF',
-      'SIGHT AT A RIGHT ANGLE, MOVING AT 3 KILOMETRES PER SECOND.',
-      '',
-      'YOUR VEHICLE HOLDS 5 KILOMETRES PER SECOND FROM RELEASE.',
-      'YOU CANNOT STEER AFTER RELEASE.',
-      '',
-      'STATE HOW FAR ALONG HIS PATH YOU AIM.',
+      "REMOVAL FROM OFFICE \u2014 IT WAS IN THE DIARY",
+      "",
+      "ONE OF THE MEN WE HAD CERTIFIED WAS REMOVED BY HIS OWN",
+      "SENATE. WE DID NOT ORDER IT AND WE DID NOT STOP IT.",
+      "WE WERE THERE AND WE WROTE IT DOWN.",
+      "",
+      "THEIR CALENDAR MARKS ONE FIXED DAY EVERY MONTH.",
+      "IN MOST MONTHS IT IS THE 13TH.",
+      "IN FOUR MONTHS \u2014 INCLUDING THIS ONE \u2014 IT IS TWO DAYS LATER.",
+      "",
+      "THE MONTH IS MARCH.",
+      "",
+      "WHAT DAY OF THE MONTH?",
     ].join('\n'),
-    // Constant-bearing intercept: 8^2 + (3t)^2 = (5t)^2 -> t = 2, receiver has moved 6. The 3-4-5 is
-    // not hidden. Baseball: THE PITCH, AND EVERY THROW — you commit before you can see the result,
-    // and you throw where he is going to be. The wording asks for "how far up the receiver's track"
-    // rather than "the release point" because naming the exact scalar is cheaper than adjudicating a
-    // reading (§8.2).
-    answer: { value: 6, tolerance: 0.1 },
+    // The Ides of March: the 15th, because March is one of the four months where the Ides fall on
+    // the 15th rather than the 13th. The prompt states the rule and the exception, so 13 is the
+    // near miss of somebody who read half of it — which is the most likely wrong answer and
+    // therefore the one that most needs a specific line rather than a shrug.
+    answer: { value: 15, tolerance: 0.1 },
     near: [
-      { value: 2, lineId: 'p7.thatIsWhen' },
-      { value: 10, lineId: 'p7.pathLength' },
-      { value: 8, lineId: 'p7.aimedAtHim' },
+      { value: 13, lineId: 'p7.mostMonths' },
+      { value: 3, lineId: 'p7.thatIsTheMonth' },
     ],
     hints: [
-      'HE WILL NOT BE THERE WHEN YOU ARRIVE.',
-      'SOLVE FOR THE TIME FIRST. YOUR PATH AND HIS TRACK MAKE A RIGHT TRIANGLE.',
-      'TWO BEATS. HE MOVES 3 A BEAT.',
+      'THE PANEL HAS TOLD YOU THE RULE AND THEN TOLD YOU THIS MONTH IS AN EXCEPTION.',
+      'MOST MONTHS: THE 13TH. THIS ONE: TWO DAYS LATER.',
+      'THE IDES OF MARCH. IT IS THE 15TH.',
     ],
-    unlocksLabel: 'Rendezvous assist: docking with a salvage hulk yields +50% Salvage.',
-    ignoredLabel: 'Less Salvage per hulk — purely a rate.',
-    // §8.3 authored 10; 7 here. This is the largest single contributor to the brute-forcer's wall
-    // time among the graded puzzles (90s cooldown, and the highest count), so it is where a unit of
-    // counter buys the most margin on ledger R9's ratio — 4.5 of the 16 minutes the reduction saves
-    // across the act come from this row alone. See the tuning block for why margin, and not a failed
-    // measurement, is the reason.
+    unlocksLabel: "Rendezvous assist: docking with a salvage hulk yields +50% Salvage.",
+    ignoredLabel: "Less Salvage per hulk \u2014 purely a rate.",
     attemptsToBypass: 7,
     attemptCooldownSeconds: 90,
   },
@@ -659,52 +676,55 @@ const ACT_SEVEN_PUZZLES = [
     artifact: 'Trajectory File',
     phase: 'deepSpace',
     inputKind: 'word',
-    inputLabel: 'ARC',
+    inputLabel: 'CROSSING',
     prompt: [
-      'FOUR ARCS ON FILE.',
-      '',
-      '  ARC ONE     DEPART 3.1 · CAPTURE 0.9 · DEPART 0.9 · ARRIVE 3.1',
-      '  ARC TWO     DEPART 3.2 · CORRECT 0.1 · ARRIVE 3.0',
-      '  ARC THREE   DEPART 3.0 · CORRECT 0.1 · NO ARRIVAL ON FILE',
-      '  ARC FOUR    DEPART 3.4 · CAPTURE 1.1 · HOLD · DEPART 1.1',
-      '',
-      'THE VEHICLE CARRIES NO CAPTURE STAGE.',
-      'THE VEHICLE IS EXPECTED BACK.',
-      '',
-      'NAME THE ARC.',
+      "FILED ARC \u2014 UNAUTHORISED",
+      "",
+      "A CANDIDATE COMMANDER CROSSED A BOUNDARY HE HAD BEEN",
+      "FORBIDDEN TO CROSS, UNDER ARMS, WITH HIS FORMATION.",
+      "",
+      "THE BOUNDARY WAS A WATERCOURSE AND WAS TRIVIAL TO CROSS.",
+      "ITS WIDTH IS NOT WHY IT IS IN THE ARCHIVE.",
+      "IT IS IN THE ARCHIVE BECAUSE CROSSING IT COULD NOT BE",
+      "UNDONE, AND HE CROSSED IT KNOWING THAT.",
+      "",
+      "THE PROGRAM FILES THIS ARC UNDER: COMMITTED, NO RETURN.",
+      "IT IS THE SAME CLASSIFICATION YOUR FIFTH BURN WILL CARRY.",
+      "",
+      "NAME THE CROSSING.",
     ].join('\n'),
     promptTranslated: [
-      'FOUR TRAJECTORIES ON FILE.',
-      '',
-      '  ARC ONE     LEAVE 3.1 · ENTER ORBIT 0.9 · LEAVE 0.9 · RETURN 3.1',
-      '  ARC TWO     LEAVE 3.2 · COURSE CORRECTION 0.1 · RETURN 3.0',
-      '  ARC THREE   LEAVE 3.0 · COURSE CORRECTION 0.1 · NO RETURN ON FILE',
-      '  ARC FOUR    LEAVE 3.4 · ENTER ORBIT 1.1 · WAIT · LEAVE 1.1',
-      '',
-      'THE VEHICLE CANNOT ENTER ORBIT ANYWHERE.',
-      'THE VEHICLE IS EXPECTED BACK.',
-      '',
-      'NAME THE ARC.',
+      "FILED TRAJECTORY \u2014 NOT AUTHORISED",
+      "",
+      "A COMMANDER WE WERE WATCHING CROSSED A LINE HE HAD BEEN",
+      "ORDERED NOT TO CROSS, ARMED, WITH HIS ARMY BEHIND HIM.",
+      "",
+      "THE LINE WAS A SMALL RIVER AND EASY TO WADE.",
+      "HOW WIDE IT WAS IS NOT WHY WE KEPT THE FILE.",
+      "WE KEPT IT BECAUSE ONCE HE WAS ACROSS THERE WAS NO GOING",
+      "BACK, AND HE KNEW THAT WHEN HE STEPPED IN.",
+      "",
+      "WE FILE THIS ONE AS: COMMITTED, NO RETURN.",
+      "IT IS WHAT WE WILL FILE YOUR FIFTH BURN AS.",
+      "",
+      "NAME THE RIVER.",
     ].join('\n'),
-    // The free return: departure burn plus a mid-course correction, no capture, because the geometry
-    // brings you back. Baseball: A HOME RUN — a trajectory that leaves and returns without a
-    // rendezvous. Both stated conditions bind, and that is the whole puzzle.
-    accept: ['arc two', 'two', '2', 'arc 2'],
+    // The Rubicon, and it is here rather than anywhere else in the ladder for one reason: it is
+    // the act's own ending described in somebody else's archive. The fifth burn is committed, has
+    // no arrival, and cannot be undone. The panel says so outright — which is the closest this
+    // file comes to telling the player what the act is about.
+    accept: ['rubicon', 'the rubicon', 'rubicone'],
     near: [
-      { match: ['arc three', 'three', '3', 'arc 3'], lineId: 'p8.noWayHome' },
+      { match: ['tiber', 'the tiber', 'tevere'], lineId: 'p8.wrongRiver' },
+      { match: ['caesar', 'julius caesar', 'gaius julius caesar'], lineId: 'p8.thatIsTheMan' },
     ],
     hints: [
-      'TWO CONDITIONS ARE STATED BELOW THE FILE. BOTH BIND.',
-      'A CAPTURE IS A RENDEZVOUS. YOU CANNOT PERFORM ONE.',
-      'TWO ARCS HAVE NO CAPTURE. ONLY ONE COMES BACK.',
+      'THE PANEL WANTS THE BOUNDARY, NOT THE MAN AND NOT THE YEAR.',
+      'A SMALL RIVER IN THE NORTH. THE CROSSING IS THE FAMOUS PART, NOT THE WATER.',
+      'THE DIE IS CAST. IT IS THE RUBICON.',
     ],
-    unlocksLabel: 'Free-return survey probe — reads the next site\'s yields before you commit Fuel '
-      + 'to a crewed launch.',
-    ignoredLabel: 'You commit blind.',
-    // FOUR EQUALS THE NUMBER OF OPTIONS, CONSCIOUSLY, and it is the one count ledger R9's retune did
-    // NOT touch. A player who tries all four arcs has, in a real sense, read the board; setting it
-    // to 10 would only make an honest brute-forcer wait for a result they had already earned. It is
-    // also already the cheapest row in §8.7's table, so lowering it buys the ratio nothing.
+    unlocksLabel: "Free-return survey probe \u2014 reads the next site's yields before you commit Fuel to a crewed launch.",
+    ignoredLabel: "You commit blind.",
     attemptsToBypass: 4,
     attemptCooldownSeconds: 90,
   },
@@ -717,62 +737,60 @@ const ACT_SEVEN_PUZZLES = [
     inputKind: 'word',
     inputLabel: 'NAME',
     prompt: [
-      'FINAL CERTIFICATION.',
-      '',
-      'ONE EVENT. TWO BODIES.',
-      '',
-      'THE FIRST CROSSES THE BOUNDARY AND IS NOT RECOVERED.',
-      'NO INSTRUMENT FOLLOWS IT. NOTHING IS SENT AFTER IT.',
-      '',
-      'THE SECOND COMPLETES THE FOUR-BURN CIRCUIT AT WALKING PACE,',
-      'WITH NO OPPOSITION, AND ARRIVES AT THE ORIGIN.',
-      '',
-      'THE PROGRAM SCORES BOTH.',
-      'IT HAS ONE NAME FOR BOTH.',
-      '',
-      'NAME IT.',
+      "FINAL CERTIFICATION \u2014 PRECEDENT REQUIRED",
+      "",
+      "BEFORE A POPULATION IS CERTIFIED, THE PROGRAM CITES ONE",
+      "PRIOR PROGRAM ON THE SAME WORLD.",
+      "",
+      "THE PRECEDENT: A SETTLEMENT WE CERTIFIED, SUPPLIED AND",
+      "OBSERVED FOR TWELVE HUNDRED LOCAL YEARS. IT ADMINISTERED",
+      "MOST OF THE KNOWN SURFACE. WE LOGGED ITS ROADS, ITS WATER",
+      "AND ITS RECKONING OF NUMBER.",
+      "",
+      "WHEN IT FAILED WE DID NOT INTERVENE. WE FILED IT AND WE",
+      "WAITED FOR THE NEXT ONE. YOU ARE THE NEXT ONE.",
+      "",
+      "EVERY OTHER PANEL IN THIS ARCHIVE IS ONE OF ITS RECORDS.",
+      "",
+      "NAME THE PRECEDENT.",
     ].join('\n'),
     promptTranslated: [
-      'FINAL CERTIFICATION.',
-      '',
-      'ONE EVENT. TWO BODIES.',
-      '',
-      'THE FIRST CROSSES THE EDGE AND IS NOT RECOVERED.',
-      'NOTHING FOLLOWS IT. NOTHING IS SENT AFTER IT.',
-      '',
-      'THE SECOND GOES ALL FOUR STOPS ROUND THE ORBIT AT WALKING',
-      'PACE, WITH NOBODY TRYING TO STOP IT, AND GETS BACK TO',
-      'WHERE IT STARTED.',
-      '',
-      'THE PROGRAM SCORES BOTH.',
-      'IT HAS ONE NAME FOR BOTH.',
-      '',
-      'NAME IT.',
+      "FINAL SIGN-OFF \u2014 WE NEED A PRECEDENT",
+      "",
+      "BEFORE WE CERTIFY A POPULATION WE HAVE TO CITE AN EARLIER",
+      "PROGRAM ON THE SAME WORLD.",
+      "",
+      "THE PRECEDENT: A CITY WE CERTIFIED, SUPPLIED AND WATCHED",
+      "FOR TWELVE HUNDRED YEARS. IT RAN MOST OF THE KNOWN WORLD.",
+      "WE HAVE ITS ROADS, ITS WATER SYSTEM AND ITS NUMBERS ON FILE.",
+      "",
+      "WHEN IT FELL WE DID NOT STEP IN. WE FILED IT AND WAITED",
+      "FOR THE NEXT ONE. YOU ARE THE NEXT ONE.",
+      "",
+      "EVERY OTHER PANEL HERE IS ONE OF ITS FILES.",
+      "",
+      "NAME IT.",
     ].join('\n'),
-    // The act in one prompt. The ball leaves and never comes back — the outfield wall is the
-    // heliopause, and nobody has hit one over it. The runner completes the four-burn circuit at a
-    // trot, unopposed, and arrives home. One name, two trajectories.
-    accept: ['home run', 'homer', 'homerun', 'home-run', 'hr', 'dinger', 'tater', 'long ball',
-      'longball', 'four bagger', 'four-bagger', 'moon shot', 'moonshot', 'out of park',
-      'out of the park', 'over wall', 'over the wall', 'gone'],
-    wrongKind: [
-      { match: ['grand slam', 'grandslam', 'slam'], lineId: 'p9.fourRunners' },
-      { match: ['foul ball', 'foul'], lineId: 'p9.notScored' },
-      { match: ['heliopause', 'free return', 'free-return', 'escape trajectory'],
-        lineId: 'p9.ourWords' },
+    // ROME, and the last panel is the one that says what the other eight were for: every incident
+    // in this archive belongs to a civilisation that was certified, watched, and filed when it
+    // ended. The player is told, in the alien's own flat register, that they are the second entry
+    // in a list — which is the same joke the act opened with, aged two thousand years.
+    //
+    // EARTH is the near miss and it is the most interesting wrong answer in the file: it is what
+    // a player reaches for when they have understood the frame but not the question. The line
+    // tells them they are right about everything except which one is being cited.
+    accept: ['rome', 'roma', 'the roman empire', 'roman empire', 'rome italy'],
+    near: [
+      { match: ['earth', 'sol iii', 'sol 3', 'terra'], lineId: 'p9.thatIsYou' },
+      { match: ['carthage', 'karthago'], lineId: 'p9.theOtherOne' },
     ],
     hints: [
-      'WE DID NOT INVENT THIS WORD. YOU DID.',
-      'ONE OF THE TWO BODIES IS A PERSON.',
-      'THE SECOND BODY IS A RUNNER AND HE IS NOT HURRYING. WHY NOT?',
+      'EVERY OTHER PANEL IN THIS ARCHIVE IS A RECORD OF THE SAME PLACE.',
+      'AN ASH-BURIED TOWN, A LANDING APRON WITH TIERS, LETTERS FOR NUMBERS, A RIVER CROSSED.',
+      'ALL ROADS. IT IS ROME.',
     ],
-    // IT GATES NOTHING AT ALL, and that is the strongest available compliance with Decision 3.6.
-    // Its reward is entirely narrative: a player who never solves it still crosses, and the program
-    // certifies them as PERSISTENT rather than as APTITUDE CONFIRMED — described accurately as
-    // someone who kept trying. §10 owns both strings; this row owns neither.
-    unlocksLabel: 'APTITUDE CONFIRMED — the crossing is certified, not merely fuelled.',
-    ignoredLabel: 'The crossing still happens the moment the Fuel threshold is met, and the program '
-      + 'certifies you as PERSISTENT.',
+    unlocksLabel: "APTITUDE CONFIRMED \u2014 the crossing is certified, not merely fuelled.",
+    ignoredLabel: "The crossing still happens the moment the Fuel threshold is met, and the program certifies you as PERSISTENT.",
     attemptsToBypass: 10,
     attemptCooldownSeconds: 150,
   },
