@@ -29,19 +29,39 @@ context: |
     - Nothing the player needs may live only inside the scene.
     - Never a floating version tag. A mutable URL makes the next release of a third-party
       library into arbitrary code in a player's browser, chosen by someone else.
-  Bundling it instead was measured at +723KB as this repo is configured, or +127KB with
-  babel `modules: false`. Worth knowing for the NEXT dependency: `modules: 'commonjs'` in
-  babel.config.js means Babel rewrites ESM before webpack sees it, so webpack tree-shaking
-  and code-splitting are both disabled repo-wide. Nothing is lost today (the app's own code
-  is hand-written CommonJS) but every bundled dependency pays that penalty.
+  Bundling it instead was measured at +723KB under the OLD babel setting; see below.
+
+  TREE-SHAKING IS ON (2026-08-27). babel.config.js sets `modules: false`, so webpack
+  receives ESM imports statically and both tree-shaking and code-splitting work. Measured
+  on the same 26-symbol three.js import: +2KB to the main bundle with the library split
+  into its own 549KB chunk, against +723KB inlined before. The app's own bundle got 5.7KB
+  smaller.
+
+  TWO THINGS COME WITH IT AND MUST NOT BE UNDONE:
+    - `@babel/preset-react` is `runtime: 'classic'`, NOT 'automatic'. 'automatic' injects an
+      ESM import of the JSX runtime into every file containing JSX, and one such import makes
+      webpack treat the whole file as an ES module — at which point the `module.exports = X`
+      every file here ends with is a hard error. The build stays GREEN and the app renders
+      NOTHING. Every file rendering JSX already opens with `const React = require('react')`,
+      which is what classic needs, so no source file changed.
+    - A file may be CommonJS or ESM, NOT BOTH. Adding a lone `import` to a file that ends in
+      `module.exports` reproduces that blank page. Keep writing CommonJS; reach for `import`
+      only in a file that also uses `export`, and only to pull named symbols from a bundled
+      dependency you want tree-shaken.
+
+  When testing a babel.config.js change: webpack-dev-server caches Babel output and a config
+  edit does not invalidate it. Restart the server, or you will be reading a stale transform.
 
   Tech stack: React 18 (the only runtime dependency), Webpack 5, Babel. No TypeScript,
   no routing library, no state-management library, no UI kit.
 
   IMPORTANT — CommonJS, not ES modules. Every file uses require() and module.exports,
-  including React imports (`const React = require('react')`), despite Babel being
-  configured for ESM. Do not introduce import/export syntax; it breaks the established
-  pattern throughout the codebase.
+  including React imports (`const React = require('react')`). Babel no longer rewrites
+  module syntax (`modules: false`, see the tree-shaking note above), so a file is whatever
+  form it is written in — and a file that mixes the two does not merely look inconsistent,
+  it fails to load. Do not introduce import/export syntax into an existing file; the only
+  place it belongs is a new file that is ESM throughout, pulling named symbols from a
+  bundled dependency you want tree-shaken.
 
   Style: plain `function foo() {}` declarations rather than arrow-assigned consts
   (except short inline callbacks). Single quotes, semicolons, 2-space indent. No
