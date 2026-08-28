@@ -5562,6 +5562,29 @@ body.expedition .v7-contract-abandon-note {
 .screen-card {
   display: flex;
   flex-direction: column;
+
+  /* BOUNDED TO THE VIEWPORT, AND SCROLLING, BECAUSE OTHERWISE THE PLAYER CANNOT GET OUT.
+     Measured at 390x844 with the densest return this screen can produce — a capped three-day
+     absence, four currencies and two Act VII resources: the card came to 787px tall starting 84px
+     down, which put "Back to it" 27 pixels BELOW THE FOLD. Nothing scrolled — the card, the
+     backdrop and the document were all unscrollable — so the dismiss button was not merely awkward
+     to reach, it was unreachable, and the welcome-back screen could not be dismissed at all. On a
+     shorter phone (an SE is 667px) it would take far less than four currencies to get there.
+
+     `dvh` rather than `vh` on purpose: mobile browsers shrink the visual viewport when their
+     chrome is showing, and `vh` measures the larger one — which is exactly the 27px class of error
+     this is fixing. `vh` is kept as the first declaration so a browser without `dvh` still gets a
+     bound rather than none.
+
+     The whole card scrolls rather than an inner body, which is the smaller change: the action sits
+     at the end of the flow and is reached by the same scroll that reveals the last currency row,
+     so there is no second scroll container to get stuck in. */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  /* Momentum scrolling on iOS, and it stops a drag inside the card from scrolling the page behind
+     it once the card's own scroll has bottomed out. */
+  overscroll-behavior: contain;
 }
 
 /* The banner bleeds into `.modal-box`'s 20px padding so the picture reaches the card's edges, and
